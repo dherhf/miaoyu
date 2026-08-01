@@ -1,6 +1,6 @@
 ---
 name: git-commit-planning
-description: 'Git 提交规划与 Commit Message 规范技能。当用户准备提交代码、询问如何拆分提交、编写 commit message、整理 git 历史、或提及 Conventional Commits / Angular 规范时启用。涵盖提交原子性拆分、commit message 格式规范、交互式 rebase 整理历史、以及提交粒度把控。即使用户只是说"帮我提交一下"或"这几个改动怎么拆 commit"，也应当启用。'
+description: 'Git 提交规划与 Commit Message 规范技能。当用户准备提交代码、询问如何拆分提交、编写 commit message、整理 git 历史、或提及 Conventional Commits / Angular 规范时启用。涵盖提交原子性拆分、commit message 格式规范、交互式 rebase 整理历史、线性历史策略、以及提交粒度把控。即使用户只是说"帮我提交一下"或"这几个改动怎么拆 commit"，也应当启用。'
 ---
 
 # Git 提交规划技能
@@ -10,6 +10,7 @@ description: 'Git 提交规划与 Commit Message 规范技能。当用户准备�
 1. **原子性（Atomic）**：一个 Commit 只做一件事。如果被 Revert，不应影响其他功能。
 2. **清晰性（Clear）**：通过 Commit Message 就能看懂"做了什么"和"为什么这么做"，无需查阅代码。
 3. **一致性（Consistent）**：遵循统一的提交格式和规范。
+4. **线性历史（Linear History）**：主分支保持线性提交历史，禁止 merge commit 混入。
 
 ## 工作流程
 
@@ -21,9 +22,9 @@ description: 'Git 提交规划与 Commit Message 规范技能。当用户准备�
 
 ```bash
 git status --short          # 总览工作区状态
-git diff --cached --stat   # 已暂存变更的文件级摘要
+git diff --cached --stat    # 已暂存变更的文件级摘要
 git diff --stat             # 未暂存变更的文件级摘要
-git log --oneline -10      # 近期提交历史，了解项目已有风格
+git log --oneline -10       # 近期提交历史，了解项目已有风格
 ```
 
 如有需要，进一步查看具体 diff 内容，理解每个文件的变更目的。
@@ -103,13 +104,88 @@ git add <file1> <file2>
 git commit -m "<type>(<scope>): <subject>" -m "<body>" -m "<footer>"
 ```
 
-或使用多行 commit message 的 heredoc 方式。
-
 ## 提交粒度参考
 
 - **太大**：单个 commit 超过 500 行变更，Code Review 困难
 - **太小**：仅修改一个错别字、调整一个空格——应合并到相关 commit 或用 `--amend`
 - **理想**：一个 commit 解决一个完整且独立的问题，能被单独 revert 而不破坏其他功能
+
+## 线性历史（Linear History）
+
+### 为什么需要线性历史
+
+Merge commit 会在主分支历史中引入分叉和合并节点，导致：
+- `git log` 阅读困难，时间线来回跳转
+- `git bisect` 二分查找 bug 时复杂度增加
+- Revert 单个变更困难（merge commit 无法直接 `git revert`）
+- Code Review 时 merge commit 的大 diff 淹没关键改动
+
+### 线性历史策略
+
+#### 1. 远程仓库分支保护
+
+在 GitHub/GitLab 仓库设置中开启：
+- **Require linear history**：要求线性历史记录
+- **Prevent merge commits from being pushed to matching branches**：防止 merge commit 被推送到受保护分支（如 `main`、`master`）
+
+这样任何包含 merge commit 的推送都会被服务端拒绝。
+
+#### 2. 本地操作习惯
+
+拉取远程更新时，始终使用 rebase 而非 merge：
+
+```bash
+# ✅ 使用 rebase，保持线性历史
+git pull --rebase
+git pull -r                # 简写
+
+# ❌ 避免 merge，产生 merge commit
+git pull                   # 默认行为可能是 merge
+git pull --no-rebase
+```
+
+设置全局默认使用 rebase 拉取：
+
+```bash
+git config --global pull.rebase true
+```
+
+#### 3. 合并分支时使用 rebase
+
+当 feature 分支需要合并到 main 时：
+
+```bash
+# ✅ 方法一：rebase 后 fast-forward 合并（推荐）
+git checkout feature
+git rebase main
+git checkout main
+git merge --ff-only feature
+
+# ✅ 方法二：直接使用 rebase 合并
+git checkout main
+git merge --rebase feature
+
+# ❌ 避免：默认 merge 会产生 merge commit
+git merge feature
+```
+
+#### 4. GitHub PR 合并方式
+
+在 GitHub 仓库设置中将默认合并方式改为 **Squash and merge** 或 **Rebase and merge**：
+- **Squash and merge**：将 PR 的多个 commit 压缩为一个，保持主分支线性且干净
+- **Rebase and merge**：保留 PR 中的每个 commit，rebase 到主分支顶部，无 merge commit
+- 禁用 **Create a merge commit**：此方式会产生 merge commit，破坏线性历史
+
+### 线性历史验证
+
+推送前检查本地历史是否线性：
+
+```bash
+# 查看是否有 merge commit
+git log --merges --oneline
+
+# 如果输出为空，说明历史是线性的
+```
 
 ## 历史整理（Push 前检查项）
 
@@ -157,3 +233,5 @@ Redis key 从明文手机号改为 SHA-256 哈希值，
 - 如果项目已配置 Commitlint / Husky，遵守其规则约束。
 - 不要使用 `git add .` 一次性暂存所有文件。按逻辑分组分别 `git add`。
 - 提交信息中写清楚 What 和 Why，不写 How（代码本身已经说明 How）。
+- 拉取远程更新始终使用 `git pull --rebase`，避免产生 merge commit。
+- 推送前确认 `git log --merges` 为空，确保线性历史。
