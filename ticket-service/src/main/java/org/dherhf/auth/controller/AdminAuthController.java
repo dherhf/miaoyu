@@ -2,6 +2,8 @@ package org.dherhf.auth.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.dherhf.auth.dto.AdminInfoVO;
+import org.dherhf.auth.dto.AdminLoginResponse;
 import org.dherhf.auth.dto.LoginRequest;
 import org.dherhf.auth.service.AdminAuthService;
 import org.dherhf.common.Result;
@@ -29,7 +31,7 @@ public class AdminAuthController {
      * @return 登录响应,包含 Token 和管理员信息
      */
     @PostMapping("/login")
-    public Result<?> login(@Valid @RequestBody LoginRequest request) {
+    public Result<AdminLoginResponse> login(@Valid @RequestBody LoginRequest request) {
         return adminAuthService.login(request);
     }
 
@@ -40,7 +42,7 @@ public class AdminAuthController {
      * @return 登出成功的统一响应
      */
     @PostMapping("/logout")
-    public Result<?> logout(@RequestHeader("Authorization") String authHeader) {
+    public Result<Void> logout(@RequestHeader("Authorization") String authHeader) {
         String token = authHeader.substring(7);
         jwtUtil.blacklistToken(token);
         return Result.success();
@@ -54,7 +56,7 @@ public class AdminAuthController {
      * @return 当前管理员信息
      */
     @GetMapping("/me")
-    public Result<?> me(@RequestAttribute("userId") Long adminId) {
+    public Result<AdminInfoVO> me(@RequestAttribute("userId") Long adminId) {
         return adminAuthService.getCurrentAdmin(adminId);
     }
 }

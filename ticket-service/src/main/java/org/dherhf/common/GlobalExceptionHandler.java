@@ -19,7 +19,7 @@ public class GlobalExceptionHandler {
      * @return 统一响应
      */
     @ExceptionHandler(BusinessException.class)
-    public Result<?> handleBusinessException(BusinessException e) {
+    public Result<Void> handleBusinessException(BusinessException e) {
         log.warn("业务异常: {}", e.getMessage());
         return Result.error(e.getCode(), e.getMessage());
     }
@@ -32,7 +32,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public Result<?> handleValidationException(MethodArgumentNotValidException e) {
+    public Result<Void> handleValidationException(MethodArgumentNotValidException e) {
         FieldError fieldError = e.getBindingResult().getFieldError();
         String message = fieldError != null ? fieldError.getDefaultMessage() : "参数校验失败";
         log.warn("参数校验失败: {}", message);
@@ -47,7 +47,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public Result<?> handleException(Exception e) {
+    public Result<Void> handleException(Exception e) {
         log.error("未知异常", e);
         return Result.error(500, "服务异常");
     }

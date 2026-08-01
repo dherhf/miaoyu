@@ -42,7 +42,7 @@ public class AdminAuthService {
      * @return 登录响应,包含 Token、有效期和管理员信息
      * @throws BusinessException 账号锁定时抛出 403,用户名或密码错误时抛出 401
      */
-    public Result<?> login(LoginRequest request) {
+    public Result<AdminLoginResponse> login(LoginRequest request) {
         String phone = request.getPhone();
         String phoneHash = CryptoUtil.sha256(phone);
         String failKey = "login:fail:" + phoneHash;
@@ -90,7 +90,7 @@ public class AdminAuthService {
      * @return 当前管理员信息
      * @throws BusinessException 管理员不存在时抛出 404
      */
-    public Result<?> getCurrentAdmin(Long adminId) {
+    public Result<AdminInfoVO> getCurrentAdmin(Long adminId) {
         Admin admin = adminMapper.selectById(adminId);
         if (admin == null) {
             throw new BusinessException(404, "管理员不存在");

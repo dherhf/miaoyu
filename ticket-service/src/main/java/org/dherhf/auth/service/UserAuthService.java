@@ -43,7 +43,7 @@ public class UserAuthService {
      * @return 注册成功的用户信息
      * @throws BusinessException 手机号已注册时抛出 409
      */
-    public Result<?> register(RegisterRequest request) {
+    public Result<UserInfoVO> register(RegisterRequest request) {
         String phone = request.getPhone();
         String phoneHash = CryptoUtil.sha256(phone);
 
@@ -81,7 +81,7 @@ public class UserAuthService {
      * @return 登录响应,包含 Token、有效期和用户信息
      * @throws BusinessException 账号锁定时抛出 403,用户名或密码错误时抛出 401
      */
-    public Result<?> login(LoginRequest request) {
+    public Result<LoginResponse> login(LoginRequest request) {
         String phone = request.getPhone();
         String phoneHash = CryptoUtil.sha256(phone);
         String failKey = "login:fail:" + phoneHash;
@@ -130,7 +130,7 @@ public class UserAuthService {
      * @return 当前用户信息
      * @throws BusinessException 用户不存在时抛出 404
      */
-    public Result<?> getCurrentUser(Long userId) {
+    public Result<UserInfoVO> getCurrentUser(Long userId) {
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new BusinessException(404, "用户不存在");

@@ -3,7 +3,9 @@ package org.dherhf.auth.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.dherhf.auth.dto.LoginRequest;
+import org.dherhf.auth.dto.LoginResponse;
 import org.dherhf.auth.dto.RegisterRequest;
+import org.dherhf.auth.dto.UserInfoVO;
 import org.dherhf.auth.service.UserAuthService;
 import org.dherhf.common.Result;
 import org.dherhf.util.JwtUtil;
@@ -30,7 +32,7 @@ public class AuthController {
      * @return 注册成功的用户信息
      */
     @PostMapping("/register")
-    public Result<?> register(@Valid @RequestBody RegisterRequest request) {
+    public Result<UserInfoVO> register(@Valid @RequestBody RegisterRequest request) {
         return userAuthService.register(request);
     }
 
@@ -41,7 +43,7 @@ public class AuthController {
      * @return 登录响应,包含 Token 和用户信息
      */
     @PostMapping("/login")
-    public Result<?> login(@Valid @RequestBody LoginRequest request) {
+    public Result<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         return userAuthService.login(request);
     }
 
@@ -52,7 +54,7 @@ public class AuthController {
      * @return 登出成功的统一响应
      */
     @PostMapping("/logout")
-    public Result<?> logout(@RequestHeader("Authorization") String authHeader) {
+    public Result<Void> logout(@RequestHeader("Authorization") String authHeader) {
         String token = authHeader.substring(7);
         jwtUtil.blacklistToken(token);
         return Result.success();
@@ -66,7 +68,7 @@ public class AuthController {
      * @return 当前用户信息（手机号脱敏）
      */
     @GetMapping("/me")
-    public Result<?> me(@RequestAttribute("userId") Long userId) {
+    public Result<UserInfoVO> me(@RequestAttribute("userId") Long userId) {
         return userAuthService.getCurrentUser(userId);
     }
 }
