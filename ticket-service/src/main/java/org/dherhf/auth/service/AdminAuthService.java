@@ -44,14 +44,14 @@ public class AdminAuthService {
      */
     public Result<?> login(LoginRequest request) {
         String phone = request.getPhone();
-        String failKey = "login:fail:" + phone;
-        String lockKey = "login:lock:" + phone;
+        String phoneHash = CryptoUtil.sha256(phone);
+        String failKey = "login:fail:" + phoneHash;
+        String lockKey = "login:lock:" + phoneHash;
 
         if (authHelper.isAccountLocked(lockKey)) {
             throw new BusinessException(403, "账号已锁定,请15分钟后重试");
         }
 
-        String phoneHash = CryptoUtil.sha256(phone);
         Admin admin = adminMapper.selectOne(
                 new LambdaQueryWrapper<Admin>().eq(Admin::getPhoneHash, phoneHash));
 

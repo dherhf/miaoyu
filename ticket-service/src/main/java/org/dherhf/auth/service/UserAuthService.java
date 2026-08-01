@@ -36,7 +36,7 @@ public class UserAuthService {
     /**
      * 用户注册。
      * <p>
-     * 校验手机号唯一性后,使用 BCrypt 哈希密码、SHA-256 哈希手机号,
+     * 校验手机号唯一性后,使用 BCrypt 哈希密码、AES-256-GCM 加密手机号、SHA-256 哈希手机号,
      * 写入 user 表并返回脱敏后的用户信息。
      *
      * @param request 注册请求,包含手机号和密码
@@ -54,7 +54,7 @@ public class UserAuthService {
         }
 
         User user = new User();
-        user.setPhone(phone);
+        user.setPhone(CryptoUtil.encrypt(phone));
         user.setPhoneHash(phoneHash);
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setNickname("用户" + phone.substring(phone.length() - 4));
@@ -83,14 +83,14 @@ public class UserAuthService {
      */
     public Result<?> login(LoginRequest request) {
         String phone = request.getPhone();
-        String failKey = "login:fail:" + phone;
-        String lockKey = "login:lock:" + phone;
+        String phoneHash = CryptoUtil.sha256(phone);
+        String failKey = "login:fail:" + phoneHash;
+        String lockKey = "login:lock:" + phoneHash;
 
         if (authHelper.isAccountLocked(lockKey)) {
             throw new BusinessException(403, "账号已锁定,请15分钟后重试");
         }
 
-        String phoneHash = CryptoUtil.sha256(phone);
         User user = userMapper.selectOne(
                 new LambdaQueryWrapper<User>().eq(User::getPhoneHash, phoneHash));
 
@@ -138,7 +138,7 @@ public class UserAuthService {
 
         UserInfoVO vo = new UserInfoVO();
         vo.setId(user.getId());
-        vo.setPhone(authHelper.maskPhone(user.getPhone()));
+        vo.setPhone(authHelper.maskPhone(CryptoUtil.decrypt(user.getPhone())));
         vo.setNickname(user.getNickname());
         vo.setStatus(user.getStatus());
         vo.setCreatedAt(user.getCreatedAt());
