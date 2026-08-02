@@ -2,16 +2,16 @@ package org.dherhf.auth.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
-import org.dherhf.util.CryptoUtil;
-import org.dherhf.util.JwtUtil;
-import org.dherhf.auth.dto.LoginRequest;
-import org.dherhf.auth.dto.LoginResponse;
-import org.dherhf.auth.dto.RegisterRequest;
-import org.dherhf.auth.dto.UserInfoVO;
-import org.dherhf.common.BusinessException;
-import org.dherhf.common.Result;
-import org.dherhf.entity.User;
-import org.dherhf.mapper.UserMapper;
+import org.dherhf.common.interceptor.AuthInterceptor;
+import org.dherhf.common.util.CryptoUtil;
+import org.dherhf.common.util.JwtUtil;
+import org.dherhf.auth.dto.LoginDTO;
+import org.dherhf.auth.vo.LoginVO;
+import org.dherhf.auth.dto.RegisterDTO;
+import org.dherhf.auth.vo.UserInfoVO;
+import org.dherhf.common.exception.BusinessException;
+import org.dherhf.auth.entity.User;
+import org.dherhf.auth.mapper.UserMapper;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -43,7 +43,7 @@ public class UserAuthService {
      * @return 注册成功的用户信息
      * @throws BusinessException 手机号已注册时抛出 409
      */
-    public Result<UserInfoVO> register(RegisterRequest request) {
+    public UserInfoVO register(RegisterDTO request) {
         String phone = request.getPhone();
         String phoneHash = CryptoUtil.sha256(phone);
 
@@ -53,22 +53,22 @@ public class UserAuthService {
             throw new BusinessException(409, "该手机号已注册");
         }
 
-        User user = new User();
-        user.setPhone(CryptoUtil.encrypt(phone));
-        user.setPhoneHash(phoneHash);
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setNickname("用户" + phone.substring(phone.length() - 4));
-        user.setStatus(1);
+        User user = User.builder()
+                .phone(CryptoUtil.encrypt(phone))
+                .phoneHash(phoneHash)
+                .password(passwordEncoder.encode(request.getPassword()))
+                .nickname("用户" + phone.substring(phone.length() - 4))
+                .status(1)
+                .build();
         userMapper.insert(user);
 
-        UserInfoVO vo = new UserInfoVO();
-        vo.setId(user.getId());
-        vo.setPhone(authHelper.maskPhone(phone));
-        vo.setNickname(user.getNickname());
-        vo.setStatus(user.getStatus());
-        vo.setCreatedAt(user.getCreatedAt());
-
-        return Result.success(vo);
+        return UserInfoVO.builder()
+                .id(user.getId())
+                .phone(authHelper.maskPhone(phone))
+                .nickname(user.getNickname())
+                .status(user.getStatus())
+                .createdAt(user.getCreatedAt())
+                .build();
     }
 
     /**
@@ -81,7 +81,7 @@ public class UserAuthService {
      * @return 登录响应,包含 Token、有效期和用户信息
      * @throws BusinessException 账号锁定时抛出 403,用户名或密码错误时抛出 401
      */
-    public Result<LoginResponse> login(LoginRequest request) {
+    public LoginVO login(LoginDTO request) {
         String phone = request.getPhone();
         String phoneHash = CryptoUtil.sha256(phone);
         String failKey = "login:fail:" + phoneHash;
@@ -107,17 +107,17 @@ public class UserAuthService {
         String token = jwtUtil.generateToken(user.getId(), "user");
         authHelper.clearLoginFailure(failKey);
 
-        UserInfoVO userInfo = new UserInfoVO();
-        userInfo.setId(user.getId());
-        userInfo.setPhone(authHelper.maskPhone(phone));
-        userInfo.setNickname(user.getNickname());
-        userInfo.setStatus(user.getStatus());
+        UserInfoVO userInfo = UserInfoVO.builder()
+                .id(user.getId())
+                .phone(authHelper.maskPhone(phone))
+                .nickname(user.getNickname())
+                .status(user.getStatus())
+                .build();
 
-        LoginResponse response = new LoginResponse();
-        response.setToken(token);
-        response.setUserInfo(userInfo);
-
-        return Result.success(response);
+        return LoginVO.builder()
+                .token(token)
+                .userInfo(userInfo)
+                .build();
     }
 
     /**
@@ -125,24 +125,23 @@ public class UserAuthService {
      * <p>
      * 根据传入的用户 ID 查询数据库,返回脱敏后的用户信息。
      *
-     * @param userId 用户 ID（由 {@link org.dherhf.interceptor.AuthInterceptor} 从 JWT 提取,
+     * @param userId 用户 ID（由 {@link AuthInterceptor} 从 JWT 提取,
      *               经 {@code @RequestAttribute} 由 Controller 传入）
      * @return 当前用户信息
      * @throws BusinessException 用户不存在时抛出 404
      */
-    public Result<UserInfoVO> getCurrentUser(Long userId) {
+    public UserInfoVO getCurrentUser(Long userId) {
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new BusinessException(404, "用户不存在");
         }
 
-        UserInfoVO vo = new UserInfoVO();
-        vo.setId(user.getId());
-        vo.setPhone(authHelper.maskPhone(CryptoUtil.decrypt(user.getPhone())));
-        vo.setNickname(user.getNickname());
-        vo.setStatus(user.getStatus());
-        vo.setCreatedAt(user.getCreatedAt());
-
-        return Result.success(vo);
+        return UserInfoVO.builder()
+                .id(user.getId())
+                .phone(authHelper.maskPhone(CryptoUtil.decrypt(user.getPhone())))
+                .nickname(user.getNickname())
+                .status(user.getStatus())
+                .createdAt(user.getCreatedAt())
+                .build();
     }
 }

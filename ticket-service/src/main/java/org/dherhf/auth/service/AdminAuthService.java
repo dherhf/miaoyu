@@ -2,15 +2,15 @@ package org.dherhf.auth.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
-import org.dherhf.util.CryptoUtil;
-import org.dherhf.util.JwtUtil;
-import org.dherhf.auth.dto.AdminInfoVO;
-import org.dherhf.auth.dto.AdminLoginResponse;
-import org.dherhf.auth.dto.LoginRequest;
-import org.dherhf.common.BusinessException;
-import org.dherhf.common.Result;
-import org.dherhf.entity.Admin;
-import org.dherhf.mapper.AdminMapper;
+import org.dherhf.common.interceptor.AuthInterceptor;
+import org.dherhf.common.util.CryptoUtil;
+import org.dherhf.common.util.JwtUtil;
+import org.dherhf.auth.vo.AdminInfoVO;
+import org.dherhf.auth.vo.AdminLoginVO;
+import org.dherhf.auth.dto.LoginDTO;
+import org.dherhf.common.exception.BusinessException;
+import org.dherhf.auth.entity.Admin;
+import org.dherhf.auth.mapper.AdminMapper;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -42,7 +42,7 @@ public class AdminAuthService {
      * @return 登录响应,包含 Token、有效期和管理员信息
      * @throws BusinessException 账号锁定时抛出 403,用户名或密码错误时抛出 401
      */
-    public Result<AdminLoginResponse> login(LoginRequest request) {
+    public AdminLoginVO login(LoginDTO request) {
         String phone = request.getPhone();
         String phoneHash = CryptoUtil.sha256(phone);
         String failKey = "login:fail:" + phoneHash;
@@ -68,16 +68,16 @@ public class AdminAuthService {
         String token = jwtUtil.generateToken(admin.getId(), "admin");
         authHelper.clearLoginFailure(failKey);
 
-        AdminInfoVO adminInfo = new AdminInfoVO();
-        adminInfo.setId(admin.getId());
-        adminInfo.setName(admin.getName());
-        adminInfo.setStatus(admin.getStatus());
+        AdminInfoVO adminInfo = AdminInfoVO.builder()
+                .id(admin.getId())
+                .name(admin.getName())
+                .status(admin.getStatus())
+                .build();
 
-        AdminLoginResponse response = new AdminLoginResponse();
-        response.setToken(token);
-        response.setAdminInfo(adminInfo);
-
-        return Result.success(response);
+        return AdminLoginVO.builder()
+                .token(token)
+                .adminInfo(adminInfo)
+                .build();
     }
 
     /**
@@ -85,22 +85,21 @@ public class AdminAuthService {
      * <p>
      * 根据传入的管理员 ID 查询数据库,返回管理员信息。
      *
-     * @param adminId 管理员 ID（由 {@link org.dherhf.interceptor.AuthInterceptor} 从 JWT 提取,
+     * @param adminId 管理员 ID（由 {@link AuthInterceptor} 从 JWT 提取,
      *               经 {@code @RequestAttribute} 由 Controller 传入）
      * @return 当前管理员信息
      * @throws BusinessException 管理员不存在时抛出 404
      */
-    public Result<AdminInfoVO> getCurrentAdmin(Long adminId) {
+    public AdminInfoVO getCurrentAdmin(Long adminId) {
         Admin admin = adminMapper.selectById(adminId);
         if (admin == null) {
             throw new BusinessException(404, "管理员不存在");
         }
 
-        AdminInfoVO vo = new AdminInfoVO();
-        vo.setId(admin.getId());
-        vo.setName(admin.getName());
-        vo.setStatus(admin.getStatus());
-
-        return Result.success(vo);
+        return AdminInfoVO.builder()
+                .id(admin.getId())
+                .name(admin.getName())
+                .status(admin.getStatus())
+                .build();
     }
 }
