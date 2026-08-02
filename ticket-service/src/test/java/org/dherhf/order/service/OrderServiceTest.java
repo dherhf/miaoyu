@@ -27,7 +27,6 @@ import org.dherhf.order.vo.LockSeatResultVO;
 import org.dherhf.order.vo.OrderDetailVO;
 import org.dherhf.order.vo.PayResultVO;
 import org.dherhf.order.vo.RemainingTimeVO;
-import org.dherhf.common.result.Result;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -160,11 +159,10 @@ class OrderServiceTest {
         when(orderMapper.insert(any(Order.class))).thenReturn(1);
         when(scheduleSeatMapper.updateById(any(ScheduleSeat.class))).thenReturn(1);
 
-        Result<LockSeatResultVO> result = orderService.lockSeat(1L, lockSeatDTO, "req-001");
+        LockSeatResultVO result = orderService.lockSeat(1L, lockSeatDTO, "req-001");
 
-        assertEquals(0, result.getCode());
-        assertEquals("pending", result.getData().getStatus());
-        assertEquals(new BigDecimal("90.00"), result.getData().getTotalAmount());
+        assertEquals("pending", result.getStatus());
+        assertEquals(new BigDecimal("90.00"), result.getTotalAmount());
         System.out.println("[OrderServiceTest] ✓ lockSeat_success PASSED");
     }
 
@@ -227,11 +225,10 @@ class OrderServiceTest {
         cinema.setAddress("北京市朝阳区");
         when(cinemaMapper.selectById(1L)).thenReturn(cinema);
 
-        Result<PayResultVO> result = orderService.payOrder(1L, 1L, "req-002");
+        PayResultVO result = orderService.payOrder(1L, 1L, "req-002");
 
-        assertEquals(0, result.getCode());
-        assertEquals("paid", result.getData().getStatus());
-        assertNotNull(result.getData().getPickupCode());
+        assertEquals("paid", result.getStatus());
+        assertNotNull(result.getPickupCode());
         System.out.println("[OrderServiceTest] ✓ payOrder_success PASSED");
     }
 
@@ -281,9 +278,8 @@ class OrderServiceTest {
         when(scheduleSeatMapper.updateById(any(ScheduleSeat.class))).thenReturn(1);
         when(orderMapper.updateById(any(Order.class))).thenReturn(1);
 
-        Result<Void> result = orderService.cancelOrder(1L, 1L, "req-003");
+        orderService.cancelOrder(1L, 1L, "req-003");
 
-        assertEquals(0, result.getCode());
         assertEquals("cancelled", order.getStatus());
         System.out.println("[OrderServiceTest] ✓ cancelOrder_success PASSED");
     }
@@ -325,9 +321,8 @@ class OrderServiceTest {
         when(scheduleSeatMapper.updateById(any(ScheduleSeat.class))).thenReturn(1);
         when(orderMapper.updateById(any(Order.class))).thenReturn(1);
 
-        Result<Void> result = orderService.refundOrder(1L, 1L, "req-004");
+        orderService.refundOrder(1L, 1L, "req-004");
 
-        assertEquals(0, result.getCode());
         assertEquals("refunded", order.getStatus());
         System.out.println("[OrderServiceTest] ✓ refundOrder_success PASSED");
     }
@@ -373,10 +368,9 @@ class OrderServiceTest {
         System.out.println("[OrderServiceTest] ▶ pendingOrder_noPending_returnsFalse");
         when(orderMapper.selectOne(any())).thenReturn(null);
 
-        Result<PendingOrderVO> result = orderService.pendingOrder(1L);
+        PendingOrderVO result = orderService.pendingOrder(1L);
 
-        assertEquals(0, result.getCode());
-        assertFalse(result.getData().getPending());
+        assertFalse(result.getPending());
         System.out.println("[OrderServiceTest] ✓ pendingOrder_noPending_returnsFalse PASSED");
     }
 
@@ -391,11 +385,10 @@ class OrderServiceTest {
         order.setCreatedAt(LocalDateTime.now().minusMinutes(5));
         when(orderMapper.selectOne(any())).thenReturn(order);
 
-        Result<PendingOrderVO> result = orderService.pendingOrder(1L);
+        PendingOrderVO result = orderService.pendingOrder(1L);
 
-        assertEquals(0, result.getCode());
-        assertTrue(result.getData().getPending());
-        assertTrue(result.getData().getRemainingSeconds() > 0);
+        assertTrue(result.getPending());
+        assertTrue(result.getRemainingSeconds() > 0);
         System.out.println("[OrderServiceTest] ✓ pendingOrder_hasPending_returnsTrue PASSED");
     }
 
@@ -408,10 +401,9 @@ class OrderServiceTest {
         order.setStatus("paid");
         when(orderMapper.selectById(1L)).thenReturn(order);
 
-        Result<RemainingTimeVO> result = orderService.remainingTime(1L, 1L);
+        RemainingTimeVO result = orderService.remainingTime(1L, 1L);
 
-        assertEquals(0, result.getCode());
-        assertTrue(result.getData().getExpired());
+        assertTrue(result.getExpired());
         System.out.println("[OrderServiceTest] ✓ remainingTime_expired_returns0 PASSED");
     }
 
@@ -425,10 +417,9 @@ class OrderServiceTest {
         order.setPickupCode("ABC123");
         when(orderMapper.selectById(1L)).thenReturn(order);
 
-        Result<OrderDetailVO> result = orderService.detail(1L, 1L);
+        OrderDetailVO result = orderService.detail(1L, 1L);
 
-        assertEquals(0, result.getCode());
-        assertEquals("ABC123", result.getData().getPickupCode());
+        assertEquals("ABC123", result.getPickupCode());
         System.out.println("[OrderServiceTest] ✓ detail_success PASSED");
     }
 

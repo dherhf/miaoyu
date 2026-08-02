@@ -28,12 +28,12 @@ public class UserCinemaController {
             @RequestParam(required = false) Long movieId,
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer size) {
-        return cinemaService.userList(longitude, latitude, movieId, page, size);
+        return Result.success(cinemaService.userList(longitude, latitude, movieId, page, size));
     }
 
     @Operation(summary = "影院详情(用户端)")
     @GetMapping("/{id}")
     public Result<CinemaVO> detail(@PathVariable Long id) {
-        return cinemaService.userDetail(id);
+        return Result.success(cinemaService.userDetail(id));
     }
 }

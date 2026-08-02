@@ -4,7 +4,6 @@ import org.dherhf.auth.vo.AdminInfoVO;
 import org.dherhf.auth.vo.AdminLoginVO;
 import org.dherhf.auth.dto.LoginDTO;
 import org.dherhf.common.exception.BusinessException;
-import org.dherhf.common.result.Result;
 import org.dherhf.auth.entity.Admin;
 import org.dherhf.common.util.CryptoUtil;
 import org.dherhf.auth.mapper.AdminMapper;
@@ -73,10 +72,8 @@ class AdminAuthServiceTest {
             when(adminMapper.selectOne(any())).thenReturn(admin);
             when(jwtUtil.generateToken(1L, "admin")).thenReturn("mock-admin-token");
 
-            Result<AdminLoginVO> result = adminAuthService.login(request);
+            AdminLoginVO response = adminAuthService.login(request);
 
-            assertThat(result.getCode()).isEqualTo(0);
-            AdminLoginVO response = result.getData();
             assertThat(response.getToken()).isEqualTo("mock-admin-token");
             assertThat(response.getAdminInfo().getId()).isEqualTo(1L);
             assertThat(response.getAdminInfo().getName()).isEqualTo("管理员");
@@ -174,10 +171,8 @@ class AdminAuthServiceTest {
 
             when(adminMapper.selectById(1L)).thenReturn(admin);
 
-            Result<AdminInfoVO> result = adminAuthService.getCurrentAdmin(1L);
+            AdminInfoVO vo = adminAuthService.getCurrentAdmin(1L);
 
-            assertThat(result.getCode()).isEqualTo(0);
-            AdminInfoVO vo = result.getData();
             assertThat(vo.getId()).isEqualTo(1L);
             assertThat(vo.getName()).isEqualTo("管理员");
             assertThat(vo.getStatus()).isEqualTo(1);

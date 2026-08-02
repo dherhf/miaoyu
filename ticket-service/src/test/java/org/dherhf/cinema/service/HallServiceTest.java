@@ -15,7 +15,6 @@ import org.dherhf.cinema.dto.HallLayoutDTO;
 import org.dherhf.cinema.dto.CellDTO;
 import org.dherhf.cinema.vo.HallVO;
 import org.dherhf.cinema.vo.LayoutResultVO;
-import org.dherhf.common.result.Result;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -67,11 +66,10 @@ class HallServiceTest {
         when(hallMapper.selectCount(any())).thenReturn(0L);
         when(hallMapper.insert(any(Hall.class))).thenReturn(1);
 
-        Result<HallVO> result = hallService.createHall(createDTO);
+        HallVO result = hallService.createHall(createDTO);
 
-        assertEquals(0, result.getCode());
-        assertEquals("IMAX 1号厅", result.getData().getName());
-        assertEquals(1, result.getData().getStatus());
+        assertEquals("IMAX 1号厅", result.getName());
+        assertEquals(1, result.getStatus());
         System.out.println("[HallServiceTest] ✓ createHall_success PASSED");
     }
 
@@ -141,10 +139,9 @@ class HallServiceTest {
         when(hallMapper.updateById(any(Hall.class))).thenReturn(1);
         when(hallCellMapper.selectCount(any())).thenReturn(3L);
 
-        Result<LayoutResultVO> result = hallService.saveLayout(1L, dto);
+        LayoutResultVO result = hallService.saveLayout(1L, dto);
 
-        assertEquals(0, result.getCode());
-        assertEquals(3L, result.getData().getTotalSeats());
+        assertEquals(3L, result.getTotalSeats());
         System.out.println("[HallServiceTest] ✓ saveLayout_success PASSED");
     }
 

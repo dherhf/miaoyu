@@ -6,7 +6,6 @@ import org.dherhf.order.mapper.OrderMapper;
 import org.dherhf.schedule.mapper.ScheduleMapper;
 import org.dherhf.schedule.mapper.ScheduleSeatMapper;
 import org.dherhf.movie.vo.MovieRankingVO;
-import org.dherhf.common.result.Result;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -39,10 +38,9 @@ class DashboardServiceTest {
         System.out.println("[DashboardServiceTest] ▶ moviesRanking_emptyOrders_returnsEmptyList");
         when(orderMapper.selectList(any())).thenReturn(java.util.List.of());
 
-        Result<List<MovieRankingVO>> result = dashboardService.moviesRanking("ticket_count");
+        List<MovieRankingVO> result = dashboardService.moviesRanking("ticket_count");
 
-        assertEquals(0, result.getCode());
-        assertNotNull(result.getData());
+        assertNotNull(result);
         System.out.println("[DashboardServiceTest] ✓ moviesRanking_emptyOrders_returnsEmptyList PASSED");
     }
 
@@ -72,13 +70,12 @@ class DashboardServiceTest {
 
         when(orderMapper.selectList(any())).thenReturn(List.of(o1, o2, o3));
 
-        Result<List<MovieRankingVO>> result = dashboardService.moviesRanking("ticket_count");
+        List<MovieRankingVO> result = dashboardService.moviesRanking("ticket_count");
 
-        assertEquals(0, result.getCode());
-        assertEquals(2, result.getData().size());
+        assertEquals(2, result.size());
         // 流浪地球3 should be first with ticketCount=5
-        assertEquals("流浪地球3", result.getData().get(0).getMovieName());
-        assertEquals(5, result.getData().get(0).getTicketCount());
+        assertEquals("流浪地球3", result.get(0).getMovieName());
+        assertEquals(5, result.get(0).getTicketCount());
         System.out.println("[DashboardServiceTest] ✓ moviesRanking_withPaidOrders PASSED");
     }
 }

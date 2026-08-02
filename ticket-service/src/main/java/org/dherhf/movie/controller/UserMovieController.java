@@ -26,12 +26,12 @@ public class UserMovieController {
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer size,
             @RequestParam(required = false) String sort) {
-        return movieService.userList(keyword, type, page, size, sort);
+        return Result.success(movieService.userList(keyword, type, page, size, sort));
     }
 
     @Operation(summary = "影片详情(用户端)")
     @GetMapping("/{id}")
     public Result<MovieVO> detail(@PathVariable Long id) {
-        return movieService.userDetail(id);
+        return Result.success(movieService.userDetail(id));
     }
 }

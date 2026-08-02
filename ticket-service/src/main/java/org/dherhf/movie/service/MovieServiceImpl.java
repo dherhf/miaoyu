@@ -6,7 +6,6 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import org.dherhf.common.exception.BusinessException;
 import org.dherhf.common.result.PageResult;
-import org.dherhf.common.result.Result;
 import org.dherhf.movie.entity.Movie;
 import org.dherhf.schedule.entity.Schedule;
 import org.dherhf.movie.mapper.MovieMapper;
@@ -32,7 +31,7 @@ public class MovieServiceImpl implements MovieService {
     private final ScheduleMapper scheduleMapper;
 
     @Override
-    public Result<MovieVO> createMovie(MovieCreateDTO dto) {
+    public MovieVO createMovie(MovieCreateDTO dto) {
         Long existCount = movieMapper.selectCount(
                 new LambdaQueryWrapper<Movie>().eq(Movie::getName, dto.getName()));
         if (existCount > 0) {
@@ -44,11 +43,11 @@ public class MovieServiceImpl implements MovieService {
         movie.setStatus(0);
         movieMapper.insert(movie);
 
-        return Result.success(toVO(movie));
+        return toVO(movie);
     }
 
     @Override
-    public Result<MovieVO> updateMovie(Long id, MovieUpdateDTO dto) {
+    public MovieVO updateMovie(Long id, MovieUpdateDTO dto) {
         Movie movie = movieMapper.selectById(id);
         if (movie == null) {
             throw new BusinessException(404, "影片不存在");
@@ -68,31 +67,30 @@ public class MovieServiceImpl implements MovieService {
         movieMapper.updateById(movie);
 
         Movie updated = movieMapper.selectById(id);
-        return Result.success(toVO(updated));
+        return toVO(updated);
     }
 
     @Override
-    public Result<Void> publishMovie(Long id) {
+    public void publishMovie(Long id) {
         Movie movie = movieMapper.selectById(id);
         if (movie == null) {
             throw new BusinessException(404, "影片不存在");
         }
         if (movie.getStatus() == 1) {
-            return Result.success();
+            return;
         }
         movie.setStatus(1);
         movieMapper.updateById(movie);
-        return Result.success();
     }
 
     @Override
-    public Result<Void> unpublishMovie(Long id) {
+    public void unpublishMovie(Long id) {
         Movie movie = movieMapper.selectById(id);
         if (movie == null) {
             throw new BusinessException(404, "影片不存在");
         }
         if (movie.getStatus() == 0) {
-            return Result.success();
+            return;
         }
 
         Long activeScheduleCount = scheduleMapper.selectCount(
@@ -106,11 +104,10 @@ public class MovieServiceImpl implements MovieService {
 
         movie.setStatus(0);
         movieMapper.updateById(movie);
-        return Result.success();
     }
 
     @Override
-    public Result<BatchOperateVO> batchPublish(BatchIdsDTO dto) {
+    public BatchOperateVO batchPublish(BatchIdsDTO dto) {
         BatchOperateVO result = new BatchOperateVO();
         for (Long id : dto.getIds()) {
             try {
@@ -121,11 +118,11 @@ public class MovieServiceImpl implements MovieService {
                 result.getFailReasons().put(id.toString(), e.getMessage());
             }
         }
-        return Result.success(result);
+        return result;
     }
 
     @Override
-    public Result<BatchOperateVO> batchUnpublish(BatchIdsDTO dto) {
+    public BatchOperateVO batchUnpublish(BatchIdsDTO dto) {
         BatchOperateVO result = new BatchOperateVO();
         for (Long id : dto.getIds()) {
             try {
@@ -136,11 +133,11 @@ public class MovieServiceImpl implements MovieService {
                 result.getFailReasons().put(id.toString(), e.getMessage());
             }
         }
-        return Result.success(result);
+        return result;
     }
 
     @Override
-    public Result<PageResult<MovieListVO>> adminList(String keyword, String type, Integer status, Integer page, Integer size, String sort) {
+    public PageResult<MovieListVO> adminList(String keyword, String type, Integer status, Integer page, Integer size, String sort) {
         Page<Movie> pageParam = new Page<>(page, size);
         LambdaQueryWrapper<Movie> wrapper = new LambdaQueryWrapper<Movie>()
                 .and(keyword != null && !keyword.isBlank(), w -> w.like(Movie::getName, keyword))
@@ -158,20 +155,20 @@ public class MovieServiceImpl implements MovieService {
                 .map(this::toListVO)
                 .collect(Collectors.toList());
 
-        return Result.success(new PageResult<>(result.getTotal(), page, size, records));
+        return new PageResult<>(result.getTotal(), page, size, records);
     }
 
     @Override
-    public Result<MovieVO> adminDetail(Long id) {
+    public MovieVO adminDetail(Long id) {
         Movie movie = movieMapper.selectById(id);
         if (movie == null) {
             throw new BusinessException(404, "影片不存在");
         }
-        return Result.success(toVO(movie));
+        return toVO(movie);
     }
 
     @Override
-    public Result<PageResult<MovieListVO>> userList(String keyword, String type, Integer page, Integer size, String sort) {
+    public PageResult<MovieListVO> userList(String keyword, String type, Integer page, Integer size, String sort) {
         Page<Movie> pageParam = new Page<>(page, size);
         LambdaQueryWrapper<Movie> wrapper = new LambdaQueryWrapper<Movie>()
                 .eq(Movie::getStatus, 1)
@@ -189,16 +186,16 @@ public class MovieServiceImpl implements MovieService {
                 .map(this::toListVO)
                 .collect(Collectors.toList());
 
-        return Result.success(new PageResult<>(result.getTotal(), page, size, records));
+        return new PageResult<>(result.getTotal(), page, size, records);
     }
 
     @Override
-    public Result<MovieVO> userDetail(Long id) {
+    public MovieVO userDetail(Long id) {
         Movie movie = movieMapper.selectById(id);
         if (movie == null || movie.getStatus() != 1) {
             throw new BusinessException(404, "影片不存在");
         }
-        return Result.success(toVO(movie));
+        return toVO(movie);
     }
 
     private MovieVO toVO(Movie movie) {

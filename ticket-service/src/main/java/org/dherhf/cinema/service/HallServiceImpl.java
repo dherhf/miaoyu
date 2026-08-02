@@ -6,7 +6,6 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import org.dherhf.common.exception.BusinessException;
 import org.dherhf.common.result.PageResult;
-import org.dherhf.common.result.Result;
 import org.dherhf.cinema.entity.Cinema;
 import org.dherhf.cinema.entity.Hall;
 import org.dherhf.cinema.entity.HallCell;
@@ -47,7 +46,7 @@ public class HallServiceImpl implements HallService {
     private final ScheduleSeatMapper scheduleSeatMapper;
 
     @Override
-    public Result<HallVO> createHall(HallCreateDTO dto) {
+    public HallVO createHall(HallCreateDTO dto) {
         Cinema cinema = cinemaMapper.selectById(dto.getCinemaId());
         if (cinema == null) {
             throw new BusinessException(404, "影院不存在");
@@ -71,11 +70,11 @@ public class HallServiceImpl implements HallService {
         hall.setTotalCols(0);
         hallMapper.insert(hall);
 
-        return Result.success(toVO(hall));
+        return toVO(hall);
     }
 
     @Override
-    public Result<PageResult<HallListVO>> list(Long cinemaId, String name, String screenType, Integer status, Integer page, Integer size) {
+    public PageResult<HallListVO> list(Long cinemaId, String name, String screenType, Integer status, Integer page, Integer size) {
         Page<Hall> pageParam = new Page<>(page, size);
         LambdaQueryWrapper<Hall> wrapper = new LambdaQueryWrapper<Hall>()
                 .eq(cinemaId != null, Hall::getCinemaId, cinemaId)
@@ -89,11 +88,11 @@ public class HallServiceImpl implements HallService {
                 .map(this::toListVO)
                 .collect(Collectors.toList());
 
-        return Result.success(new PageResult<>(result.getTotal(), page, size, records));
+        return new PageResult<>(result.getTotal(), page, size, records);
     }
 
     @Override
-    public Result<HallDetailVO> detail(Long id) {
+    public HallDetailVO detail(Long id) {
         Hall hall = hallMapper.selectById(id);
         if (hall == null) {
             throw new BusinessException(404, "影厅不存在");
@@ -109,11 +108,11 @@ public class HallServiceImpl implements HallService {
         BeanUtils.copyProperties(hall, vo);
         vo.setCells(cells.stream().map(this::toCellItemVO).collect(Collectors.toList()));
 
-        return Result.success(vo);
+        return vo;
     }
 
     @Override
-    public Result<HallVO> updateHall(Long id, HallUpdateDTO dto) {
+    public HallVO updateHall(Long id, HallUpdateDTO dto) {
         Hall hall = hallMapper.selectById(id);
         if (hall == null) {
             throw new BusinessException(404, "影厅不存在");
@@ -141,12 +140,12 @@ public class HallServiceImpl implements HallService {
         hallMapper.updateById(hall);
 
         Hall updated = hallMapper.selectById(id);
-        return Result.success(toVO(updated));
+        return toVO(updated);
     }
 
     @Override
     @Transactional
-    public Result<LayoutResultVO> saveLayout(Long id, HallLayoutDTO dto) {
+    public LayoutResultVO saveLayout(Long id, HallLayoutDTO dto) {
         Hall hall = hallMapper.selectById(id);
         if (hall == null) {
             throw new BusinessException(404, "影厅不存在");
@@ -213,7 +212,7 @@ public class HallServiceImpl implements HallService {
         result.setTotalSeats(totalSeats);
         result.setUpdatedAt(updated.getUpdatedAt());
 
-        return Result.success(result);
+        return result;
     }
 
     private HallVO toVO(Hall hall) {

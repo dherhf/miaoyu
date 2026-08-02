@@ -8,7 +8,6 @@ import org.dherhf.schedule.mapper.ScheduleMapper;
 import org.dherhf.cinema.mapper.HallMapper;
 import org.dherhf.cinema.dto.CinemaCreateDTO;
 import org.dherhf.cinema.vo.CinemaVO;
-import org.dherhf.common.result.Result;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -52,11 +51,10 @@ class CinemaServiceTest {
         when(cinemaMapper.selectCount(any())).thenReturn(0L);
         when(cinemaMapper.insert(any(Cinema.class))).thenReturn(1);
 
-        Result<CinemaVO> result = cinemaService.createCinema(createDTO);
+        CinemaVO result = cinemaService.createCinema(createDTO);
 
-        assertEquals(0, result.getCode());
-        assertEquals("万达影城", result.getData().getName());
-        assertEquals(1, result.getData().getStatus());
+        assertEquals("万达影城", result.getName());
+        assertEquals(1, result.getStatus());
         System.out.println("[CinemaServiceTest] ✓ createCinema_success PASSED");
     }
 
@@ -80,9 +78,8 @@ class CinemaServiceTest {
         when(cinemaMapper.selectById(1L)).thenReturn(cinema);
         when(cinemaMapper.updateById(any(Cinema.class))).thenReturn(1);
 
-        Result<Void> result = cinemaService.closeCinema(1L);
+        cinemaService.closeCinema(1L);
 
-        assertEquals(0, result.getCode());
         verify(cinemaMapper).updateById(any(Cinema.class));
         System.out.println("[CinemaServiceTest] ✓ closeCinema_success PASSED");
     }
@@ -95,9 +92,8 @@ class CinemaServiceTest {
         cinema.setStatus(0);
         when(cinemaMapper.selectById(1L)).thenReturn(cinema);
 
-        Result<Void> result = cinemaService.closeCinema(1L);
+        cinemaService.closeCinema(1L);
 
-        assertEquals(0, result.getCode());
         verify(cinemaMapper, never()).updateById(any(Cinema.class));
         System.out.println("[CinemaServiceTest] ✓ closeCinema_alreadyClosed_noOp PASSED");
     }
@@ -122,9 +118,8 @@ class CinemaServiceTest {
         when(cinemaMapper.selectById(1L)).thenReturn(cinema);
         when(cinemaMapper.updateById(any(Cinema.class))).thenReturn(1);
 
-        Result<Void> result = cinemaService.openCinema(1L);
+        cinemaService.openCinema(1L);
 
-        assertEquals(0, result.getCode());
         verify(cinemaMapper).updateById(any(Cinema.class));
         System.out.println("[CinemaServiceTest] ✓ openCinema_success PASSED");
     }

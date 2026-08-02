@@ -39,7 +39,7 @@ public class AuthController {
     @Operation(summary = "用户注册")
     @PostMapping("/register")
     public Result<UserInfoVO> register(@Valid @RequestBody RegisterDTO request) {
-        return userAuthService.register(request);
+        return Result.success(userAuthService.register(request));
     }
 
     /**
@@ -51,7 +51,7 @@ public class AuthController {
     @Operation(summary = "用户登录")
     @PostMapping("/login")
     public Result<LoginVO> login(@Valid @RequestBody LoginDTO request) {
-        return userAuthService.login(request);
+        return Result.success(userAuthService.login(request));
     }
 
     /**
@@ -78,6 +78,6 @@ public class AuthController {
     @Operation(summary = "获取当前用户信息")
     @GetMapping("/me")
     public Result<UserInfoVO> me(@RequestAttribute("userId") Long userId) {
-        return userAuthService.getCurrentUser(userId);
+        return Result.success(userAuthService.getCurrentUser(userId));
     }
 }

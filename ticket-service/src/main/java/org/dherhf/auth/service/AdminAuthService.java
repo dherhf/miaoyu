@@ -9,7 +9,6 @@ import org.dherhf.auth.vo.AdminInfoVO;
 import org.dherhf.auth.vo.AdminLoginVO;
 import org.dherhf.auth.dto.LoginDTO;
 import org.dherhf.common.exception.BusinessException;
-import org.dherhf.common.result.Result;
 import org.dherhf.auth.entity.Admin;
 import org.dherhf.auth.mapper.AdminMapper;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -43,7 +42,7 @@ public class AdminAuthService {
      * @return 登录响应,包含 Token、有效期和管理员信息
      * @throws BusinessException 账号锁定时抛出 403,用户名或密码错误时抛出 401
      */
-    public Result<AdminLoginVO> login(LoginDTO request) {
+    public AdminLoginVO login(LoginDTO request) {
         String phone = request.getPhone();
         String phoneHash = CryptoUtil.sha256(phone);
         String failKey = "login:fail:" + phoneHash;
@@ -78,7 +77,7 @@ public class AdminAuthService {
         response.setToken(token);
         response.setAdminInfo(adminInfo);
 
-        return Result.success(response);
+        return response;
     }
 
     /**
@@ -91,7 +90,7 @@ public class AdminAuthService {
      * @return 当前管理员信息
      * @throws BusinessException 管理员不存在时抛出 404
      */
-    public Result<AdminInfoVO> getCurrentAdmin(Long adminId) {
+    public AdminInfoVO getCurrentAdmin(Long adminId) {
         Admin admin = adminMapper.selectById(adminId);
         if (admin == null) {
             throw new BusinessException(404, "管理员不存在");
@@ -102,6 +101,6 @@ public class AdminAuthService {
         vo.setName(admin.getName());
         vo.setStatus(admin.getStatus());
 
-        return Result.success(vo);
+        return vo;
     }
 }

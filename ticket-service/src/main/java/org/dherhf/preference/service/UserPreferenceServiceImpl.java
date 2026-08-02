@@ -2,7 +2,6 @@ package org.dherhf.preference.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
-import org.dherhf.common.result.Result;
 import org.dherhf.preference.entity.UserPreference;
 import org.dherhf.preference.mapper.UserPreferenceMapper;
 import org.dherhf.preference.dto.PreferenceUpdateDTO;
@@ -19,17 +18,17 @@ public class UserPreferenceServiceImpl implements UserPreferenceService {
     private final UserPreferenceMapper userPreferenceMapper;
 
     @Override
-    public Result<PreferenceVO> getPreference(Long userId) {
+    public PreferenceVO getPreference(Long userId) {
         UserPreference preference = userPreferenceMapper.selectOne(
                 new LambdaQueryWrapper<UserPreference>().eq(UserPreference::getUserId, userId));
         if (preference == null) {
-            return Result.success(new PreferenceVO());
+            return new PreferenceVO();
         }
-        return Result.success(toVO(preference));
+        return toVO(preference);
     }
 
     @Override
-    public Result<PreferenceVO> updatePreference(Long userId, PreferenceUpdateDTO dto) {
+    public PreferenceVO updatePreference(Long userId, PreferenceUpdateDTO dto) {
         UserPreference preference = userPreferenceMapper.selectOne(
                 new LambdaQueryWrapper<UserPreference>().eq(UserPreference::getUserId, userId));
         if (preference == null) {
@@ -43,7 +42,7 @@ public class UserPreferenceServiceImpl implements UserPreferenceService {
             preference.setUpdatedAt(LocalDateTime.now());
             userPreferenceMapper.updateById(preference);
         }
-        return Result.success(toVO(preference));
+        return toVO(preference);
     }
 
     private PreferenceVO toVO(UserPreference preference) {

@@ -4,7 +4,6 @@ import org.dherhf.common.exception.BusinessException;
 import org.dherhf.notification.entity.Notification;
 import org.dherhf.notification.mapper.NotificationMapper;
 import org.dherhf.notification.service.NotificationServiceImpl;
-import org.dherhf.common.result.Result;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -34,9 +33,8 @@ class NotificationServiceTest {
         when(notificationMapper.selectById(1L)).thenReturn(notification);
         when(notificationMapper.updateById(any(Notification.class))).thenReturn(1);
 
-        Result<Void> result = notificationService.markRead(1L, 1L);
+        notificationService.markRead(1L, 1L);
 
-        assertEquals(0, result.getCode());
         verify(notificationMapper).updateById(any(Notification.class));
         System.out.println("[NotificationServiceTest] ✓ markRead_success PASSED");
     }

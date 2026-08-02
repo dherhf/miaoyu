@@ -10,7 +10,6 @@ import org.dherhf.auth.vo.LoginVO;
 import org.dherhf.auth.dto.RegisterDTO;
 import org.dherhf.auth.vo.UserInfoVO;
 import org.dherhf.common.exception.BusinessException;
-import org.dherhf.common.result.Result;
 import org.dherhf.auth.entity.User;
 import org.dherhf.auth.mapper.UserMapper;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -44,7 +43,7 @@ public class UserAuthService {
      * @return 注册成功的用户信息
      * @throws BusinessException 手机号已注册时抛出 409
      */
-    public Result<UserInfoVO> register(RegisterDTO request) {
+    public UserInfoVO register(RegisterDTO request) {
         String phone = request.getPhone();
         String phoneHash = CryptoUtil.sha256(phone);
 
@@ -69,7 +68,7 @@ public class UserAuthService {
         vo.setStatus(user.getStatus());
         vo.setCreatedAt(user.getCreatedAt());
 
-        return Result.success(vo);
+        return vo;
     }
 
     /**
@@ -82,7 +81,7 @@ public class UserAuthService {
      * @return 登录响应,包含 Token、有效期和用户信息
      * @throws BusinessException 账号锁定时抛出 403,用户名或密码错误时抛出 401
      */
-    public Result<LoginVO> login(LoginDTO request) {
+    public LoginVO login(LoginDTO request) {
         String phone = request.getPhone();
         String phoneHash = CryptoUtil.sha256(phone);
         String failKey = "login:fail:" + phoneHash;
@@ -118,7 +117,7 @@ public class UserAuthService {
         response.setToken(token);
         response.setUserInfo(userInfo);
 
-        return Result.success(response);
+        return response;
     }
 
     /**
@@ -131,7 +130,7 @@ public class UserAuthService {
      * @return 当前用户信息
      * @throws BusinessException 用户不存在时抛出 404
      */
-    public Result<UserInfoVO> getCurrentUser(Long userId) {
+    public UserInfoVO getCurrentUser(Long userId) {
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new BusinessException(404, "用户不存在");
@@ -144,6 +143,6 @@ public class UserAuthService {
         vo.setStatus(user.getStatus());
         vo.setCreatedAt(user.getCreatedAt());
 
-        return Result.success(vo);
+        return vo;
     }
 }

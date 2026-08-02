@@ -5,7 +5,6 @@ import lombok.RequiredArgsConstructor;
 import org.dherhf.cinema.vo.CinemaAnalysisVO;
 import org.dherhf.dashboard.vo.DashboardTransactionVO;
 import org.dherhf.movie.vo.MovieRankingVO;
-import org.dherhf.common.result.Result;
 import org.dherhf.order.entity.Order;
 import org.dherhf.order.mapper.OrderMapper;
 import org.dherhf.schedule.mapper.ScheduleMapper;
@@ -31,7 +30,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final ScheduleSeatMapper scheduleSeatMapper;
 
     @Override
-    public Result<DashboardTransactionVO> transactions(String period) {
+    public DashboardTransactionVO transactions(String period) {
         int days = "30".equals(period) ? 30 : 7;
 
         LocalDate today = LocalDate.now();
@@ -76,11 +75,11 @@ public class DashboardServiceImpl implements DashboardService {
         vo.setTrend(trend);
 
         // TODO: Redis 看板缓存 (5min TTL)
-        return Result.success(vo);
+        return vo;
     }
 
     @Override
-    public Result<List<MovieRankingVO>> moviesRanking(String sortBy) {
+    public List<MovieRankingVO> moviesRanking(String sortBy) {
         List<Order> paidOrders = getAllPaidOrders();
         Map<String, List<Order>> byMovie = paidOrders.stream()
                 .collect(Collectors.groupingBy(Order::getMovieName));
@@ -104,11 +103,11 @@ public class DashboardServiceImpl implements DashboardService {
             ranking.sort((a, b) -> Long.compare(b.getOrderCount(), a.getOrderCount()));
         }
 
-        return Result.success(ranking);
+        return ranking;
     }
 
     @Override
-    public Result<List<CinemaAnalysisVO>> cinemasAnalysis() {
+    public List<CinemaAnalysisVO> cinemasAnalysis() {
         List<Order> paidOrders = getAllPaidOrders();
         Map<String, List<Order>> byCinema = paidOrders.stream()
                 .collect(Collectors.groupingBy(Order::getCinemaName));
@@ -134,7 +133,7 @@ public class DashboardServiceImpl implements DashboardService {
         }).collect(Collectors.toList());
 
         // TODO: Redis 看板缓存 (5min TTL)
-        return Result.success(analysis);
+        return analysis;
     }
 
     private List<Order> getPaidOrdersByDateRange(LocalDateTime start, LocalDateTime end) {

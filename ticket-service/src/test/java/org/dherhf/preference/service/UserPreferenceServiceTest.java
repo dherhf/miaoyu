@@ -5,7 +5,6 @@ import org.dherhf.preference.mapper.UserPreferenceMapper;
 import org.dherhf.preference.dto.PreferenceUpdateDTO;
 import org.dherhf.preference.service.UserPreferenceServiceImpl;
 import org.dherhf.preference.vo.PreferenceVO;
-import org.dherhf.common.result.Result;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -33,10 +32,9 @@ class UserPreferenceServiceTest {
         System.out.println("[UserPreferenceServiceTest] ▶ getPreference_notFound_returnsEmpty");
         when(userPreferenceMapper.selectOne(any())).thenReturn(null);
 
-        Result<PreferenceVO> result = userPreferenceService.getPreference(1L);
+        PreferenceVO result = userPreferenceService.getPreference(1L);
 
-        assertEquals(0, result.getCode());
-        assertNotNull(result.getData());
+        assertNotNull(result);
         System.out.println("[UserPreferenceServiceTest] ✓ getPreference_notFound_returnsEmpty PASSED");
     }
 
@@ -51,10 +49,9 @@ class UserPreferenceServiceTest {
         pref.setPreferredMovieTypes(List.of("科幻", "喜剧"));
         when(userPreferenceMapper.selectOne(any())).thenReturn(pref);
 
-        Result<PreferenceVO> result = userPreferenceService.getPreference(1L);
+        PreferenceVO result = userPreferenceService.getPreference(1L);
 
-        assertEquals(0, result.getCode());
-        assertEquals("IMAX", result.getData().getPreferredHallType());
+        assertEquals("IMAX", result.getPreferredHallType());
         System.out.println("[UserPreferenceServiceTest] ✓ getPreference_found_returnsData PASSED");
     }
 
@@ -67,10 +64,9 @@ class UserPreferenceServiceTest {
         PreferenceUpdateDTO dto = new PreferenceUpdateDTO();
         dto.setPreferredHallType("IMAX");
 
-        Result<PreferenceVO> result = userPreferenceService.updatePreference(1L, dto);
+        PreferenceVO result = userPreferenceService.updatePreference(1L, dto);
 
-        assertEquals(0, result.getCode());
-        assertEquals("IMAX", result.getData().getPreferredHallType());
+        assertEquals("IMAX", result.getPreferredHallType());
         verify(userPreferenceMapper).insert(any(UserPreference.class));
         System.out.println("[UserPreferenceServiceTest] ✓ updatePreference_createsNew PASSED");
     }
@@ -88,10 +84,9 @@ class UserPreferenceServiceTest {
         PreferenceUpdateDTO dto = new PreferenceUpdateDTO();
         dto.setPreferredHallType("IMAX");
 
-        Result<PreferenceVO> result = userPreferenceService.updatePreference(1L, dto);
+        PreferenceVO result = userPreferenceService.updatePreference(1L, dto);
 
-        assertEquals(0, result.getCode());
-        assertEquals("IMAX", result.getData().getPreferredHallType());
+        assertEquals("IMAX", result.getPreferredHallType());
         verify(userPreferenceMapper).updateById(any(UserPreference.class));
         System.out.println("[UserPreferenceServiceTest] ✓ updatePreference_updatesExisting PASSED");
     }

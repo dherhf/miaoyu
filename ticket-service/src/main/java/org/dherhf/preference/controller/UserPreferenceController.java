@@ -20,12 +20,12 @@ public class UserPreferenceController {
     @Operation(summary = "获取用户偏好")
     @GetMapping("/preferences")
     public Result<PreferenceVO> getPreference(@RequestAttribute Long userId) {
-        return userPreferenceService.getPreference(userId);
+        return Result.success(userPreferenceService.getPreference(userId));
     }
 
     @Operation(summary = "更新用户偏好")
     @PutMapping("/preferences")
     public Result<PreferenceVO> updatePreference(@RequestAttribute Long userId, @RequestBody PreferenceUpdateDTO dto) {
-        return userPreferenceService.updatePreference(userId, dto);
+        return Result.success(userPreferenceService.updatePreference(userId, dto));
     }
 }

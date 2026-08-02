@@ -25,13 +25,14 @@ public class NotificationController {
             @RequestParam(required = false) Integer isRead,
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer size) {
-        return notificationService.list(userId, type, isRead, page, size);
+        return Result.success(notificationService.list(userId, type, isRead, page, size));
     }
 
     @Operation(summary = "标记通知已读")
     @PutMapping("/{id}/read")
     public Result<Void> markRead(@PathVariable Long id, @RequestAttribute Long userId) {
-        return notificationService.markRead(id, userId);
+        notificationService.markRead(id, userId);
+        return Result.success();
     }
 
     @Operation(summary = "通知实时推送")

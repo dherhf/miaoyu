@@ -6,7 +6,6 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import org.dherhf.common.exception.BusinessException;
 import org.dherhf.common.result.PageResult;
-import org.dherhf.common.result.Result;
 import org.dherhf.notification.entity.Notification;
 import org.dherhf.notification.mapper.NotificationMapper;
 import org.dherhf.notification.vo.NotificationVO;
@@ -23,7 +22,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final NotificationMapper notificationMapper;
 
     @Override
-    public Result<PageResult<NotificationVO>> list(Long userId, String type, Integer isRead, Integer page, Integer size) {
+    public PageResult<NotificationVO> list(Long userId, String type, Integer isRead, Integer page, Integer size) {
         Page<Notification> pageParam = new Page<>(page, size);
         LambdaQueryWrapper<Notification> wrapper = new LambdaQueryWrapper<Notification>()
                 .eq(Notification::getUserId, userId)
@@ -36,18 +35,17 @@ public class NotificationServiceImpl implements NotificationService {
                 .map(this::toVO)
                 .collect(Collectors.toList());
 
-        return Result.success(new PageResult<>(result.getTotal(), page, size, records));
+        return new PageResult<>(result.getTotal(), page, size, records);
     }
 
     @Override
-    public Result<Void> markRead(Long id, Long userId) {
+    public void markRead(Long id, Long userId) {
         Notification notification = notificationMapper.selectById(id);
         if (notification == null || !notification.getUserId().equals(userId)) {
             throw new BusinessException(404, "通知不存在");
         }
         notification.setIsRead(1);
         notificationMapper.updateById(notification);
-        return Result.success();
     }
 
     private NotificationVO toVO(Notification notification) {

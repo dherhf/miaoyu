@@ -10,7 +10,6 @@ import org.dherhf.cinema.entity.Hall;
 import org.dherhf.cinema.entity.HallCell;
 import org.dherhf.common.exception.BusinessException;
 import org.dherhf.common.result.PageResult;
-import org.dherhf.common.result.Result;
 import org.dherhf.cinema.mapper.CinemaMapper;
 import org.dherhf.cinema.mapper.HallCellMapper;
 import org.dherhf.cinema.mapper.HallMapper;
@@ -63,11 +62,11 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public Result<LockSeatResultVO> lockSeat(Long userId, LockSeatDTO dto, String requestId) {
+    public LockSeatResultVO lockSeat(Long userId, LockSeatDTO dto, String requestId) {
         // Redis 幂等校验
         Object cached = idempotentService.getIfPresent(requestId);
         if (cached != null) {
-            return Result.success((LockSeatResultVO) cached);
+            return (LockSeatResultVO) cached;
         }
 
         if (!dto.getTicketCount().equals(dto.getSeatIds().size())) {
@@ -102,7 +101,7 @@ public class OrderServiceImpl implements OrderService {
                 LockSeatResultVO result = doLockSeat(userId, dto, schedule);
                 idempotentService.put(requestId, result);
                 orderTimeoutService.schedule(result.getId());
-                return Result.success(result);
+                return result;
             } finally {
                 seatLocks.forEach(l -> {
                     if (l.isHeldByCurrentThread()) l.unlock();
@@ -177,11 +176,11 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public Result<PayResultVO> payOrder(Long userId, Long orderId, String requestId) {
+    public PayResultVO payOrder(Long userId, Long orderId, String requestId) {
         // Redis 幂等校验
         Object cached = idempotentService.getIfPresent(requestId);
         if (cached != null) {
-            return Result.success((PayResultVO) cached);
+            return (PayResultVO) cached;
         }
 
         Order order = orderMapper.selectById(orderId);
@@ -236,16 +235,16 @@ public class OrderServiceImpl implements OrderService {
         vo.setTotalAmount(order.getTotalAmount());
 
         idempotentService.put(requestId, vo);
-        return Result.success(vo);
+        return vo;
     }
 
     @Override
     @Transactional
-    public Result<Void> cancelOrder(Long userId, Long orderId, String requestId) {
+    public void cancelOrder(Long userId, Long orderId, String requestId) {
         // Redis 幂等校验
         Object cached = idempotentService.getIfPresent(requestId);
         if (cached != null) {
-            return Result.success();
+            return;
         }
 
         Order order = orderMapper.selectById(orderId);
@@ -280,16 +279,15 @@ public class OrderServiceImpl implements OrderService {
         // TODO: SETBIT schedule:seat:occupied:{scheduleId} {seat_index} 0
 
         idempotentService.put(requestId, "ok");
-        return Result.success();
     }
 
     @Override
     @Transactional
-    public Result<Void> refundOrder(Long userId, Long orderId, String requestId) {
+    public void refundOrder(Long userId, Long orderId, String requestId) {
         // Redis 幂等校验
         Object cached = idempotentService.getIfPresent(requestId);
         if (cached != null) {
-            return Result.success();
+            return;
         }
 
         Order order = orderMapper.selectById(orderId);
@@ -331,11 +329,10 @@ public class OrderServiceImpl implements OrderService {
         // TODO: 异步发送退票成功通知
 
         idempotentService.put(requestId, "ok");
-        return Result.success();
     }
 
     @Override
-    public Result<PageResult<OrderListVO>> listOrders(Long userId, String status, String dateFrom, String dateTo, String keyword, Integer page, Integer size) {
+    public PageResult<OrderListVO> listOrders(Long userId, String status, String dateFrom, String dateTo, String keyword, Integer page, Integer size) {
         Page<Order> pageParam = new Page<>(page, size);
         LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<Order>()
                 .eq(Order::getUserId, userId)
@@ -350,11 +347,11 @@ public class OrderServiceImpl implements OrderService {
                 .map(this::toListVO)
                 .collect(Collectors.toList());
 
-        return Result.success(new PageResult<>(result.getTotal(), page, size, records));
+        return new PageResult<>(result.getTotal(), page, size, records);
     }
 
     @Override
-    public Result<OrderDetailVO> detail(Long userId, Long orderId) {
+    public OrderDetailVO detail(Long userId, Long orderId) {
         Order order = orderMapper.selectById(orderId);
         if (order == null || !order.getUserId().equals(userId)) {
             throw new BusinessException(404, "订单不存在");
@@ -364,11 +361,11 @@ public class OrderServiceImpl implements OrderService {
         if (!"paid".equals(order.getStatus())) {
             vo.setPickupCode(null);
         }
-        return Result.success(vo);
+        return vo;
     }
 
     @Override
-    public Result<PendingOrderVO> pendingOrder(Long userId) {
+    public PendingOrderVO pendingOrder(Long userId) {
         Order order = orderMapper.selectOne(
                 new LambdaQueryWrapper<Order>()
                         .eq(Order::getUserId, userId)
@@ -379,7 +376,7 @@ public class OrderServiceImpl implements OrderService {
         PendingOrderVO vo = new PendingOrderVO();
         if (order == null) {
             vo.setPending(false);
-            return Result.success(vo);
+            return vo;
         }
 
         int remaining = ORDER_TIMEOUT_SECONDS - (int) java.time.Duration.between(order.getCreatedAt(), LocalDateTime.now()).getSeconds();
@@ -387,7 +384,7 @@ public class OrderServiceImpl implements OrderService {
             vo.setPending(false);
             // 异步触发超时取消
             new Thread(() -> timeoutCancel(order.getId())).start();
-            return Result.success(vo);
+            return vo;
         }
 
         vo.setPending(true);
@@ -398,11 +395,11 @@ public class OrderServiceImpl implements OrderService {
         vo.setTotalAmount(order.getTotalAmount());
         vo.setStatus(order.getStatus());
         vo.setRemainingSeconds(remaining);
-        return Result.success(vo);
+        return vo;
     }
 
     @Override
-    public Result<RemainingTimeVO> remainingTime(Long userId, Long orderId) {
+    public RemainingTimeVO remainingTime(Long userId, Long orderId) {
         Order order = orderMapper.selectById(orderId);
         if (order == null || !order.getUserId().equals(userId)) {
             throw new BusinessException(404, "订单不存在");
@@ -412,18 +409,18 @@ public class OrderServiceImpl implements OrderService {
         if (!"pending".equals(order.getStatus())) {
             vo.setRemainingTime(0);
             vo.setExpired(true);
-            return Result.success(vo);
+            return vo;
         }
 
         int remaining = ORDER_TIMEOUT_SECONDS - (int) java.time.Duration.between(order.getCreatedAt(), LocalDateTime.now()).getSeconds();
         vo.setRemainingTime(Math.max(0, remaining));
         vo.setExpireAt(order.getCreatedAt().plusSeconds(ORDER_TIMEOUT_SECONDS));
         vo.setExpired(remaining <= 0);
-        return Result.success(vo);
+        return vo;
     }
 
     @Override
-    public Result<LockSeatResultVO> internalLockSeat(InternalLockSeatDTO dto) {
+    public LockSeatResultVO internalLockSeat(InternalLockSeatDTO dto) {
         LockSeatDTO lockSeatDTO = new LockSeatDTO();
         lockSeatDTO.setScheduleId(dto.getScheduleId());
         lockSeatDTO.setSeatIds(dto.getSeatIds());
@@ -432,12 +429,12 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public Result<PayResultVO> internalPayOrder(Long userId, Long orderId, String requestId) {
+    public PayResultVO internalPayOrder(Long userId, Long orderId, String requestId) {
         return payOrder(userId, orderId, requestId);
     }
 
     @Override
-    public Result<PageResult<OrderListVO>> internalListOrders(Long userId, String keyword, String status, String dateFrom, String dateTo, Integer page, Integer size) {
+    public PageResult<OrderListVO> internalListOrders(Long userId, String keyword, String status, String dateFrom, String dateTo, Integer page, Integer size) {
         Page<Order> pageParam = new Page<>(page, size);
         LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<Order>()
                 .eq(Order::getUserId, userId)
@@ -454,7 +451,7 @@ public class OrderServiceImpl implements OrderService {
                 .map(this::toListVO)
                 .collect(Collectors.toList());
 
-        return Result.success(new PageResult<>(result.getTotal(), page, size, records));
+        return new PageResult<>(result.getTotal(), page, size, records);
     }
 
     @Override

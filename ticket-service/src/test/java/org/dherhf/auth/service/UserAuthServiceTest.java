@@ -5,7 +5,6 @@ import org.dherhf.auth.vo.LoginVO;
 import org.dherhf.auth.dto.RegisterDTO;
 import org.dherhf.auth.vo.UserInfoVO;
 import org.dherhf.common.exception.BusinessException;
-import org.dherhf.common.result.Result;
 import org.dherhf.auth.entity.User;
 import org.dherhf.auth.mapper.UserMapper;
 import org.dherhf.common.util.CryptoUtil;
@@ -79,10 +78,8 @@ class UserAuthServiceTest {
             when(userMapper.selectCount(any())).thenReturn(0L);
             when(authHelper.maskPhone(PHONE)).thenReturn("138****8000");
 
-            Result<UserInfoVO> result = userAuthService.register(request);
+            UserInfoVO vo = userAuthService.register(request);
 
-            assertThat(result.getCode()).isEqualTo(0);
-            UserInfoVO vo = result.getData();
             assertThat(vo.getPhone()).isEqualTo("138****8000");
             assertThat(vo.getNickname()).isEqualTo("用户8000");
             assertThat(vo.getStatus()).isEqualTo(1);
@@ -125,10 +122,8 @@ class UserAuthServiceTest {
             when(jwtUtil.generateToken(1L, "user")).thenReturn("mock-token");
             when(authHelper.maskPhone(PHONE)).thenReturn("138****8000");
 
-            Result<LoginVO> result = userAuthService.login(request);
+            LoginVO response = userAuthService.login(request);
 
-            assertThat(result.getCode()).isEqualTo(0);
-            LoginVO response = result.getData();
             assertThat(response.getToken()).isEqualTo("mock-token");
             assertThat(response.getUserInfo().getId()).isEqualTo(1L);
             assertThat(response.getUserInfo().getPhone()).isEqualTo("138****8000");
@@ -227,10 +222,8 @@ class UserAuthServiceTest {
             when(userMapper.selectById(1L)).thenReturn(user);
             when(authHelper.maskPhone(PHONE)).thenReturn("138****8000");
 
-            Result<UserInfoVO> result = userAuthService.getCurrentUser(1L);
+            UserInfoVO vo = userAuthService.getCurrentUser(1L);
 
-            assertThat(result.getCode()).isEqualTo(0);
-            UserInfoVO vo = result.getData();
             assertThat(vo.getId()).isEqualTo(1L);
             assertThat(vo.getPhone()).isEqualTo("138****8000");
             assertThat(vo.getNickname()).isEqualTo("用户8000");
