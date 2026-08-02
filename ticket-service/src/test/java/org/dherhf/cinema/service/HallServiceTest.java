@@ -1,6 +1,5 @@
 package org.dherhf.cinema.service;
 
-import org.dherhf.cinema.service.HallServiceImpl;
 import org.dherhf.common.exception.BusinessException;
 import org.dherhf.cinema.entity.Cinema;
 import org.dherhf.cinema.entity.Hall;

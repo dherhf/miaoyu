@@ -1,6 +1,5 @@
 package org.dherhf.dashboard.service;
 
-import org.dherhf.dashboard.service.DashboardServiceImpl;
 import org.dherhf.order.entity.Order;
 import org.dherhf.order.mapper.OrderMapper;
 import org.dherhf.schedule.mapper.ScheduleMapper;
@@ -74,8 +73,8 @@ class DashboardServiceTest {
 
         assertEquals(2, result.size());
         // 流浪地球3 should be first with ticketCount=5
-        assertEquals("流浪地球3", result.get(0).getMovieName());
-        assertEquals(5, result.get(0).getTicketCount());
+        assertEquals("流浪地球3", result.getFirst().getMovieName());
+        assertEquals(5, result.getFirst().getTicketCount());
         System.out.println("[DashboardServiceTest] ✓ moviesRanking_withPaidOrders PASSED");
     }
 }

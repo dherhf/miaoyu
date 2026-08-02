@@ -1,7 +1,6 @@
 package org.dherhf.common.util;
 
 import io.jsonwebtoken.Claims;
-import org.dherhf.common.util.JwtUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

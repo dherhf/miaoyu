@@ -128,7 +128,7 @@ public class OrderServiceImpl implements OrderService {
         List<Long> conflictSeatIds = seats.stream()
                 .filter(s -> !"available".equals(s.getStatus()))
                 .map(ScheduleSeat::getHallCellId)
-                .collect(Collectors.toList());
+                .toList();
         if (!conflictSeatIds.isEmpty()) {
             throw new BusinessException(409, "部分座位已被占用");
         }

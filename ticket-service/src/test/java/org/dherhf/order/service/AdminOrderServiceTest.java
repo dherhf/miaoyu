@@ -7,7 +7,6 @@ import org.dherhf.order.mapper.OrderMapper;
 import org.dherhf.auth.mapper.UserMapper;
 import org.dherhf.schedule.mapper.ScheduleSeatMapper;
 import org.dherhf.cinema.mapper.HallCellMapper;
-import org.dherhf.order.service.AdminOrderServiceImpl;
 import org.dherhf.order.vo.AdminOrderDetailVO;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

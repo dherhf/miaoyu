@@ -3,7 +3,6 @@ package org.dherhf.notification.service;
 import org.dherhf.common.exception.BusinessException;
 import org.dherhf.notification.entity.Notification;
 import org.dherhf.notification.mapper.NotificationMapper;
-import org.dherhf.notification.service.NotificationServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;

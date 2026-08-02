@@ -387,7 +387,7 @@ public class ScheduleServiceImpl implements ScheduleService {
                         .lt(Schedule::getStartTime, endTime)
                         .gt(Schedule::getEndTime, startTime));
         if (!conflicts.isEmpty()) {
-            Movie conflictMovie = movieMapper.selectById(conflicts.get(0).getMovieId());
+            Movie conflictMovie = movieMapper.selectById(conflicts.getFirst().getMovieId());
             String movieName = conflictMovie != null ? conflictMovie.getName() : "未知影片";
             throw new BusinessException(409, "该影厅在此时段已有排片《" + movieName + "》");
         }

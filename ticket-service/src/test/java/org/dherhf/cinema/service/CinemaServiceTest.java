@@ -1,6 +1,5 @@
 package org.dherhf.cinema.service;
 
-import org.dherhf.cinema.service.CinemaServiceImpl;
 import org.dherhf.common.exception.BusinessException;
 import org.dherhf.cinema.entity.Cinema;
 import org.dherhf.cinema.mapper.CinemaMapper;
