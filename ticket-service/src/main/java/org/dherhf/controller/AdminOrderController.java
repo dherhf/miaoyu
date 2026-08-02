@@ -6,8 +6,11 @@ import org.dherhf.vo.AdminOrderDetailVO;
 import org.dherhf.vo.AdminOrderListVO;
 import org.dherhf.common.PageResult;
 import org.dherhf.common.Result;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
+@Tag(name = "订单明细(管理端)", description = "管理端订单列表/详情")
 @RestController
 @RequestMapping("/api/v1/admin/orders")
 @RequiredArgsConstructor
@@ -15,6 +18,7 @@ public class AdminOrderController {
 
     private final AdminOrderService adminOrderService;
 
+    @Operation(summary = "订单列表(管理端)")
     @GetMapping
     public Result<PageResult<AdminOrderListVO>> list(
             @RequestParam(required = false) String orderNo,
@@ -28,6 +32,7 @@ public class AdminOrderController {
         return adminOrderService.list(orderNo, movieName, cinemaName, status, dateFrom, dateTo, page, size);
     }
 
+    @Operation(summary = "订单详情(管理端)")
     @GetMapping("/{id}")
     public Result<AdminOrderDetailVO> detail(@PathVariable Long id) {
         return adminOrderService.detail(id);

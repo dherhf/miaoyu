@@ -7,6 +7,8 @@ import org.dherhf.entity.HallCell;
 import org.dherhf.mapper.CinemaMapper;
 import org.dherhf.mapper.HallCellMapper;
 import org.dherhf.mapper.HallMapper;
+import org.dherhf.mapper.ScheduleMapper;
+import org.dherhf.mapper.ScheduleSeatMapper;
 import org.dherhf.dto.HallCreateDTO;
 import org.dherhf.dto.HallLayoutDTO;
 import org.dherhf.dto.CellDTO;
@@ -36,6 +38,10 @@ class HallServiceTest {
     private HallCellMapper hallCellMapper;
     @Mock
     private CinemaMapper cinemaMapper;
+    @Mock
+    private ScheduleMapper scheduleMapper;
+    @Mock
+    private ScheduleSeatMapper scheduleSeatMapper;
 
     @InjectMocks
     private HallServiceImpl hallService;
@@ -128,6 +134,7 @@ class HallServiceTest {
         cell4.setSeatLabel("B2");
         dto.setCells(List.of(cell1, cell2, cell3, cell4));
 
+        when(scheduleMapper.selectList(any())).thenReturn(List.of());
         when(hallCellMapper.delete(any())).thenReturn(0);
         when(hallCellMapper.insert(any(HallCell.class))).thenReturn(1);
         when(hallMapper.updateById(any(Hall.class))).thenReturn(1);

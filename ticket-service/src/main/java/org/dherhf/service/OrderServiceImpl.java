@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.dherhf.common.BusinessException;
 import org.dherhf.common.PageResult;
 import org.dherhf.common.Result;
@@ -12,6 +13,8 @@ import org.dherhf.mapper.*;
 import org.dherhf.dto.InternalLockSeatDTO;
 import org.dherhf.dto.LockSeatDTO;
 import org.dherhf.vo.*;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,13 +26,17 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
 
     private static final int ORDER_TIMEOUT_SECONDS = 15 * 60;
+    private static final long LOCK_WAIT_SECONDS = 3;
+    private static final long LOCK_LEASE_SECONDS = 10;
 
     private final OrderMapper orderMapper;
     private final ScheduleMapper scheduleMapper;
@@ -38,34 +45,74 @@ public class OrderServiceImpl implements OrderService {
     private final CinemaMapper cinemaMapper;
     private final HallMapper hallMapper;
     private final HallCellMapper hallCellMapper;
+    private final IdempotentService idempotentService;
+    private final OrderTimeoutService orderTimeoutService;
+    private final RedissonClient redissonClient;
 
     @Override
     @Transactional
     public Result<LockSeatResultVO> lockSeat(Long userId, LockSeatDTO dto, String requestId) {
-        // TODO: Redis 幂等校验 idempotent:{requestId}
-        // TODO: Redisson 分布式锁 lock:seat:{scheduleId}:{seatId}
-        // TODO: 用户级防重 lock:user:order:{userId}
+        // Redis 幂等校验
+        Object cached = idempotentService.getIfPresent(requestId);
+        if (cached != null) {
+            return Result.success((LockSeatResultVO) cached);
+        }
 
         if (!dto.getTicketCount().equals(dto.getSeatIds().size())) {
             throw new BusinessException(400, "购票数量与座位数不一致");
         }
 
-        Schedule schedule = scheduleMapper.selectById(dto.getScheduleId());
-        if (schedule == null || !"onsale".equals(schedule.getStatus())) {
-            throw new BusinessException(400, "场次不存在或不可售");
-        }
+        // 用户级防重锁
+        RLock userLock = redissonClient.getLock("lock:user:order:" + userId);
+        try {
+            if (!userLock.tryLock(LOCK_WAIT_SECONDS, LOCK_LEASE_SECONDS, TimeUnit.SECONDS)) {
+                throw new BusinessException(409, "您有正在处理的订单，请稍后重试");
+            }
 
-        // 查询目标座位
-        List<ScheduleSeat> seats = scheduleSeatMapper.selectList(
-                new LambdaQueryWrapper<ScheduleSeat>()
-                        .eq(ScheduleSeat::getScheduleId, dto.getScheduleId())
-                        .in(ScheduleSeat::getHallCellId, dto.getSeatIds()));
+            Schedule schedule = scheduleMapper.selectById(dto.getScheduleId());
+            if (schedule == null || !"onsale".equals(schedule.getStatus())) {
+                throw new BusinessException(400, "场次不存在或不可售");
+            }
+
+            // 逐座位获取分布式锁
+            List<RLock> seatLocks = new ArrayList<>();
+            for (Long seatId : dto.getSeatIds()) {
+                RLock seatLock = redissonClient.getLock("lock:seat:" + dto.getScheduleId() + ":" + seatId);
+                if (!seatLock.tryLock(LOCK_WAIT_SECONDS, LOCK_LEASE_SECONDS, TimeUnit.SECONDS)) {
+                    // 释放已获取的锁
+                    seatLocks.forEach(RLock::unlock);
+                    throw new BusinessException(409, "座位正在被其他用户选择，请稍后重试");
+                }
+                seatLocks.add(seatLock);
+            }
+
+            try {
+                LockSeatResultVO result = doLockSeat(userId, dto, schedule);
+                idempotentService.put(requestId, result);
+                orderTimeoutService.schedule(result.getId());
+                return Result.success(result);
+            } finally {
+                seatLocks.forEach(l -> {
+                    if (l.isHeldByCurrentThread()) l.unlock();
+                });
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BusinessException(500, "锁座操作被中断");
+        } finally {
+            if (userLock.isHeldByCurrentThread()) userLock.unlock();
+        }
+    }
+
+    private LockSeatResultVO doLockSeat(Long userId, LockSeatDTO dto, Schedule schedule) {
+        // SELECT ... FOR UPDATE 加排他锁,确保并发安全
+        List<ScheduleSeat> seats = scheduleSeatMapper.selectForUpdate(
+                dto.getScheduleId(), dto.getSeatIds());
 
         if (seats.size() != dto.getSeatIds().size()) {
             throw new BusinessException(400, "部分座位不存在");
         }
 
-        // 校验所有座位状态为可选
         List<Long> conflictSeatIds = seats.stream()
                 .filter(s -> !"available".equals(s.getStatus()))
                 .map(ScheduleSeat::getHallCellId)
@@ -74,12 +121,10 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException(409, "部分座位已被占用");
         }
 
-        // 创建订单
         Movie movie = movieMapper.selectById(schedule.getMovieId());
         Cinema cinema = cinemaMapper.selectById(schedule.getCinemaId());
         Hall hall = hallMapper.selectById(schedule.getHallId());
 
-        // 构建座位信息
         List<HallCell> hallCells = hallCellMapper.selectList(
                 new LambdaQueryWrapper<HallCell>()
                         .in(HallCell::getId, dto.getSeatIds())
@@ -104,7 +149,6 @@ public class OrderServiceImpl implements OrderService {
         order.setStatus("pending");
         orderMapper.insert(order);
 
-        // 锁定座位
         for (ScheduleSeat seat : seats) {
             seat.setStatus("locked");
             seat.setLockedAt(LocalDateTime.now());
@@ -112,18 +156,21 @@ public class OrderServiceImpl implements OrderService {
             scheduleSeatMapper.updateById(seat);
         }
 
-        // TODO: 投递延迟消息 15分钟超时取消
         // TODO: SETBIT schedule:seat:occupied:{scheduleId} {seat_index} 1
 
         LockSeatResultVO vo = new LockSeatResultVO();
         BeanUtils.copyProperties(order, vo);
-        return Result.success(vo);
+        return vo;
     }
 
     @Override
     @Transactional
     public Result<PayResultVO> payOrder(Long userId, Long orderId, String requestId) {
-        // TODO: Redis 幂等校验 idempotent:{requestId}
+        // Redis 幂等校验
+        Object cached = idempotentService.getIfPresent(requestId);
+        if (cached != null) {
+            return Result.success((PayResultVO) cached);
+        }
 
         Order order = orderMapper.selectById(orderId);
         if (order == null || !order.getUserId().equals(userId)) {
@@ -153,7 +200,9 @@ public class OrderServiceImpl implements OrderService {
             scheduleSeatMapper.updateById(seat);
         }
 
-        // TODO: 取消延迟队列中的超时取消任务
+        // 取消延迟队列中的超时取消任务
+        orderTimeoutService.cancel(orderId);
+
         // TODO: SETBIT schedule:seat:sold:{scheduleId} {seat_index} 1
         // TODO: 异步发送支付成功通知
 
@@ -174,13 +223,18 @@ public class OrderServiceImpl implements OrderService {
         vo.setSeatInfo(order.getSeatInfo());
         vo.setTotalAmount(order.getTotalAmount());
 
+        idempotentService.put(requestId, vo);
         return Result.success(vo);
     }
 
     @Override
     @Transactional
     public Result<Void> cancelOrder(Long userId, Long orderId, String requestId) {
-        // TODO: Redis 幂等校验 idempotent:{requestId}
+        // Redis 幂等校验
+        Object cached = idempotentService.getIfPresent(requestId);
+        if (cached != null) {
+            return Result.success();
+        }
 
         Order order = orderMapper.selectById(orderId);
         if (order == null || !order.getUserId().equals(userId)) {
@@ -208,16 +262,23 @@ public class OrderServiceImpl implements OrderService {
         order.setCancelReason("用户主动取消");
         orderMapper.updateById(order);
 
-        // TODO: 取消延迟队列中的超时取消任务
+        // 取消延迟队列中的超时取消任务
+        orderTimeoutService.cancel(orderId);
+
         // TODO: SETBIT schedule:seat:occupied:{scheduleId} {seat_index} 0
 
+        idempotentService.put(requestId, "ok");
         return Result.success();
     }
 
     @Override
     @Transactional
     public Result<Void> refundOrder(Long userId, Long orderId, String requestId) {
-        // TODO: Redis 幂等校验 idempotent:{requestId}
+        // Redis 幂等校验
+        Object cached = idempotentService.getIfPresent(requestId);
+        if (cached != null) {
+            return Result.success();
+        }
 
         Order order = orderMapper.selectById(orderId);
         if (order == null || !order.getUserId().equals(userId)) {
@@ -257,6 +318,7 @@ public class OrderServiceImpl implements OrderService {
         // TODO: SETBIT schedule:seat:occupied:{scheduleId} {seat_index} 0
         // TODO: 异步发送退票成功通知
 
+        idempotentService.put(requestId, "ok");
         return Result.success();
     }
 
@@ -311,7 +373,8 @@ public class OrderServiceImpl implements OrderService {
         int remaining = ORDER_TIMEOUT_SECONDS - (int) java.time.Duration.between(order.getCreatedAt(), LocalDateTime.now()).getSeconds();
         if (remaining <= 0) {
             vo.setPending(false);
-            // TODO: 触发超时取消流程
+            // 异步触发超时取消
+            new Thread(() -> timeoutCancel(order.getId())).start();
             return Result.success(vo);
         }
 
@@ -380,6 +443,61 @@ public class OrderServiceImpl implements OrderService {
                 .collect(Collectors.toList());
 
         return Result.success(new PageResult<>(result.getTotal(), page, size, records));
+    }
+
+    @Override
+    @Transactional
+    public void timeoutCancel(Long orderId) {
+        Order order = orderMapper.selectById(orderId);
+        if (order == null) {
+            return;
+        }
+        // 幂等：已支付或已取消则跳过
+        if (!"pending".equals(order.getStatus())) {
+            log.info("Order {} already {}, skipping timeout cancel", orderId, order.getStatus());
+            return;
+        }
+
+        // 释放座位
+        List<ScheduleSeat> seats = scheduleSeatMapper.selectList(
+                new LambdaQueryWrapper<ScheduleSeat>()
+                        .eq(ScheduleSeat::getOrderId, orderId)
+                        .eq(ScheduleSeat::getStatus, "locked"));
+        for (ScheduleSeat seat : seats) {
+            seat.setStatus("available");
+            seat.setLockedAt(null);
+            seat.setOrderId(null);
+            scheduleSeatMapper.updateById(seat);
+        }
+
+        order.setStatus("cancelled");
+        order.setCancelledAt(LocalDateTime.now());
+        order.setCancelReason("超时取消");
+        orderMapper.updateById(order);
+
+        // TODO: SETBIT schedule:seat:occupied:{scheduleId} {seat_index} 0
+        // TODO: 异步发送超时取消通知
+
+        log.info("Order {} timeout cancelled", orderId);
+    }
+
+    @Override
+    @Transactional
+    public void cancelTimeoutOrders(LocalDateTime deadline) {
+        List<Order> timeoutOrders = orderMapper.selectList(
+                new LambdaQueryWrapper<Order>()
+                        .eq(Order::getStatus, "pending")
+                        .lt(Order::getCreatedAt, deadline));
+        for (Order order : timeoutOrders) {
+            try {
+                timeoutCancel(order.getId());
+            } catch (Exception e) {
+                log.error("Error cancelling timeout order {}", order.getId(), e);
+            }
+        }
+        if (!timeoutOrders.isEmpty()) {
+            log.info("Scanned and cancelled {} timeout orders", timeoutOrders.size());
+        }
     }
 
     private String generateOrderNo() {
