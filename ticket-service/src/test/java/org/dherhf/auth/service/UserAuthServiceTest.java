@@ -54,14 +54,14 @@ class UserAuthServiceTest {
     }
 
     private User createUser() {
-        User user = new User();
-        user.setId(1L);
-        user.setPhone(CryptoUtil.encrypt(PHONE));
-        user.setPhoneHash(CryptoUtil.sha256(PHONE));
-        user.setPassword(passwordEncoder.encode(PASSWORD));
-        user.setNickname("用户8000");
-        user.setStatus(1);
-        return user;
+        return User.builder()
+                .id(1L)
+                .phone(CryptoUtil.encrypt(PHONE))
+                .phoneHash(CryptoUtil.sha256(PHONE))
+                .password(passwordEncoder.encode(PASSWORD))
+                .nickname("用户8000")
+                .status(1)
+                .build();
     }
 
     @Nested
@@ -71,9 +71,7 @@ class UserAuthServiceTest {
         @Test
         @DisplayName("注册成功返回脱敏用户信息")
         void shouldRegisterSuccessfully() {
-            RegisterDTO request = new RegisterDTO();
-            request.setPhone(PHONE);
-            request.setPassword(PASSWORD);
+            RegisterDTO request = RegisterDTO.builder().phone(PHONE).password(PASSWORD).build();
 
             when(userMapper.selectCount(any())).thenReturn(0L);
             when(authHelper.maskPhone(PHONE)).thenReturn("138****8000");
@@ -88,9 +86,7 @@ class UserAuthServiceTest {
         @Test
         @DisplayName("手机号已注册抛出 409")
         void shouldThrow409WhenPhoneAlreadyRegistered() {
-            RegisterDTO request = new RegisterDTO();
-            request.setPhone(PHONE);
-            request.setPassword(PASSWORD);
+            RegisterDTO request = RegisterDTO.builder().phone(PHONE).password(PASSWORD).build();
 
             when(userMapper.selectCount(any())).thenReturn(1L);
 
@@ -111,9 +107,7 @@ class UserAuthServiceTest {
         @Test
         @DisplayName("登录成功返回 Token 和用户信息")
         void shouldLoginSuccessfully() {
-            LoginDTO request = new LoginDTO();
-            request.setPhone(PHONE);
-            request.setPassword(PASSWORD);
+            LoginDTO request = LoginDTO.builder().phone(PHONE).password(PASSWORD).build();
 
             User user = createUser();
 
@@ -133,9 +127,7 @@ class UserAuthServiceTest {
         @Test
         @DisplayName("账号锁定抛出 403")
         void shouldThrow403WhenAccountLocked() {
-            LoginDTO request = new LoginDTO();
-            request.setPhone(PHONE);
-            request.setPassword(PASSWORD);
+            LoginDTO request = LoginDTO.builder().phone(PHONE).password(PASSWORD).build();
 
             when(authHelper.isAccountLocked(anyString())).thenReturn(true);
 
@@ -150,9 +142,7 @@ class UserAuthServiceTest {
         @Test
         @DisplayName("用户不存在抛出 401")
         void shouldThrow401WhenUserNotFound() {
-            LoginDTO request = new LoginDTO();
-            request.setPhone(PHONE);
-            request.setPassword(PASSWORD);
+            LoginDTO request = LoginDTO.builder().phone(PHONE).password(PASSWORD).build();
 
             when(authHelper.isAccountLocked(anyString())).thenReturn(false);
             when(userMapper.selectOne(any())).thenReturn(null);
@@ -169,9 +159,7 @@ class UserAuthServiceTest {
         @Test
         @DisplayName("用户被禁用抛出 401")
         void shouldThrow401WhenUserDisabled() {
-            LoginDTO request = new LoginDTO();
-            request.setPhone(PHONE);
-            request.setPassword(PASSWORD);
+            LoginDTO request = LoginDTO.builder().phone(PHONE).password(PASSWORD).build();
 
             User user = createUser();
             user.setStatus(0);
@@ -191,9 +179,7 @@ class UserAuthServiceTest {
         @Test
         @DisplayName("密码错误抛出 401")
         void shouldThrow401WhenPasswordWrong() {
-            LoginDTO request = new LoginDTO();
-            request.setPhone(PHONE);
-            request.setPassword("wrong-password");
+            LoginDTO request = LoginDTO.builder().phone(PHONE).password("wrong-password").build();
 
             User user = createUser();
 

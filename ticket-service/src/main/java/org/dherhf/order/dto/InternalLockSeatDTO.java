@@ -3,10 +3,16 @@ package org.dherhf.order.dto;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+import lombok.Builder;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 import java.util.List;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class InternalLockSeatDTO {
 
     @NotNull(message = "用户ID不能为空")

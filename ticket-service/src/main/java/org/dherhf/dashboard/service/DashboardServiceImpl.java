@@ -7,8 +7,6 @@ import org.dherhf.dashboard.vo.DashboardTransactionVO;
 import org.dherhf.movie.vo.MovieRankingVO;
 import org.dherhf.order.entity.Order;
 import org.dherhf.order.mapper.OrderMapper;
-import org.dherhf.schedule.mapper.ScheduleMapper;
-import org.dherhf.schedule.mapper.ScheduleSeatMapper;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -26,8 +24,6 @@ import java.util.stream.Collectors;
 public class DashboardServiceImpl implements DashboardService {
 
     private final OrderMapper orderMapper;
-    private final ScheduleMapper scheduleMapper;
-    private final ScheduleSeatMapper scheduleSeatMapper;
 
     @Override
     public DashboardTransactionVO transactions(String period) {
@@ -39,43 +35,48 @@ public class DashboardServiceImpl implements DashboardService {
         List<Order> todayOrders = getPaidOrdersByDateRange(today.atStartOfDay(), today.plusDays(1).atStartOfDay());
         List<Order> yesterdayOrders = getPaidOrdersByDateRange(yesterday.atStartOfDay(), today.atStartOfDay());
 
-        DashboardTransactionVO vo = new DashboardTransactionVO();
+        long ticketCount = todayOrders.stream().mapToLong(Order::getTicketCount).sum();
+        BigDecimal transactionAmount = sum(todayOrders);
 
-        DashboardTransactionVO.TodayStats todayStats = new DashboardTransactionVO.TodayStats();
-        todayStats.setOrderCount((long) todayOrders.size());
-        todayStats.setTransactionAmount(sum(todayOrders));
-        todayStats.setTicketCount(todayOrders.stream().mapToLong(Order::getTicketCount).sum());
-        todayStats.setRefundCount(getRefundCountByDate(today));
-        todayStats.setConversionRate(calcConversionRate(todayOrders.size(), getTotalCountByDate(today)));
-        todayStats.setAvgTicketPrice(calcAvgTicketPrice(todayStats.getTicketCount(), todayStats.getTransactionAmount()));
-        todayStats.setPendingCount(getPendingCount());
-        todayStats.setTimeoutCancelRate(calcTimeoutCancelRate(today));
-        vo.setToday(todayStats);
+        DashboardTransactionVO.TodayStats todayStats = DashboardTransactionVO.TodayStats.builder()
+                .orderCount((long) todayOrders.size())
+                .transactionAmount(transactionAmount)
+                .ticketCount(ticketCount)
+                .refundCount(getRefundCountByDate(today))
+                .conversionRate(calcConversionRate(todayOrders.size(), getTotalCountByDate(today)))
+                .avgTicketPrice(calcAvgTicketPrice(ticketCount, transactionAmount))
+                .pendingCount(getPendingCount())
+                .timeoutCancelRate(calcTimeoutCancelRate(today))
+                .build();
 
-        DashboardTransactionVO.YesterdayCompare compare = new DashboardTransactionVO.YesterdayCompare();
         BigDecimal yesAmount = sum(yesterdayOrders);
         long yesTickets = yesterdayOrders.stream().mapToLong(Order::getTicketCount).sum();
-        compare.setOrderCountChange(calcChange(todayOrders.size(), yesterdayOrders.size()));
-        compare.setTransactionAmountChange(calcChange(todayStats.getTransactionAmount(), yesAmount));
-        compare.setTicketCountChange(calcChange(todayStats.getTicketCount(), yesTickets));
-        compare.setRefundCountChange(calcChange(getRefundCountByDate(today), getRefundCountByDate(yesterday)));
-        vo.setYesterdayCompare(compare);
+        DashboardTransactionVO.YesterdayCompare compare = DashboardTransactionVO.YesterdayCompare.builder()
+                .orderCountChange(calcChange(todayOrders.size(), yesterdayOrders.size()))
+                .transactionAmountChange(calcChange(transactionAmount, yesAmount))
+                .ticketCountChange(calcChange(ticketCount, yesTickets))
+                .refundCountChange(calcChange(getRefundCountByDate(today), getRefundCountByDate(yesterday)))
+                .build();
 
         List<DashboardTransactionVO.TrendItem> trend = new ArrayList<>();
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         for (int i = days - 1; i >= 0; i--) {
             LocalDate date = today.minusDays(i);
             List<Order> dayOrders = getPaidOrdersByDateRange(date.atStartOfDay(), date.plusDays(1).atStartOfDay());
-            DashboardTransactionVO.TrendItem item = new DashboardTransactionVO.TrendItem();
-            item.setDate(date.format(fmt));
-            item.setOrderCount((long) dayOrders.size());
-            item.setTransactionAmount(sum(dayOrders));
+            DashboardTransactionVO.TrendItem item = DashboardTransactionVO.TrendItem.builder()
+                    .date(date.format(fmt))
+                    .orderCount((long) dayOrders.size())
+                    .transactionAmount(sum(dayOrders))
+                    .build();
             trend.add(item);
         }
-        vo.setTrend(trend);
 
         // TODO: Redis 看板缓存 (5min TTL)
-        return vo;
+        return DashboardTransactionVO.builder()
+                .today(todayStats)
+                .yesterdayCompare(compare)
+                .trend(trend)
+                .build();
     }
 
     @Override
@@ -84,16 +85,13 @@ public class DashboardServiceImpl implements DashboardService {
         Map<String, List<Order>> byMovie = paidOrders.stream()
                 .collect(Collectors.groupingBy(Order::getMovieName));
 
-        List<MovieRankingVO> ranking = byMovie.entrySet().stream().map(entry -> {
-            MovieRankingVO vo = new MovieRankingVO();
-            vo.setMovieName(entry.getKey());
-            vo.setTicketCount(entry.getValue().stream().mapToLong(Order::getTicketCount).sum());
-            vo.setBoxOffice(sum(entry.getValue()));
-            vo.setOrderCount((long) entry.getValue().size());
-            // TODO: query schedule seat data
-            vo.setOccupancyRate(BigDecimal.ZERO);
-            return vo;
-        }).collect(Collectors.toList());
+        List<MovieRankingVO> ranking = byMovie.entrySet().stream().map(entry -> MovieRankingVO.builder()
+                .movieName(entry.getKey())
+                .ticketCount(entry.getValue().stream().mapToLong(Order::getTicketCount).sum())
+                .boxOffice(sum(entry.getValue()))
+                .orderCount((long) entry.getValue().size())
+                .occupancyRate(BigDecimal.ZERO)
+                .build()).collect(Collectors.toList());
 
         if ("boxOffice".equals(sortBy)) {
             ranking.sort((a, b) -> b.getBoxOffice().compareTo(a.getBoxOffice()));
@@ -114,26 +112,21 @@ public class DashboardServiceImpl implements DashboardService {
 
         BigDecimal totalBoxOffice = sum(paidOrders);
 
-        List<CinemaAnalysisVO> analysis = byCinema.entrySet().stream().map(entry -> {
-            CinemaAnalysisVO vo = new CinemaAnalysisVO();
-            vo.setCinemaName(entry.getKey());
-            vo.setOrderCount((long) entry.getValue().size());
-            vo.setTicketCount(entry.getValue().stream().mapToLong(Order::getTicketCount).sum());
-            BigDecimal boxOffice = sum(entry.getValue());
-            vo.setBoxOffice(boxOffice);
-            // TODO: Redis 看板缓存
-            vo.setOccupancyRate(BigDecimal.ZERO);
-            vo.setRefundRate(calcRefundRate(entry.getKey()));
-            if (totalBoxOffice.compareTo(BigDecimal.ZERO) > 0) {
-                vo.setBoxOfficeShare(boxOffice.divide(totalBoxOffice, 4, RoundingMode.HALF_UP));
-            } else {
-                vo.setBoxOfficeShare(BigDecimal.ZERO);
-            }
-            return vo;
-        }).collect(Collectors.toList());
-
         // TODO: Redis 看板缓存 (5min TTL)
-        return analysis;
+        return byCinema.entrySet().stream().map(entry -> {
+            BigDecimal boxOffice = sum(entry.getValue());
+            return CinemaAnalysisVO.builder()
+                    .cinemaName(entry.getKey())
+                    .orderCount((long) entry.getValue().size())
+                    .ticketCount(entry.getValue().stream().mapToLong(Order::getTicketCount).sum())
+                    .boxOffice(boxOffice)
+                    .occupancyRate(BigDecimal.ZERO)
+                    .refundRate(calcRefundRate(entry.getKey()))
+                    .boxOfficeShare(totalBoxOffice.compareTo(BigDecimal.ZERO) > 0
+                            ? boxOffice.divide(totalBoxOffice, 4, RoundingMode.HALF_UP)
+                            : BigDecimal.ZERO)
+                    .build();
+        }).collect(Collectors.toList());
     }
 
     private List<Order> getPaidOrdersByDateRange(LocalDateTime start, LocalDateTime end) {

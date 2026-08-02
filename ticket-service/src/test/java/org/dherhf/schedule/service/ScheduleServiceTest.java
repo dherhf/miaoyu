@@ -55,42 +55,23 @@ class ScheduleServiceTest {
 
     @BeforeEach
     void setUp() {
-        createDTO = new ScheduleCreateDTO();
-        createDTO.setMovieId(1L);
-        createDTO.setCinemaId(1L);
-        createDTO.setHallId(1L);
-        createDTO.setShowDate(LocalDate.of(2026, 8, 15));
-        createDTO.setStartTime(LocalTime.of(14, 0));
-        createDTO.setPrice(new BigDecimal("45.00"));
-        createDTO.setLanguageVersion("国语");
+        createDTO = ScheduleCreateDTO.builder().movieId(1L).cinemaId(1L).hallId(1L).showDate(LocalDate.of(2026, 8, 15)).startTime(LocalTime.of(14, 0)).price(new BigDecimal("45.00")).languageVersion("国语").build();
     }
 
     @Test
     void createSchedule_success() {
         System.out.println("[ScheduleServiceTest] ▶ createSchedule_success");
-        Movie movie = new Movie();
-        movie.setId(1L);
-        movie.setStatus(1);
-        movie.setDuration(120);
+        Movie movie = Movie.builder().id(1L).status(1).duration(120).build();
         when(movieMapper.selectById(1L)).thenReturn(movie);
 
-        Cinema cinema = new Cinema();
-        cinema.setId(1L);
-        cinema.setStatus(1);
+        Cinema cinema = Cinema.builder().id(1L).status(1).build();
         when(cinemaMapper.selectById(1L)).thenReturn(cinema);
 
-        Hall hall = new Hall();
-        hall.setId(1L);
-        hall.setCinemaId(1L);
-        hall.setStatus(1);
+        Hall hall = Hall.builder().id(1L).cinemaId(1L).status(1).build();
         when(hallMapper.selectById(1L)).thenReturn(hall);
 
-        HallCell cell1 = new HallCell();
-        cell1.setId(10L);
-        cell1.setCellType("seat");
-        HallCell cell2 = new HallCell();
-        cell2.setId(11L);
-        cell2.setCellType("seat");
+        HallCell cell1 = HallCell.builder().id(10L).cellType("seat").build();
+        HallCell cell2 = HallCell.builder().id(11L).cellType("seat").build();
         when(hallCellMapper.selectList(any())).thenReturn(List.of(cell1, cell2));
 
         when(scheduleMapper.selectList(any())).thenReturn(List.of());
@@ -107,9 +88,7 @@ class ScheduleServiceTest {
     @Test
     void createSchedule_movieNotPublished_throws400() {
         System.out.println("[ScheduleServiceTest] ▶ createSchedule_movieNotPublished_throws400");
-        Movie movie = new Movie();
-        movie.setId(1L);
-        movie.setStatus(0);
+        Movie movie = Movie.builder().id(1L).status(0).build();
         when(movieMapper.selectById(1L)).thenReturn(movie);
 
         BusinessException ex = assertThrows(BusinessException.class,
@@ -123,21 +102,13 @@ class ScheduleServiceTest {
         System.out.println("[ScheduleServiceTest] ▶ createSchedule_pastDate_throws400");
         createDTO.setShowDate(LocalDate.of(2020, 1, 1));
 
-        Movie movie = new Movie();
-        movie.setId(1L);
-        movie.setStatus(1);
-        movie.setDuration(120);
+        Movie movie = Movie.builder().id(1L).status(1).duration(120).build();
         when(movieMapper.selectById(1L)).thenReturn(movie);
 
-        Cinema cinema = new Cinema();
-        cinema.setId(1L);
-        cinema.setStatus(1);
+        Cinema cinema = Cinema.builder().id(1L).status(1).build();
         when(cinemaMapper.selectById(1L)).thenReturn(cinema);
 
-        Hall hall = new Hall();
-        hall.setId(1L);
-        hall.setCinemaId(1L);
-        hall.setStatus(1);
+        Hall hall = Hall.builder().id(1L).cinemaId(1L).status(1).build();
         when(hallMapper.selectById(1L)).thenReturn(hall);
 
         BusinessException ex = assertThrows(BusinessException.class,
@@ -160,9 +131,7 @@ class ScheduleServiceTest {
     @Test
     void cancelSchedule_hasSoldSeats_throws409() {
         System.out.println("[ScheduleServiceTest] ▶ cancelSchedule_hasSoldSeats_throws409");
-        Schedule schedule = new Schedule();
-        schedule.setId(1L);
-        schedule.setStatus("onsale");
+        Schedule schedule = Schedule.builder().id(1L).status("onsale").build();
         when(scheduleMapper.selectById(1L)).thenReturn(schedule);
         when(scheduleSeatMapper.selectCount(any())).thenReturn(2L);
 
@@ -175,9 +144,7 @@ class ScheduleServiceTest {
     @Test
     void endSchedule_alreadyEnded_noOp() {
         System.out.println("[ScheduleServiceTest] ▶ endSchedule_alreadyEnded_noOp");
-        Schedule schedule = new Schedule();
-        schedule.setId(1L);
-        schedule.setStatus("ended");
+        Schedule schedule = Schedule.builder().id(1L).status("ended").build();
         when(scheduleMapper.selectById(1L)).thenReturn(schedule);
 
         scheduleService.endSchedule(1L);
@@ -189,9 +156,7 @@ class ScheduleServiceTest {
     @Test
     void userDetail_notOnsale_throws404() {
         System.out.println("[ScheduleServiceTest] ▶ userDetail_notOnsale_throws404");
-        Schedule schedule = new Schedule();
-        schedule.setId(1L);
-        schedule.setStatus("cancelled");
+        Schedule schedule = Schedule.builder().id(1L).status("cancelled").build();
         when(scheduleMapper.selectById(1L)).thenReturn(schedule);
 
         BusinessException ex = assertThrows(BusinessException.class,
@@ -203,39 +168,18 @@ class ScheduleServiceTest {
     @Test
     void getSeatMap_success() {
         System.out.println("[ScheduleServiceTest] ▶ getSeatMap_success");
-        Schedule schedule = new Schedule();
-        schedule.setId(1L);
-        schedule.setHallId(1L);
-        schedule.setStatus("onsale");
-        schedule.setTotalSeats(2);
+        Schedule schedule = Schedule.builder().id(1L).hallId(1L).status("onsale").totalSeats(2).build();
         when(scheduleMapper.selectById(1L)).thenReturn(schedule);
 
-        Hall hall = new Hall();
-        hall.setId(1L);
-        hall.setTotalRows(2);
-        hall.setTotalCols(2);
+        Hall hall = Hall.builder().id(1L).totalRows(2).totalCols(2).build();
         when(hallMapper.selectById(1L)).thenReturn(hall);
 
-        ScheduleSeat ss1 = new ScheduleSeat();
-        ss1.setSeatIndex(0);
-        ss1.setHallCellId(10L);
-        ss1.setStatus("available");
-        ScheduleSeat ss2 = new ScheduleSeat();
-        ss2.setSeatIndex(1);
-        ss2.setHallCellId(11L);
-        ss2.setStatus("sold");
+        ScheduleSeat ss1 = ScheduleSeat.builder().seatIndex(0).hallCellId(10L).status("available").build();
+        ScheduleSeat ss2 = ScheduleSeat.builder().seatIndex(1).hallCellId(11L).status("sold").build();
         when(scheduleSeatMapper.selectList(any())).thenReturn(List.of(ss1, ss2));
 
-        HallCell hc1 = new HallCell();
-        hc1.setId(10L);
-        hc1.setRowIndex(1);
-        hc1.setColIndex(1);
-        hc1.setSeatLabel("A1");
-        HallCell hc2 = new HallCell();
-        hc2.setId(11L);
-        hc2.setRowIndex(1);
-        hc2.setColIndex(2);
-        hc2.setSeatLabel("A2");
+        HallCell hc1 = HallCell.builder().id(10L).rowIndex(1).colIndex(1).seatLabel("A1").build();
+        HallCell hc2 = HallCell.builder().id(11L).rowIndex(1).colIndex(2).seatLabel("A2").build();
         when(hallCellMapper.selectList(any())).thenReturn(List.of(hc1, hc2));
 
         SeatMapVO result = scheduleService.getSeatMap(1L);

@@ -37,13 +37,14 @@ class MovieServiceTest {
 
     @BeforeEach
     void setUp() {
-        createDTO = new MovieCreateDTO();
-        createDTO.setName("流浪地球3");
-        createDTO.setTypes(List.of("科幻", "动作"));
-        createDTO.setPosterUrl("https://example.com/poster.jpg");
-        createDTO.setRating(new BigDecimal("9.2"));
-        createDTO.setDuration(173);
-        createDTO.setReleaseDate(LocalDate.of(2026, 1, 29));
+        createDTO = MovieCreateDTO.builder()
+                .name("流浪地球3")
+                .types(List.of("科幻", "动作"))
+                .posterUrl("https://example.com/poster.jpg")
+                .rating(new BigDecimal("9.2"))
+                .duration(173)
+                .releaseDate(LocalDate.of(2026, 1, 29))
+                .build();
     }
 
     @Test
@@ -74,9 +75,10 @@ class MovieServiceTest {
     @Test
     void publishMovie_success() {
         System.out.println("[MovieServiceTest] ▶ publishMovie_success");
-        Movie movie = new Movie();
-        movie.setId(1L);
-        movie.setStatus(0);
+        Movie movie = Movie.builder()
+                .id(1L)
+                .status(0)
+                .build();
         when(movieMapper.selectById(1L)).thenReturn(movie);
         when(movieMapper.updateById(any(Movie.class))).thenReturn(1);
 
@@ -89,9 +91,10 @@ class MovieServiceTest {
     @Test
     void publishMovie_alreadyPublished_noOp() {
         System.out.println("[MovieServiceTest] ▶ publishMovie_alreadyPublished_noOp");
-        Movie movie = new Movie();
-        movie.setId(1L);
-        movie.setStatus(1);
+        Movie movie = Movie.builder()
+                .id(1L)
+                .status(1)
+                .build();
         when(movieMapper.selectById(1L)).thenReturn(movie);
 
         movieService.publishMovie(1L);
@@ -114,9 +117,10 @@ class MovieServiceTest {
     @Test
     void unpublishMovie_hasActiveSchedules_throws409() {
         System.out.println("[MovieServiceTest] ▶ unpublishMovie_hasActiveSchedules_throws409");
-        Movie movie = new Movie();
-        movie.setId(1L);
-        movie.setStatus(1);
+        Movie movie = Movie.builder()
+                .id(1L)
+                .status(1)
+                .build();
         when(movieMapper.selectById(1L)).thenReturn(movie);
         when(scheduleMapper.selectCount(any())).thenReturn(3L);
 
@@ -129,9 +133,10 @@ class MovieServiceTest {
     @Test
     void unpublishMovie_noActiveSchedules_success() {
         System.out.println("[MovieServiceTest] ▶ unpublishMovie_noActiveSchedules_success");
-        Movie movie = new Movie();
-        movie.setId(1L);
-        movie.setStatus(1);
+        Movie movie = Movie.builder()
+                .id(1L)
+                .status(1)
+                .build();
         when(movieMapper.selectById(1L)).thenReturn(movie);
         when(scheduleMapper.selectCount(any())).thenReturn(0L);
         when(movieMapper.updateById(any(Movie.class))).thenReturn(1);
@@ -147,13 +152,14 @@ class MovieServiceTest {
         System.out.println("[MovieServiceTest] ▶ updateMovie_notFound_throws404");
         when(movieMapper.selectById(1L)).thenReturn(null);
 
-        MovieUpdateDTO dto = new MovieUpdateDTO();
-        dto.setName("test");
-        dto.setTypes(List.of("action"));
-        dto.setPosterUrl("url");
-        dto.setRating(BigDecimal.TEN);
-        dto.setDuration(120);
-        dto.setReleaseDate(LocalDate.now());
+        MovieUpdateDTO dto = MovieUpdateDTO.builder()
+                .name("test")
+                .types(List.of("action"))
+                .posterUrl("url")
+                .rating(BigDecimal.TEN)
+                .duration(120)
+                .releaseDate(LocalDate.now())
+                .build();
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> movieService.updateMovie(1L, dto));
@@ -164,9 +170,10 @@ class MovieServiceTest {
     @Test
     void userDetail_notPublished_throws404() {
         System.out.println("[MovieServiceTest] ▶ userDetail_notPublished_throws404");
-        Movie movie = new Movie();
-        movie.setId(1L);
-        movie.setStatus(0);
+        Movie movie = Movie.builder()
+                .id(1L)
+                .status(0)
+                .build();
         when(movieMapper.selectById(1L)).thenReturn(movie);
 
         BusinessException ex = assertThrows(BusinessException.class,
@@ -178,10 +185,11 @@ class MovieServiceTest {
     @Test
     void userDetail_published_success() {
         System.out.println("[MovieServiceTest] ▶ userDetail_published_success");
-        Movie movie = new Movie();
-        movie.setId(1L);
-        movie.setStatus(1);
-        movie.setName("测试影片");
+        Movie movie = Movie.builder()
+                .id(1L)
+                .status(1)
+                .name("测试影片")
+                .build();
         when(movieMapper.selectById(1L)).thenReturn(movie);
 
         MovieVO result = movieService.userDetail(1L);

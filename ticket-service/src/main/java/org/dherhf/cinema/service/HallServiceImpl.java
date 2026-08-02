@@ -186,13 +186,14 @@ public class HallServiceImpl implements HallService {
                 new LambdaQueryWrapper<HallCell>().eq(HallCell::getHallId, id));
 
         for (CellDTO cellDTO : dto.getCells()) {
-            HallCell cell = new HallCell();
-            cell.setHallId(id);
-            cell.setRowIndex(cellDTO.getRowIndex());
-            cell.setColIndex(cellDTO.getColIndex());
-            cell.setCellType(cellDTO.getCellType());
-            cell.setSeatLabel(cellDTO.getSeatLabel());
-            cell.setSeatCategory(cellDTO.getSeatCategory());
+            HallCell cell = HallCell.builder()
+                    .hallId(id)
+                    .rowIndex(cellDTO.getRowIndex())
+                    .colIndex(cellDTO.getColIndex())
+                    .cellType(cellDTO.getCellType())
+                    .seatLabel(cellDTO.getSeatLabel())
+                    .seatCategory(cellDTO.getSeatCategory())
+                    .build();
             hallCellMapper.insert(cell);
         }
 
@@ -207,12 +208,11 @@ public class HallServiceImpl implements HallService {
 
         Hall updated = hallMapper.selectById(id);
 
-        LayoutResultVO result = new LayoutResultVO();
-        result.setHallId(id);
-        result.setTotalSeats(totalSeats);
-        result.setUpdatedAt(updated.getUpdatedAt());
-
-        return result;
+        return LayoutResultVO.builder()
+                .hallId(id)
+                .totalSeats(totalSeats)
+                .updatedAt(updated.getUpdatedAt())
+                .build();
     }
 
     private HallVO toVO(Hall hall) {

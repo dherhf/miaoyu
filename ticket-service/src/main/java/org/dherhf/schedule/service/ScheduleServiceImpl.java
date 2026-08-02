@@ -94,11 +94,12 @@ public class ScheduleServiceImpl implements ScheduleService {
         // 批量生成场次座位
         int seatIndex = 0;
         for (HallCell cell : seatCells) {
-            ScheduleSeat ss = new ScheduleSeat();
-            ss.setScheduleId(schedule.getId());
-            ss.setHallCellId(cell.getId());
-            ss.setSeatIndex(seatIndex++);
-            ss.setStatus("available");
+            ScheduleSeat ss = ScheduleSeat.builder()
+                    .scheduleId(schedule.getId())
+                    .hallCellId(cell.getId())
+                    .seatIndex(seatIndex++)
+                    .status("available")
+                    .build();
             scheduleSeatMapper.insert(ss);
         }
 
@@ -162,11 +163,12 @@ public class ScheduleServiceImpl implements ScheduleService {
             schedule.setTotalSeats(seatCells.size());
             int seatIndex = 0;
             for (HallCell cell : seatCells) {
-                ScheduleSeat ss = new ScheduleSeat();
-                ss.setScheduleId(id);
-                ss.setHallCellId(cell.getId());
-                ss.setSeatIndex(seatIndex++);
-                ss.setStatus("available");
+                ScheduleSeat ss = ScheduleSeat.builder()
+                        .scheduleId(id)
+                        .hallCellId(cell.getId())
+                        .seatIndex(seatIndex++)
+                        .status("available")
+                        .build();
                 scheduleSeatMapper.insert(ss);
             }
 
@@ -345,36 +347,44 @@ public class ScheduleServiceImpl implements ScheduleService {
         List<SeatVO> seats = new ArrayList<>();
         int availableCount = 0;
         for (ScheduleSeat ss : scheduleSeats) {
-            SeatVO seatVO = new SeatVO();
-            seatVO.setSeatIndex(ss.getSeatIndex());
-            seatVO.setStatus(ss.getStatus());
+            Integer rowIndex = null;
+            Integer colIndex = null;
+            String seatLabel = null;
+            String seatCategory = null;
             for (HallCell hc : hallCells) {
                 if (hc.getId().equals(ss.getHallCellId())) {
-                    seatVO.setRowIndex(hc.getRowIndex());
-                    seatVO.setColIndex(hc.getColIndex());
-                    seatVO.setSeatLabel(hc.getSeatLabel());
-                    seatVO.setSeatCategory(hc.getSeatCategory());
+                    rowIndex = hc.getRowIndex();
+                    colIndex = hc.getColIndex();
+                    seatLabel = hc.getSeatLabel();
+                    seatCategory = hc.getSeatCategory();
                     break;
                 }
             }
+            SeatVO seatVO = SeatVO.builder()
+                    .seatIndex(ss.getSeatIndex())
+                    .status(ss.getStatus())
+                    .rowIndex(rowIndex)
+                    .colIndex(colIndex)
+                    .seatLabel(seatLabel)
+                    .seatCategory(seatCategory)
+                    .build();
             if ("available".equals(ss.getStatus())) {
                 availableCount++;
             }
             seats.add(seatVO);
         }
 
-        SeatMapVO vo = new SeatMapVO();
-        vo.setScheduleId(id);
-        vo.setHallId(schedule.getHallId());
-        vo.setTotalRows(hall != null ? hall.getTotalRows() : 0);
-        vo.setTotalCols(hall != null ? hall.getTotalCols() : 0);
-        vo.setTotalSeats(schedule.getTotalSeats());
-        vo.setAvailableSeats(availableCount);
-        vo.setSeats(seats);
-
         // TODO: 座位状态优先从 Redis Bitmap 获取，缓存未命中时从 MySQL 重建并回写
 
-        return vo;
+        return SeatMapVO.builder()
+                .scheduleId(id)
+                .hallId(schedule.getHallId())
+                .totalRows(hall != null ? hall.getTotalRows() : 0)
+                .totalCols(hall != null ? hall.getTotalCols() : 0)
+                .totalSeats(schedule.getTotalSeats())
+                .availableSeats(availableCount)
+                .seats(seats)
+                .build();
     }
 
     private void checkConflict(Long hallId, LocalDate showDate, LocalTime startTime, LocalTime endTime, Long excludeId) {

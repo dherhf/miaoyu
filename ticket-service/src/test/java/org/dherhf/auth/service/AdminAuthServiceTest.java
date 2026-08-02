@@ -46,13 +46,13 @@ class AdminAuthServiceTest {
     private static final String PASSWORD = "password123";
 
     private Admin createAdmin() {
-        Admin admin = new Admin();
-        admin.setId(1L);
-        admin.setName("管理员");
-        admin.setPhoneHash(CryptoUtil.sha256(PHONE));
-        admin.setPassword(passwordEncoder.encode(PASSWORD));
-        admin.setStatus(1);
-        return admin;
+        return Admin.builder()
+                .id(1L)
+                .name("管理员")
+                .phoneHash(CryptoUtil.sha256(PHONE))
+                .password(passwordEncoder.encode(PASSWORD))
+                .status(1)
+                .build();
     }
 
     @Nested
@@ -62,9 +62,7 @@ class AdminAuthServiceTest {
         @Test
         @DisplayName("登录成功返回 Token 和管理员信息")
         void shouldLoginSuccessfully() {
-            LoginDTO request = new LoginDTO();
-            request.setPhone(PHONE);
-            request.setPassword(PASSWORD);
+            LoginDTO request = LoginDTO.builder().phone(PHONE).password(PASSWORD).build();
 
             Admin admin = createAdmin();
 
@@ -83,9 +81,7 @@ class AdminAuthServiceTest {
         @Test
         @DisplayName("账号锁定抛出 403")
         void shouldThrow403WhenAccountLocked() {
-            LoginDTO request = new LoginDTO();
-            request.setPhone(PHONE);
-            request.setPassword(PASSWORD);
+            LoginDTO request = LoginDTO.builder().phone(PHONE).password(PASSWORD).build();
 
             when(authHelper.isAccountLocked(anyString())).thenReturn(true);
 
@@ -100,9 +96,7 @@ class AdminAuthServiceTest {
         @Test
         @DisplayName("管理员不存在抛出 401")
         void shouldThrow401WhenAdminNotFound() {
-            LoginDTO request = new LoginDTO();
-            request.setPhone(PHONE);
-            request.setPassword(PASSWORD);
+            LoginDTO request = LoginDTO.builder().phone(PHONE).password(PASSWORD).build();
 
             when(authHelper.isAccountLocked(anyString())).thenReturn(false);
             when(adminMapper.selectOne(any())).thenReturn(null);
@@ -119,9 +113,7 @@ class AdminAuthServiceTest {
         @Test
         @DisplayName("管理员被禁用抛出 401")
         void shouldThrow401WhenAdminDisabled() {
-            LoginDTO request = new LoginDTO();
-            request.setPhone(PHONE);
-            request.setPassword(PASSWORD);
+            LoginDTO request = LoginDTO.builder().phone(PHONE).password(PASSWORD).build();
 
             Admin admin = createAdmin();
             admin.setStatus(0);
@@ -141,9 +133,7 @@ class AdminAuthServiceTest {
         @Test
         @DisplayName("密码错误抛出 401")
         void shouldThrow401WhenPasswordWrong() {
-            LoginDTO request = new LoginDTO();
-            request.setPhone(PHONE);
-            request.setPassword("wrong-password");
+            LoginDTO request = LoginDTO.builder().phone(PHONE).password("wrong-password").build();
 
             Admin admin = createAdmin();
 

@@ -47,18 +47,10 @@ class AdminOrderServiceTest {
     @Test
     void detail_success() {
         System.out.println("[AdminOrderServiceTest] ▶ detail_success");
-        Order order = new Order();
-        order.setId(1L);
-        order.setUserId(1L);
-        order.setStatus("paid");
-        order.setOrderNo("20260730100001");
-        order.setMovieName("流浪地球3");
-        order.setCinemaName("万达影城");
+        Order order = Order.builder().id(1L).userId(1L).status("paid").orderNo("20260730100001").movieName("流浪地球3").cinemaName("万达影城").build();
         when(orderMapper.selectById(1L)).thenReturn(order);
 
-        User user = new User();
-        user.setId(1L);
-        user.setPhone("encrypted_phone_data");
+        User user = User.builder().id(1L).phone("encrypted_phone_data").build();
         when(userMapper.selectById(1L)).thenReturn(user);
 
         when(scheduleSeatMapper.selectList(any())).thenReturn(java.util.List.of());

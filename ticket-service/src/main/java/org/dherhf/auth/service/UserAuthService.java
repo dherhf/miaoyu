@@ -53,22 +53,22 @@ public class UserAuthService {
             throw new BusinessException(409, "该手机号已注册");
         }
 
-        User user = new User();
-        user.setPhone(CryptoUtil.encrypt(phone));
-        user.setPhoneHash(phoneHash);
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setNickname("用户" + phone.substring(phone.length() - 4));
-        user.setStatus(1);
+        User user = User.builder()
+                .phone(CryptoUtil.encrypt(phone))
+                .phoneHash(phoneHash)
+                .password(passwordEncoder.encode(request.getPassword()))
+                .nickname("用户" + phone.substring(phone.length() - 4))
+                .status(1)
+                .build();
         userMapper.insert(user);
 
-        UserInfoVO vo = new UserInfoVO();
-        vo.setId(user.getId());
-        vo.setPhone(authHelper.maskPhone(phone));
-        vo.setNickname(user.getNickname());
-        vo.setStatus(user.getStatus());
-        vo.setCreatedAt(user.getCreatedAt());
-
-        return vo;
+        return UserInfoVO.builder()
+                .id(user.getId())
+                .phone(authHelper.maskPhone(phone))
+                .nickname(user.getNickname())
+                .status(user.getStatus())
+                .createdAt(user.getCreatedAt())
+                .build();
     }
 
     /**
@@ -107,17 +107,17 @@ public class UserAuthService {
         String token = jwtUtil.generateToken(user.getId(), "user");
         authHelper.clearLoginFailure(failKey);
 
-        UserInfoVO userInfo = new UserInfoVO();
-        userInfo.setId(user.getId());
-        userInfo.setPhone(authHelper.maskPhone(phone));
-        userInfo.setNickname(user.getNickname());
-        userInfo.setStatus(user.getStatus());
+        UserInfoVO userInfo = UserInfoVO.builder()
+                .id(user.getId())
+                .phone(authHelper.maskPhone(phone))
+                .nickname(user.getNickname())
+                .status(user.getStatus())
+                .build();
 
-        LoginVO response = new LoginVO();
-        response.setToken(token);
-        response.setUserInfo(userInfo);
-
-        return response;
+        return LoginVO.builder()
+                .token(token)
+                .userInfo(userInfo)
+                .build();
     }
 
     /**
@@ -136,13 +136,12 @@ public class UserAuthService {
             throw new BusinessException(404, "用户不存在");
         }
 
-        UserInfoVO vo = new UserInfoVO();
-        vo.setId(user.getId());
-        vo.setPhone(authHelper.maskPhone(CryptoUtil.decrypt(user.getPhone())));
-        vo.setNickname(user.getNickname());
-        vo.setStatus(user.getStatus());
-        vo.setCreatedAt(user.getCreatedAt());
-
-        return vo;
+        return UserInfoVO.builder()
+                .id(user.getId())
+                .phone(authHelper.maskPhone(CryptoUtil.decrypt(user.getPhone())))
+                .nickname(user.getNickname())
+                .status(user.getStatus())
+                .createdAt(user.getCreatedAt())
+                .build();
     }
 }

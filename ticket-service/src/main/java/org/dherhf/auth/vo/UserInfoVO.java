@@ -1,6 +1,9 @@
 package org.dherhf.auth.vo;
 
 import lombok.Data;
+import lombok.Builder;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 import java.time.LocalDateTime;
 
@@ -8,6 +11,9 @@ import java.time.LocalDateTime;
  * 用户信息视图对象,手机号已脱敏。
  */
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class UserInfoVO {
 
     /** 用户 ID */

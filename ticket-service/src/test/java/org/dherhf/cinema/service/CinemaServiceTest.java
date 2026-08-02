@@ -37,11 +37,12 @@ class CinemaServiceTest {
 
     @BeforeEach
     void setUp() {
-        createDTO = new CinemaCreateDTO();
-        createDTO.setName("万达影城");
-        createDTO.setAddress("北京市朝阳区");
-        createDTO.setLongitude(new BigDecimal("116.5187200"));
-        createDTO.setLatitude(new BigDecimal("39.9257800"));
+        createDTO = CinemaCreateDTO.builder()
+                .name("万达影城")
+                .address("北京市朝阳区")
+                .longitude(new BigDecimal("116.5187200"))
+                .latitude(new BigDecimal("39.9257800"))
+                .build();
     }
 
     @Test
@@ -71,9 +72,7 @@ class CinemaServiceTest {
     @Test
     void closeCinema_success() {
         System.out.println("[CinemaServiceTest] ▶ closeCinema_success");
-        Cinema cinema = new Cinema();
-        cinema.setId(1L);
-        cinema.setStatus(1);
+        Cinema cinema = Cinema.builder().id(1L).status(1).build();
         when(cinemaMapper.selectById(1L)).thenReturn(cinema);
         when(cinemaMapper.updateById(any(Cinema.class))).thenReturn(1);
 
@@ -86,9 +85,7 @@ class CinemaServiceTest {
     @Test
     void closeCinema_alreadyClosed_noOp() {
         System.out.println("[CinemaServiceTest] ▶ closeCinema_alreadyClosed_noOp");
-        Cinema cinema = new Cinema();
-        cinema.setId(1L);
-        cinema.setStatus(0);
+        Cinema cinema = Cinema.builder().id(1L).status(0).build();
         when(cinemaMapper.selectById(1L)).thenReturn(cinema);
 
         cinemaService.closeCinema(1L);
@@ -111,9 +108,7 @@ class CinemaServiceTest {
     @Test
     void openCinema_success() {
         System.out.println("[CinemaServiceTest] ▶ openCinema_success");
-        Cinema cinema = new Cinema();
-        cinema.setId(1L);
-        cinema.setStatus(0);
+        Cinema cinema = Cinema.builder().id(1L).status(0).build();
         when(cinemaMapper.selectById(1L)).thenReturn(cinema);
         when(cinemaMapper.updateById(any(Cinema.class))).thenReturn(1);
 
@@ -126,9 +121,7 @@ class CinemaServiceTest {
     @Test
     void userDetail_closed_throws404() {
         System.out.println("[CinemaServiceTest] ▶ userDetail_closed_throws404");
-        Cinema cinema = new Cinema();
-        cinema.setId(1L);
-        cinema.setStatus(0);
+        Cinema cinema = Cinema.builder().id(1L).status(0).build();
         when(cinemaMapper.selectById(1L)).thenReturn(cinema);
 
         BusinessException ex = assertThrows(BusinessException.class,

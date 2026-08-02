@@ -32,10 +32,11 @@ public class UserPreferenceServiceImpl implements UserPreferenceService {
         UserPreference preference = userPreferenceMapper.selectOne(
                 new LambdaQueryWrapper<UserPreference>().eq(UserPreference::getUserId, userId));
         if (preference == null) {
-            preference = new UserPreference();
-            preference.setUserId(userId);
+            preference = UserPreference.builder()
+                    .userId(userId)
+                    .updatedAt(LocalDateTime.now())
+                    .build();
             BeanUtils.copyProperties(dto, preference);
-            preference.setUpdatedAt(LocalDateTime.now());
             userPreferenceMapper.insert(preference);
         } else {
             BeanUtils.copyProperties(dto, preference);

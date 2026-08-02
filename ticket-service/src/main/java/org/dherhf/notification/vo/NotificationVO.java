@@ -1,10 +1,16 @@
 package org.dherhf.notification.vo;
 
 import lombok.Data;
+import lombok.Builder;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 import java.time.LocalDateTime;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class NotificationVO {
 
     private Long id;

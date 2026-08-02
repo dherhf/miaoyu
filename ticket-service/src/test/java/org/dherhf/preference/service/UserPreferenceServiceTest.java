@@ -40,12 +40,7 @@ class UserPreferenceServiceTest {
     @Test
     void getPreference_found_returnsData() {
         System.out.println("[UserPreferenceServiceTest] ▶ getPreference_found_returnsData");
-        UserPreference pref = new UserPreference();
-        pref.setUserId(1L);
-        pref.setPreferredHallType("IMAX");
-        pref.setPriceMin(new BigDecimal("20"));
-        pref.setPriceMax(new BigDecimal("60"));
-        pref.setPreferredMovieTypes(List.of("科幻", "喜剧"));
+        UserPreference pref = UserPreference.builder().userId(1L).preferredHallType("IMAX").priceMin(new BigDecimal("20")).priceMax(new BigDecimal("60")).preferredMovieTypes(List.of("科幻", "喜剧")).build();
         when(userPreferenceMapper.selectOne(any())).thenReturn(pref);
 
         PreferenceVO result = userPreferenceService.getPreference(1L);
@@ -60,8 +55,7 @@ class UserPreferenceServiceTest {
         when(userPreferenceMapper.selectOne(any())).thenReturn(null);
         when(userPreferenceMapper.insert(any(UserPreference.class))).thenReturn(1);
 
-        PreferenceUpdateDTO dto = new PreferenceUpdateDTO();
-        dto.setPreferredHallType("IMAX");
+        PreferenceUpdateDTO dto = PreferenceUpdateDTO.builder().preferredHallType("IMAX").build();
 
         PreferenceVO result = userPreferenceService.updatePreference(1L, dto);
 
@@ -73,15 +67,11 @@ class UserPreferenceServiceTest {
     @Test
     void updatePreference_updatesExisting() {
         System.out.println("[UserPreferenceServiceTest] ▶ updatePreference_updatesExisting");
-        UserPreference pref = new UserPreference();
-        pref.setId(1L);
-        pref.setUserId(1L);
-        pref.setPreferredHallType("2D");
+        UserPreference pref = UserPreference.builder().id(1L).userId(1L).preferredHallType("2D").build();
         when(userPreferenceMapper.selectOne(any())).thenReturn(pref);
         when(userPreferenceMapper.updateById(any(UserPreference.class))).thenReturn(1);
 
-        PreferenceUpdateDTO dto = new PreferenceUpdateDTO();
-        dto.setPreferredHallType("IMAX");
+        PreferenceUpdateDTO dto = PreferenceUpdateDTO.builder().preferredHallType("IMAX").build();
 
         PreferenceVO result = userPreferenceService.updatePreference(1L, dto);
 

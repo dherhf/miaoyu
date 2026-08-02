@@ -1,11 +1,17 @@
 package org.dherhf.dashboard.vo;
 
 import lombok.Data;
+import lombok.Builder;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class DashboardTransactionVO {
 
     private TodayStats today;
@@ -13,6 +19,9 @@ public class DashboardTransactionVO {
     private List<TrendItem> trend;
 
     @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class TodayStats {
         private Long orderCount;
         private BigDecimal transactionAmount;
@@ -25,6 +34,9 @@ public class DashboardTransactionVO {
     }
 
     @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class YesterdayCompare {
         private BigDecimal orderCountChange;
         private BigDecimal transactionAmountChange;
@@ -33,6 +45,9 @@ public class DashboardTransactionVO {
     }
 
     @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class TrendItem {
         private String date;
         private Long orderCount;

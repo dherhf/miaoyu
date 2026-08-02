@@ -49,18 +49,17 @@ class HallServiceTest {
 
     @BeforeEach
     void setUp() {
-        createDTO = new HallCreateDTO();
-        createDTO.setCinemaId(1L);
-        createDTO.setName("IMAX 1号厅");
-        createDTO.setScreenType("IMAX");
+        createDTO = HallCreateDTO.builder()
+                .cinemaId(1L)
+                .name("IMAX 1号厅")
+                .screenType("IMAX")
+                .build();
     }
 
     @Test
     void createHall_success() {
         System.out.println("[HallServiceTest] ▶ createHall_success");
-        Cinema cinema = new Cinema();
-        cinema.setId(1L);
-        cinema.setStatus(1);
+        Cinema cinema = Cinema.builder().id(1L).status(1).build();
         when(cinemaMapper.selectById(1L)).thenReturn(cinema);
         when(hallMapper.selectCount(any())).thenReturn(0L);
         when(hallMapper.insert(any(Hall.class))).thenReturn(1);
@@ -86,9 +85,7 @@ class HallServiceTest {
     @Test
     void createHall_duplicateName_throws409() {
         System.out.println("[HallServiceTest] ▶ createHall_duplicateName_throws409");
-        Cinema cinema = new Cinema();
-        cinema.setId(1L);
-        cinema.setStatus(1);
+        Cinema cinema = Cinema.builder().id(1L).status(1).build();
         when(cinemaMapper.selectById(1L)).thenReturn(cinema);
         when(hallMapper.selectCount(any())).thenReturn(1L);
 
@@ -101,36 +98,42 @@ class HallServiceTest {
     @Test
     void saveLayout_success() {
         System.out.println("[HallServiceTest] ▶ saveLayout_success");
-        Hall hall = new Hall();
-        hall.setId(1L);
-        hall.setTotalRows(0);
-        hall.setTotalCols(0);
-        hall.setUpdatedAt(LocalDateTime.now());
+        Hall hall = Hall.builder()
+                .id(1L)
+                .totalRows(0)
+                .totalCols(0)
+                .updatedAt(LocalDateTime.now())
+                .build();
         when(hallMapper.selectById(1L)).thenReturn(hall);
 
-        HallLayoutDTO dto = new HallLayoutDTO();
-        dto.setTotalRows(2);
-        dto.setTotalCols(2);
-        CellDTO cell1 = new CellDTO();
-        cell1.setRowIndex(1);
-        cell1.setColIndex(1);
-        cell1.setCellType("seat");
-        cell1.setSeatLabel("A1");
-        CellDTO cell2 = new CellDTO();
-        cell2.setRowIndex(1);
-        cell2.setColIndex(2);
-        cell2.setCellType("void");
-        CellDTO cell3 = new CellDTO();
-        cell3.setRowIndex(2);
-        cell3.setColIndex(1);
-        cell3.setCellType("seat");
-        cell3.setSeatLabel("B1");
-        CellDTO cell4 = new CellDTO();
-        cell4.setRowIndex(2);
-        cell4.setColIndex(2);
-        cell4.setCellType("seat");
-        cell4.setSeatLabel("B2");
-        dto.setCells(List.of(cell1, cell2, cell3, cell4));
+        CellDTO cell1 = CellDTO.builder()
+                .rowIndex(1)
+                .colIndex(1)
+                .cellType("seat")
+                .seatLabel("A1")
+                .build();
+        CellDTO cell2 = CellDTO.builder()
+                .rowIndex(1)
+                .colIndex(2)
+                .cellType("void")
+                .build();
+        CellDTO cell3 = CellDTO.builder()
+                .rowIndex(2)
+                .colIndex(1)
+                .cellType("seat")
+                .seatLabel("B1")
+                .build();
+        CellDTO cell4 = CellDTO.builder()
+                .rowIndex(2)
+                .colIndex(2)
+                .cellType("seat")
+                .seatLabel("B2")
+                .build();
+        HallLayoutDTO dto = HallLayoutDTO.builder()
+                .totalRows(2)
+                .totalCols(2)
+                .cells(List.of(cell1, cell2, cell3, cell4))
+                .build();
 
         when(scheduleMapper.selectList(any())).thenReturn(List.of());
         when(hallCellMapper.delete(any())).thenReturn(0);
@@ -147,14 +150,14 @@ class HallServiceTest {
     @Test
     void saveLayout_cellCountMismatch_throws400() {
         System.out.println("[HallServiceTest] ▶ saveLayout_cellCountMismatch_throws400");
-        Hall hall = new Hall();
-        hall.setId(1L);
+        Hall hall = Hall.builder().id(1L).build();
         when(hallMapper.selectById(1L)).thenReturn(hall);
 
-        HallLayoutDTO dto = new HallLayoutDTO();
-        dto.setTotalRows(2);
-        dto.setTotalCols(2);
-        dto.setCells(List.of(new CellDTO()));
+        HallLayoutDTO dto = HallLayoutDTO.builder()
+                .totalRows(2)
+                .totalCols(2)
+                .cells(List.of(new CellDTO()))
+                .build();
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> hallService.saveLayout(1L, dto));
@@ -167,10 +170,11 @@ class HallServiceTest {
         System.out.println("[HallServiceTest] ▶ saveLayout_hallNotFound_throws404");
         when(hallMapper.selectById(1L)).thenReturn(null);
 
-        HallLayoutDTO dto = new HallLayoutDTO();
-        dto.setTotalRows(1);
-        dto.setTotalCols(1);
-        dto.setCells(List.of(new CellDTO()));
+        HallLayoutDTO dto = HallLayoutDTO.builder()
+                .totalRows(1)
+                .totalCols(1)
+                .cells(List.of(new CellDTO()))
+                .build();
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> hallService.saveLayout(1L, dto));
