@@ -104,7 +104,7 @@ class OrderServiceTest {
         lockSeatDTO.setTicketCount(2);
 
         // Common stubs for all tests
-        when(idempotentService.getIfPresent(any())).thenReturn(null);
+        when(idempotentService.getIfPresent(any(), any())).thenReturn(null);
         when(redissonClient.getLock(anyString())).thenReturn(rLock);
         when(rLock.tryLock(anyLong(), anyLong(), any(TimeUnit.class))).thenReturn(true);
         when(rLock.isHeldByCurrentThread()).thenReturn(true);
