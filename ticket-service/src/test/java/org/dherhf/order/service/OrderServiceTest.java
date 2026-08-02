@@ -1,17 +1,33 @@
-package org.dherhf.service;
+package org.dherhf.order.service;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
-import org.dherhf.common.BusinessException;
-import org.dherhf.entity.*;
-import org.dherhf.mapper.*;
-import org.dherhf.dto.LockSeatDTO;
-import org.dherhf.vo.LockSeatResultVO;
-import org.dherhf.vo.OrderDetailVO;
-import org.dherhf.vo.PayResultVO;
-import org.dherhf.vo.RemainingTimeVO;
-import org.dherhf.common.Result;
+import org.dherhf.cinema.entity.Cinema;
+import org.dherhf.cinema.entity.Hall;
+import org.dherhf.cinema.entity.HallCell;
+import org.dherhf.common.exception.BusinessException;
+import org.dherhf.cinema.mapper.CinemaMapper;
+import org.dherhf.cinema.mapper.HallCellMapper;
+import org.dherhf.cinema.mapper.HallMapper;
+import org.dherhf.movie.mapper.MovieMapper;
+import org.dherhf.order.mapper.OrderMapper;
+import org.dherhf.schedule.mapper.ScheduleMapper;
+import org.dherhf.schedule.mapper.ScheduleSeatMapper;
+import org.dherhf.order.dto.LockSeatDTO;
+import org.dherhf.movie.entity.Movie;
+import org.dherhf.order.entity.Order;
+import org.dherhf.order.service.IdempotentService;
+import org.dherhf.order.service.OrderServiceImpl;
+import org.dherhf.order.service.OrderTimeoutService;
+import org.dherhf.order.vo.PendingOrderVO;
+import org.dherhf.schedule.entity.Schedule;
+import org.dherhf.schedule.entity.ScheduleSeat;
+import org.dherhf.order.vo.LockSeatResultVO;
+import org.dherhf.order.vo.OrderDetailVO;
+import org.dherhf.order.vo.PayResultVO;
+import org.dherhf.order.vo.RemainingTimeVO;
+import org.dherhf.common.result.Result;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -357,7 +373,7 @@ class OrderServiceTest {
         System.out.println("[OrderServiceTest] ▶ pendingOrder_noPending_returnsFalse");
         when(orderMapper.selectOne(any())).thenReturn(null);
 
-        Result<org.dherhf.vo.PendingOrderVO> result = orderService.pendingOrder(1L);
+        Result<PendingOrderVO> result = orderService.pendingOrder(1L);
 
         assertEquals(0, result.getCode());
         assertFalse(result.getData().getPending());
@@ -375,7 +391,7 @@ class OrderServiceTest {
         order.setCreatedAt(LocalDateTime.now().minusMinutes(5));
         when(orderMapper.selectOne(any())).thenReturn(order);
 
-        Result<org.dherhf.vo.PendingOrderVO> result = orderService.pendingOrder(1L);
+        Result<PendingOrderVO> result = orderService.pendingOrder(1L);
 
         assertEquals(0, result.getCode());
         assertTrue(result.getData().getPending());
