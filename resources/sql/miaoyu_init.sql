@@ -126,6 +126,7 @@ CREATE TABLE `schedules` (
   `start_time`  TIME          NOT NULL COMMENT '放映开始时间',
   `end_time`    TIME          NOT NULL COMMENT '放映结束时间(start_time + 影片时长)',
   `price`       DECIMAL(10,2) NOT NULL COMMENT '票价',
+  `language_version` VARCHAR(20) NOT NULL DEFAULT '国语' COMMENT '语言版本:国语/原版/IMAX等',
   `total_seats` INT           NOT NULL COMMENT '总座位数,创建时从影厅seat数量统计',
   `status`      ENUM('onsale','cancelled','ended') NOT NULL DEFAULT 'onsale' COMMENT '可售/已取消/已结束',
   `deleted`     TINYINT       NOT NULL DEFAULT 0 COMMENT '逻辑删除:0-未删除,1-已删除',
