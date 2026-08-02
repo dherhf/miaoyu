@@ -139,10 +139,10 @@ public class CinemaServiceImpl implements CinemaService {
                     .stream()
                     .map(Schedule::getCinemaId)
                     .distinct()
-                    .collect(Collectors.toList());
+                    .toList();
             cinemas = cinemas.stream()
                     .filter(c -> cinemaIds.contains(c.getId()))
-                    .collect(Collectors.toList());
+                    .toList();
         }
 
         List<CinemaUserListVO> voList = cinemas.stream()

@@ -35,7 +35,6 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     private final UserMapper userMapper;
     private final ScheduleSeatMapper scheduleSeatMapper;
     private final HallCellMapper hallCellMapper;
-    private final CryptoUtil cryptoUtil;
 
     @Override
     public PageResult<AdminOrderListVO> list(String orderNo, String movieName, String cinemaName, String status, String dateFrom, String dateTo, Integer page, Integer size) {

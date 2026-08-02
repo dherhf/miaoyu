@@ -6,7 +6,6 @@ import org.dherhf.movie.mapper.MovieMapper;
 import org.dherhf.schedule.mapper.ScheduleMapper;
 import org.dherhf.movie.dto.MovieCreateDTO;
 import org.dherhf.movie.dto.MovieUpdateDTO;
-import org.dherhf.movie.service.MovieServiceImpl;
 import org.dherhf.movie.vo.MovieVO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

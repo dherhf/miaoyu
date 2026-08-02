@@ -3,7 +3,6 @@ package org.dherhf.preference.service;
 import org.dherhf.preference.entity.UserPreference;
 import org.dherhf.preference.mapper.UserPreferenceMapper;
 import org.dherhf.preference.dto.PreferenceUpdateDTO;
-import org.dherhf.preference.service.UserPreferenceServiceImpl;
 import org.dherhf.preference.vo.PreferenceVO;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

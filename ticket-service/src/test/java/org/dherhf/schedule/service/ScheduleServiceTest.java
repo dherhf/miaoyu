@@ -14,7 +14,6 @@ import org.dherhf.schedule.dto.ScheduleCreateDTO;
 import org.dherhf.movie.entity.Movie;
 import org.dherhf.schedule.entity.Schedule;
 import org.dherhf.schedule.entity.ScheduleSeat;
-import org.dherhf.schedule.service.ScheduleServiceImpl;
 import org.dherhf.schedule.vo.ScheduleVO;
 import org.dherhf.schedule.vo.SeatMapVO;
 import org.junit.jupiter.api.BeforeEach;

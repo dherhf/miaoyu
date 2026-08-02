@@ -1,6 +1,5 @@
 package org.dherhf.common.interceptor;
 
-import org.dherhf.common.interceptor.AuthInterceptor;
 import org.dherhf.common.util.JwtUtil;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

@@ -12,6 +12,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.util.Objects;
+
 /**
  * 审计日志切面,拦截标注了 @AuditLog 的方法,自动记录操作日志。
  * <p>
@@ -41,7 +43,7 @@ public class AuditLogAspect {
 
             // 从 RequestAttribute 获取操作人信息
             HttpServletRequest request = ((ServletRequestAttributes)
-                    RequestContextHolder.getRequestAttributes()).getRequest();
+                    Objects.requireNonNull(RequestContextHolder.getRequestAttributes())).getRequest();
 
             Long operatorId = (Long) request.getAttribute("userId");
             String operatorType = (String) request.getAttribute("type");
