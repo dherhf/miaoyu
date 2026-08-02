@@ -17,7 +17,6 @@ import org.dherhf.schedule.entity.ScheduleSeat;
 import org.dherhf.schedule.service.ScheduleServiceImpl;
 import org.dherhf.schedule.vo.ScheduleVO;
 import org.dherhf.schedule.vo.SeatMapVO;
-import org.dherhf.common.result.Result;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -99,11 +98,10 @@ class ScheduleServiceTest {
         when(scheduleMapper.insert(any(Schedule.class))).thenReturn(1);
         when(scheduleSeatMapper.insert(any(ScheduleSeat.class))).thenReturn(1);
 
-        Result<ScheduleVO> result = scheduleService.createSchedule(createDTO);
+        ScheduleVO result = scheduleService.createSchedule(createDTO);
 
-        assertEquals(0, result.getCode());
-        assertEquals(2, result.getData().getTotalSeats());
-        assertEquals("onsale", result.getData().getStatus());
+        assertEquals(2, result.getTotalSeats());
+        assertEquals("onsale", result.getStatus());
         System.out.println("[ScheduleServiceTest] ✓ createSchedule_success PASSED");
     }
 
@@ -183,9 +181,8 @@ class ScheduleServiceTest {
         schedule.setStatus("ended");
         when(scheduleMapper.selectById(1L)).thenReturn(schedule);
 
-        Result<Void> result = scheduleService.endSchedule(1L);
+        scheduleService.endSchedule(1L);
 
-        assertEquals(0, result.getCode());
         verify(scheduleMapper, never()).updateById(any(Schedule.class));
         System.out.println("[ScheduleServiceTest] ✓ endSchedule_alreadyEnded_noOp PASSED");
     }
@@ -242,11 +239,10 @@ class ScheduleServiceTest {
         hc2.setSeatLabel("A2");
         when(hallCellMapper.selectList(any())).thenReturn(List.of(hc1, hc2));
 
-        Result<SeatMapVO> result = scheduleService.getSeatMap(1L);
+        SeatMapVO result = scheduleService.getSeatMap(1L);
 
-        assertEquals(0, result.getCode());
-        assertEquals(2, result.getData().getSeats().size());
-        assertEquals(1, result.getData().getAvailableSeats());
+        assertEquals(2, result.getSeats().size());
+        assertEquals(1, result.getAvailableSeats());
         System.out.println("[ScheduleServiceTest] ✓ getSeatMap_success PASSED");
     }
 }

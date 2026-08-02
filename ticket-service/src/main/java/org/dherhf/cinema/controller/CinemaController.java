@@ -26,28 +26,30 @@ public class CinemaController {
     @PostMapping
     @AuditLog(action = "CREATE", targetType = "cinema")
     public Result<CinemaVO> create(@Valid @RequestBody CinemaCreateDTO dto) {
-        return cinemaService.createCinema(dto);
+        return Result.success(cinemaService.createCinema(dto));
     }
 
     @Operation(summary = "编辑影院")
     @PutMapping("/{id}")
     @AuditLog(action = "UPDATE", targetType = "cinema")
     public Result<CinemaVO> update(@PathVariable Long id, @Valid @RequestBody CinemaUpdateDTO dto) {
-        return cinemaService.updateCinema(id, dto);
+        return Result.success(cinemaService.updateCinema(id, dto));
     }
 
     @Operation(summary = "影院停业")
     @PutMapping("/{id}/close")
     @AuditLog(action = "UPDATE", targetType = "cinema")
     public Result<Void> close(@PathVariable Long id) {
-        return cinemaService.closeCinema(id);
+        cinemaService.closeCinema(id);
+        return Result.success();
     }
 
     @Operation(summary = "影院营业")
     @PutMapping("/{id}/open")
     @AuditLog(action = "UPDATE", targetType = "cinema")
     public Result<Void> open(@PathVariable Long id) {
-        return cinemaService.openCinema(id);
+        cinemaService.openCinema(id);
+        return Result.success();
     }
 
     @Operation(summary = "影院列表(管理端)")
@@ -57,12 +59,12 @@ public class CinemaController {
             @RequestParam(required = false) Integer status,
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer size) {
-        return cinemaService.adminList(keyword, status, page, size);
+        return Result.success(cinemaService.adminList(keyword, status, page, size));
     }
 
     @Operation(summary = "影院详情(管理端)")
     @GetMapping("/{id}")
     public Result<CinemaVO> detail(@PathVariable Long id) {
-        return cinemaService.adminDetail(id);
+        return Result.success(cinemaService.adminDetail(id));
     }
 }

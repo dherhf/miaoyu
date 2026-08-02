@@ -29,7 +29,7 @@ public class HallController {
     @PostMapping
     @AuditLog(action = "CREATE", targetType = "hall")
     public Result<HallVO> create(@Valid @RequestBody HallCreateDTO dto) {
-        return hallService.createHall(dto);
+        return Result.success(hallService.createHall(dto));
     }
 
     @Operation(summary = "影厅列表")
@@ -41,26 +41,26 @@ public class HallController {
             @RequestParam(required = false) Integer status,
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer size) {
-        return hallService.list(cinemaId, name, screenType, status, page, size);
+        return Result.success(hallService.list(cinemaId, name, screenType, status, page, size));
     }
 
     @Operation(summary = "影厅详情")
     @GetMapping("/{id}")
     public Result<HallDetailVO> detail(@PathVariable Long id) {
-        return hallService.detail(id);
+        return Result.success(hallService.detail(id));
     }
 
     @Operation(summary = "编辑影厅")
     @PutMapping("/{id}")
     @AuditLog(action = "UPDATE", targetType = "hall")
     public Result<HallVO> update(@PathVariable Long id, @Valid @RequestBody HallUpdateDTO dto) {
-        return hallService.updateHall(id, dto);
+        return Result.success(hallService.updateHall(id, dto));
     }
 
     @Operation(summary = "保存座位布局")
     @PutMapping("/{id}/layout")
     @AuditLog(action = "UPDATE", targetType = "hall")
     public Result<LayoutResultVO> saveLayout(@PathVariable Long id, @Valid @RequestBody HallLayoutDTO dto) {
-        return hallService.saveLayout(id, dto);
+        return Result.success(hallService.saveLayout(id, dto));
     }
 }

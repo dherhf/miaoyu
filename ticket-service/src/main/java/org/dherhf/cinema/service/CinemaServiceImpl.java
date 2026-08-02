@@ -6,7 +6,6 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import org.dherhf.common.exception.BusinessException;
 import org.dherhf.common.result.PageResult;
-import org.dherhf.common.result.Result;
 import org.dherhf.cinema.entity.Cinema;
 import org.dherhf.cinema.entity.Hall;
 import org.dherhf.schedule.entity.Schedule;
@@ -35,7 +34,7 @@ public class CinemaServiceImpl implements CinemaService {
     private final HallMapper hallMapper;
 
     @Override
-    public Result<CinemaVO> createCinema(CinemaCreateDTO dto) {
+    public CinemaVO createCinema(CinemaCreateDTO dto) {
         Long existCount = cinemaMapper.selectCount(
                 new LambdaQueryWrapper<Cinema>().eq(Cinema::getName, dto.getName()));
         if (existCount > 0) {
@@ -47,11 +46,11 @@ public class CinemaServiceImpl implements CinemaService {
         cinema.setStatus(1);
         cinemaMapper.insert(cinema);
 
-        return Result.success(toVO(cinema));
+        return toVO(cinema);
     }
 
     @Override
-    public Result<CinemaVO> updateCinema(Long id, CinemaUpdateDTO dto) {
+    public CinemaVO updateCinema(Long id, CinemaUpdateDTO dto) {
         Cinema cinema = cinemaMapper.selectById(id);
         if (cinema == null) {
             throw new BusinessException(404, "影院不存在");
@@ -71,39 +70,37 @@ public class CinemaServiceImpl implements CinemaService {
         cinemaMapper.updateById(cinema);
 
         Cinema updated = cinemaMapper.selectById(id);
-        return Result.success(toVO(updated));
+        return toVO(updated);
     }
 
     @Override
-    public Result<Void> closeCinema(Long id) {
+    public void closeCinema(Long id) {
         Cinema cinema = cinemaMapper.selectById(id);
         if (cinema == null) {
             throw new BusinessException(404, "影院不存在");
         }
         if (cinema.getStatus() == 0) {
-            return Result.success();
+            return;
         }
         cinema.setStatus(0);
         cinemaMapper.updateById(cinema);
-        return Result.success();
     }
 
     @Override
-    public Result<Void> openCinema(Long id) {
+    public void openCinema(Long id) {
         Cinema cinema = cinemaMapper.selectById(id);
         if (cinema == null) {
             throw new BusinessException(404, "影院不存在");
         }
         if (cinema.getStatus() == 1) {
-            return Result.success();
+            return;
         }
         cinema.setStatus(1);
         cinemaMapper.updateById(cinema);
-        return Result.success();
     }
 
     @Override
-    public Result<PageResult<CinemaListVO>> adminList(String keyword, Integer status, Integer page, Integer size) {
+    public PageResult<CinemaListVO> adminList(String keyword, Integer status, Integer page, Integer size) {
         // TODO: Redis 列表缓存
         Page<Cinema> pageParam = new Page<>(page, size);
         LambdaQueryWrapper<Cinema> wrapper = new LambdaQueryWrapper<Cinema>()
@@ -116,20 +113,20 @@ public class CinemaServiceImpl implements CinemaService {
                 .map(this::toListVO)
                 .collect(Collectors.toList());
 
-        return Result.success(new PageResult<>(result.getTotal(), page, size, records));
+        return new PageResult<>(result.getTotal(), page, size, records);
     }
 
     @Override
-    public Result<CinemaVO> adminDetail(Long id) {
+    public CinemaVO adminDetail(Long id) {
         Cinema cinema = cinemaMapper.selectById(id);
         if (cinema == null) {
             throw new BusinessException(404, "影院不存在");
         }
-        return Result.success(toVO(cinema));
+        return toVO(cinema);
     }
 
     @Override
-    public Result<PageResult<CinemaUserListVO>> userList(BigDecimal longitude, BigDecimal latitude, Long movieId, Integer page, Integer size) {
+    public PageResult<CinemaUserListVO> userList(BigDecimal longitude, BigDecimal latitude, Long movieId, Integer page, Integer size) {
         // TODO: Redis 列表缓存
         LambdaQueryWrapper<Cinema> wrapper = new LambdaQueryWrapper<Cinema>()
                 .eq(Cinema::getStatus, 1);
@@ -165,16 +162,16 @@ public class CinemaServiceImpl implements CinemaService {
         int toIndex = Math.min(fromIndex + size, total);
         List<CinemaUserListVO> pageRecords = voList.subList(fromIndex, toIndex);
 
-        return Result.success(new PageResult<>((long) total, page, size, pageRecords));
+        return new PageResult<>((long) total, page, size, pageRecords);
     }
 
     @Override
-    public Result<CinemaVO> userDetail(Long id) {
+    public CinemaVO userDetail(Long id) {
         Cinema cinema = cinemaMapper.selectById(id);
         if (cinema == null || cinema.getStatus() != 1) {
             throw new BusinessException(404, "影院不存在");
         }
-        return Result.success(toVO(cinema));
+        return toVO(cinema);
     }
 
     private long calculateDistance(BigDecimal lat1, BigDecimal lng1, BigDecimal lat2, BigDecimal lng2) {

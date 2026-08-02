@@ -27,28 +27,30 @@ public class ScheduleController {
     @PostMapping
     @AuditLog(action = "CREATE", targetType = "schedule")
     public Result<ScheduleVO> create(@Valid @RequestBody ScheduleCreateDTO dto) {
-        return scheduleService.createSchedule(dto);
+        return Result.success(scheduleService.createSchedule(dto));
     }
 
     @Operation(summary = "编辑场次")
     @PutMapping("/{id}")
     @AuditLog(action = "UPDATE", targetType = "schedule")
     public Result<ScheduleVO> update(@PathVariable Long id, @Valid @RequestBody ScheduleUpdateDTO dto) {
-        return scheduleService.updateSchedule(id, dto);
+        return Result.success(scheduleService.updateSchedule(id, dto));
     }
 
     @Operation(summary = "取消场次")
     @PutMapping("/{id}/cancel")
     @AuditLog(action = "DELETE", targetType = "schedule")
     public Result<Void> cancel(@PathVariable Long id) {
-        return scheduleService.cancelSchedule(id);
+        scheduleService.cancelSchedule(id);
+        return Result.success();
     }
 
     @Operation(summary = "结束场次")
     @PutMapping("/{id}/end")
     @AuditLog(action = "UPDATE", targetType = "schedule")
     public Result<Void> end(@PathVariable Long id) {
-        return scheduleService.endSchedule(id);
+        scheduleService.endSchedule(id);
+        return Result.success();
     }
 
     @Operation(summary = "场次列表(管理端)")
@@ -61,12 +63,12 @@ public class ScheduleController {
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer size) {
-        return scheduleService.adminList(movieId, cinemaId, hallId, showDate, status, page, size);
+        return Result.success(scheduleService.adminList(movieId, cinemaId, hallId, showDate, status, page, size));
     }
 
     @Operation(summary = "场次详情(管理端)")
     @GetMapping("/{id}")
     public Result<ScheduleDetailVO> detail(@PathVariable Long id) {
-        return scheduleService.adminDetail(id);
+        return Result.success(scheduleService.adminDetail(id));
     }
 }

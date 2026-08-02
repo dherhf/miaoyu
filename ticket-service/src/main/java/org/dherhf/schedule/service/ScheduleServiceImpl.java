@@ -10,7 +10,6 @@ import org.dherhf.cinema.entity.HallCell;
 import org.dherhf.cinema.vo.SeatVO;
 import org.dherhf.common.exception.BusinessException;
 import org.dherhf.common.result.PageResult;
-import org.dherhf.common.result.Result;
 import org.dherhf.cinema.mapper.CinemaMapper;
 import org.dherhf.cinema.mapper.HallCellMapper;
 import org.dherhf.cinema.mapper.HallMapper;
@@ -49,7 +48,7 @@ public class ScheduleServiceImpl implements ScheduleService {
 
     @Override
     @Transactional
-    public Result<ScheduleVO> createSchedule(ScheduleCreateDTO dto) {
+    public ScheduleVO createSchedule(ScheduleCreateDTO dto) {
         Movie movie = movieMapper.selectById(dto.getMovieId());
         if (movie == null || movie.getStatus() != 1) {
             throw new BusinessException(400, "影片不存在或未上架");
@@ -107,12 +106,12 @@ public class ScheduleServiceImpl implements ScheduleService {
 
         ScheduleVO vo = new ScheduleVO();
         BeanUtils.copyProperties(schedule, vo);
-        return Result.success(vo);
+        return vo;
     }
 
     @Override
     @Transactional
-    public Result<ScheduleVO> updateSchedule(Long id, ScheduleUpdateDTO dto) {
+    public ScheduleVO updateSchedule(Long id, ScheduleUpdateDTO dto) {
         Schedule schedule = scheduleMapper.selectById(id);
         if (schedule == null) {
             throw new BusinessException(404, "场次不存在");
@@ -185,12 +184,12 @@ public class ScheduleServiceImpl implements ScheduleService {
 
         ScheduleVO vo = new ScheduleVO();
         BeanUtils.copyProperties(schedule, vo);
-        return Result.success(vo);
+        return vo;
     }
 
     @Override
     @Transactional
-    public Result<Void> cancelSchedule(Long id) {
+    public void cancelSchedule(Long id) {
         Schedule schedule = scheduleMapper.selectById(id);
         if (schedule == null) {
             throw new BusinessException(404, "场次不存在");
@@ -224,19 +223,17 @@ public class ScheduleServiceImpl implements ScheduleService {
 
         // TODO: 通知取消关联的未支付订单（异步/事件）
         // TODO: 删除 Redis Bitmap 缓存
-
-        return Result.success();
     }
 
     @Override
     @Transactional
-    public Result<Void> endSchedule(Long id) {
+    public void endSchedule(Long id) {
         Schedule schedule = scheduleMapper.selectById(id);
         if (schedule == null) {
             throw new BusinessException(404, "场次不存在");
         }
         if ("ended".equals(schedule.getStatus())) {
-            return Result.success();
+            return;
         }
         if (!"onsale".equals(schedule.getStatus())) {
             throw new BusinessException(409, "仅可结束在售场次");
@@ -258,12 +255,10 @@ public class ScheduleServiceImpl implements ScheduleService {
         }
 
         // TODO: 删除 Redis Bitmap 缓存
-
-        return Result.success();
     }
 
     @Override
-    public Result<PageResult<ScheduleListVO>> adminList(Long movieId, Long cinemaId, Long hallId, String showDate, String status, Integer page, Integer size) {
+    public PageResult<ScheduleListVO> adminList(Long movieId, Long cinemaId, Long hallId, String showDate, String status, Integer page, Integer size) {
         Page<Schedule> pageParam = new Page<>(page, size);
         LambdaQueryWrapper<Schedule> wrapper = new LambdaQueryWrapper<Schedule>()
                 .eq(movieId != null, Schedule::getMovieId, movieId)
@@ -278,20 +273,20 @@ public class ScheduleServiceImpl implements ScheduleService {
                 .map(this::toListVO)
                 .collect(Collectors.toList());
 
-        return Result.success(new PageResult<>(result.getTotal(), page, size, records));
+        return new PageResult<>(result.getTotal(), page, size, records);
     }
 
     @Override
-    public Result<ScheduleDetailVO> adminDetail(Long id) {
+    public ScheduleDetailVO adminDetail(Long id) {
         Schedule schedule = scheduleMapper.selectById(id);
         if (schedule == null) {
             throw new BusinessException(404, "场次不存在");
         }
-        return Result.success(toDetailVO(schedule));
+        return toDetailVO(schedule);
     }
 
     @Override
-    public Result<PageResult<ScheduleListVO>> userList(String movieName, Long cinemaId, String showDate, Integer page, Integer size) {
+    public PageResult<ScheduleListVO> userList(String movieName, Long cinemaId, String showDate, Integer page, Integer size) {
         Page<Schedule> pageParam = new Page<>(page, size);
         LambdaQueryWrapper<Schedule> wrapper = new LambdaQueryWrapper<Schedule>()
                 .eq(Schedule::getStatus, "onsale")
@@ -305,7 +300,7 @@ public class ScheduleServiceImpl implements ScheduleService {
             List<Movie> movies = movieMapper.selectList(
                     new LambdaQueryWrapper<Movie>().like(Movie::getName, movieName));
             if (movies.isEmpty()) {
-                return Result.success(new PageResult<>(0L, page, size, List.of()));
+                return new PageResult<>(0L, page, size, List.of());
             }
             wrapper.in(Schedule::getMovieId, movies.stream().map(Movie::getId).collect(Collectors.toList()));
         }
@@ -315,20 +310,20 @@ public class ScheduleServiceImpl implements ScheduleService {
                 .map(this::toListVO)
                 .collect(Collectors.toList());
 
-        return Result.success(new PageResult<>(result.getTotal(), page, size, records));
+        return new PageResult<>(result.getTotal(), page, size, records);
     }
 
     @Override
-    public Result<ScheduleDetailVO> userDetail(Long id) {
+    public ScheduleDetailVO userDetail(Long id) {
         Schedule schedule = scheduleMapper.selectById(id);
         if (schedule == null || !"onsale".equals(schedule.getStatus())) {
             throw new BusinessException(404, "场次不存在");
         }
-        return Result.success(toDetailVO(schedule));
+        return toDetailVO(schedule);
     }
 
     @Override
-    public Result<SeatMapVO> getSeatMap(Long id) {
+    public SeatMapVO getSeatMap(Long id) {
         Schedule schedule = scheduleMapper.selectById(id);
         if (schedule == null || !"onsale".equals(schedule.getStatus())) {
             throw new BusinessException(404, "场次不存在");
@@ -379,7 +374,7 @@ public class ScheduleServiceImpl implements ScheduleService {
 
         // TODO: 座位状态优先从 Redis Bitmap 获取，缓存未命中时从 MySQL 重建并回写
 
-        return Result.success(vo);
+        return vo;
     }
 
     private void checkConflict(Long hallId, LocalDate showDate, LocalTime startTime, LocalTime endTime, Long excludeId) {

@@ -29,12 +29,12 @@ public class AdminOrderController {
             @RequestParam(required = false) String dateTo,
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer size) {
-        return adminOrderService.list(orderNo, movieName, cinemaName, status, dateFrom, dateTo, page, size);
+        return Result.success(adminOrderService.list(orderNo, movieName, cinemaName, status, dateFrom, dateTo, page, size));
     }
 
     @Operation(summary = "订单详情(管理端)")
     @GetMapping("/{id}")
     public Result<AdminOrderDetailVO> detail(@PathVariable Long id) {
-        return adminOrderService.detail(id);
+        return Result.success(adminOrderService.detail(id));
     }
 }

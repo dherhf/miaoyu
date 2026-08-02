@@ -24,7 +24,7 @@ public class OrderController {
             @RequestAttribute("userId") Long userId,
             @RequestHeader("X-Request-Id") String requestId,
             @RequestBody LockSeatDTO dto) {
-        return orderService.lockSeat(userId, dto, requestId);
+        return Result.success(orderService.lockSeat(userId, dto, requestId));
     }
 
     @Operation(summary = "支付订单")
@@ -33,7 +33,7 @@ public class OrderController {
             @RequestAttribute("userId") Long userId,
             @RequestHeader("X-Request-Id") String requestId,
             @PathVariable Long id) {
-        return orderService.payOrder(userId, id, requestId);
+        return Result.success(orderService.payOrder(userId, id, requestId));
     }
 
     @Operation(summary = "取消订单")
@@ -42,7 +42,8 @@ public class OrderController {
             @RequestAttribute("userId") Long userId,
             @RequestHeader("X-Request-Id") String requestId,
             @PathVariable Long id) {
-        return orderService.cancelOrder(userId, id, requestId);
+        orderService.cancelOrder(userId, id, requestId);
+        return Result.success();
     }
 
     @Operation(summary = "退票")
@@ -51,7 +52,8 @@ public class OrderController {
             @RequestAttribute("userId") Long userId,
             @RequestHeader("X-Request-Id") String requestId,
             @PathVariable Long id) {
-        return orderService.refundOrder(userId, id, requestId);
+        orderService.refundOrder(userId, id, requestId);
+        return Result.success();
     }
 
     @Operation(summary = "订单列表")
@@ -64,7 +66,7 @@ public class OrderController {
             @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer size) {
-        return orderService.listOrders(userId, status, dateFrom, dateTo, keyword, page, size);
+        return Result.success(orderService.listOrders(userId, status, dateFrom, dateTo, keyword, page, size));
     }
 
     @Operation(summary = "订单详情")
@@ -72,13 +74,13 @@ public class OrderController {
     public Result<OrderDetailVO> detail(
             @RequestAttribute("userId") Long userId,
             @PathVariable Long id) {
-        return orderService.detail(userId, id);
+        return Result.success(orderService.detail(userId, id));
     }
 
     @Operation(summary = "待支付订单")
     @GetMapping("/pending")
     public Result<PendingOrderVO> pending(@RequestAttribute("userId") Long userId) {
-        return orderService.pendingOrder(userId);
+        return Result.success(orderService.pendingOrder(userId));
     }
 
     @Operation(summary = "订单剩余支付时间")
@@ -86,6 +88,6 @@ public class OrderController {
     public Result<RemainingTimeVO> remainingTime(
             @RequestAttribute("userId") Long userId,
             @PathVariable Long id) {
-        return orderService.remainingTime(userId, id);
+        return Result.success(orderService.remainingTime(userId, id));
     }
 }

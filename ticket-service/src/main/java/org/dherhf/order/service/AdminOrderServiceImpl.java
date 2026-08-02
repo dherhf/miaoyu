@@ -9,7 +9,6 @@ import org.dherhf.order.vo.AdminOrderListVO;
 import org.dherhf.cinema.vo.AdminSeatVO;
 import org.dherhf.common.exception.BusinessException;
 import org.dherhf.common.result.PageResult;
-import org.dherhf.common.result.Result;
 import org.dherhf.cinema.entity.HallCell;
 import org.dherhf.order.entity.Order;
 import org.dherhf.schedule.entity.ScheduleSeat;
@@ -39,7 +38,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     private final CryptoUtil cryptoUtil;
 
     @Override
-    public Result<PageResult<AdminOrderListVO>> list(String orderNo, String movieName, String cinemaName, String status, String dateFrom, String dateTo, Integer page, Integer size) {
+    public PageResult<AdminOrderListVO> list(String orderNo, String movieName, String cinemaName, String status, String dateFrom, String dateTo, Integer page, Integer size) {
         Page<Order> pageParam = new Page<>(page, size);
         LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<Order>()
                 .eq(orderNo != null && !orderNo.isBlank(), Order::getOrderNo, orderNo)
@@ -55,11 +54,11 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 .map(this::toListVO)
                 .collect(Collectors.toList());
 
-        return Result.success(new PageResult<>(result.getTotal(), page, size, records));
+        return new PageResult<>(result.getTotal(), page, size, records);
     }
 
     @Override
-    public Result<AdminOrderDetailVO> detail(Long id) {
+    public AdminOrderDetailVO detail(Long id) {
         Order order = orderMapper.selectById(id);
         if (order == null) {
             throw new BusinessException(404, "订单不存在");
@@ -89,7 +88,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         vo.setSeats(seats);
 
         // TODO: 超级管理员可查看完整手机号
-        return Result.success(vo);
+        return vo;
     }
 
     private AdminOrderListVO toListVO(Order order) {

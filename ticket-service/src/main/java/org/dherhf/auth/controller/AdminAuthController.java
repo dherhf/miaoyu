@@ -38,7 +38,7 @@ public class AdminAuthController {
     @Operation(summary = "管理员登录")
     @PostMapping("/login")
     public Result<AdminLoginVO> login(@Valid @RequestBody LoginDTO request) {
-        return adminAuthService.login(request);
+        return Result.success(adminAuthService.login(request));
     }
 
     /**
@@ -65,6 +65,6 @@ public class AdminAuthController {
     @Operation(summary = "获取当前管理员信息")
     @GetMapping("/me")
     public Result<AdminInfoVO> me(@RequestAttribute("userId") Long adminId) {
-        return adminAuthService.getCurrentAdmin(adminId);
+        return Result.success(adminAuthService.getCurrentAdmin(adminId));
     }
 }

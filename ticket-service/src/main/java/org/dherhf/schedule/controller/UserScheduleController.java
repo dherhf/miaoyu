@@ -27,18 +27,18 @@ public class UserScheduleController {
             @RequestParam(required = false) String showDate,
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer size) {
-        return scheduleService.userList(movieName, cinemaId, showDate, page, size);
+        return Result.success(scheduleService.userList(movieName, cinemaId, showDate, page, size));
     }
 
     @Operation(summary = "场次详情(用户端)")
     @GetMapping("/{id}")
     public Result<ScheduleDetailVO> detail(@PathVariable Long id) {
-        return scheduleService.userDetail(id);
+        return Result.success(scheduleService.userDetail(id));
     }
 
     @Operation(summary = "座位图")
     @GetMapping("/{id}/seats")
     public Result<SeatMapVO> seats(@PathVariable Long id) {
-        return scheduleService.getSeatMap(id);
+        return Result.success(scheduleService.getSeatMap(id));
     }
 }

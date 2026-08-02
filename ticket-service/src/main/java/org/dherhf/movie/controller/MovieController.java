@@ -28,40 +28,42 @@ public class MovieController {
     @PostMapping
     @AuditLog(action = "CREATE", targetType = "movie")
     public Result<MovieVO> create(@Valid @RequestBody MovieCreateDTO dto) {
-        return movieService.createMovie(dto);
+        return Result.success(movieService.createMovie(dto));
     }
 
     @Operation(summary = "编辑影片")
     @PutMapping("/{id}")
     @AuditLog(action = "UPDATE", targetType = "movie")
     public Result<MovieVO> update(@PathVariable Long id, @Valid @RequestBody MovieUpdateDTO dto) {
-        return movieService.updateMovie(id, dto);
+        return Result.success(movieService.updateMovie(id, dto));
     }
 
     @Operation(summary = "上架影片")
     @PutMapping("/{id}/publish")
     @AuditLog(action = "PUBLISH", targetType = "movie")
     public Result<Void> publish(@PathVariable Long id) {
-        return movieService.publishMovie(id);
+        movieService.publishMovie(id);
+        return Result.success();
     }
 
     @Operation(summary = "下架影片")
     @PutMapping("/{id}/unpublish")
     @AuditLog(action = "UNPUBLISH", targetType = "movie")
     public Result<Void> unpublish(@PathVariable Long id) {
-        return movieService.unpublishMovie(id);
+        movieService.unpublishMovie(id);
+        return Result.success();
     }
 
     @Operation(summary = "批量上架影片")
     @PutMapping("/batch-publish")
     public Result<BatchOperateVO> batchPublish(@Valid @RequestBody BatchIdsDTO dto) {
-        return movieService.batchPublish(dto);
+        return Result.success(movieService.batchPublish(dto));
     }
 
     @Operation(summary = "批量下架影片")
     @PutMapping("/batch-unpublish")
     public Result<BatchOperateVO> batchUnpublish(@Valid @RequestBody BatchIdsDTO dto) {
-        return movieService.batchUnpublish(dto);
+        return Result.success(movieService.batchUnpublish(dto));
     }
 
     @Operation(summary = "影片列表(管理端)")
@@ -73,12 +75,12 @@ public class MovieController {
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer size,
             @RequestParam(required = false) String sort) {
-        return movieService.adminList(keyword, type, status, page, size, sort);
+        return Result.success(movieService.adminList(keyword, type, status, page, size, sort));
     }
 
     @Operation(summary = "影片详情(管理端)")
     @GetMapping("/{id}")
     public Result<MovieVO> detail(@PathVariable Long id) {
-        return movieService.adminDetail(id);
+        return Result.success(movieService.adminDetail(id));
     }
 }

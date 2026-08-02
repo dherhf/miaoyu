@@ -9,7 +9,6 @@ import org.dherhf.schedule.mapper.ScheduleSeatMapper;
 import org.dherhf.cinema.mapper.HallCellMapper;
 import org.dherhf.order.service.AdminOrderServiceImpl;
 import org.dherhf.order.vo.AdminOrderDetailVO;
-import org.dherhf.common.result.Result;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -65,11 +64,10 @@ class AdminOrderServiceTest {
 
         when(scheduleSeatMapper.selectList(any())).thenReturn(java.util.List.of());
 
-        Result<AdminOrderDetailVO> result = adminOrderService.detail(1L);
+        AdminOrderDetailVO result = adminOrderService.detail(1L);
 
-        assertEquals(0, result.getCode());
-        assertEquals("流浪地球3", result.getData().getMovieName());
-        assertNotNull(result.getData().getUserPhone());
+        assertEquals("流浪地球3", result.getMovieName());
+        assertNotNull(result.getUserPhone());
         System.out.println("[AdminOrderServiceTest] ✓ detail_success PASSED");
     }
 }

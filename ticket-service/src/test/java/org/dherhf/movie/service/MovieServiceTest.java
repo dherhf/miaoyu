@@ -8,7 +8,6 @@ import org.dherhf.movie.dto.MovieCreateDTO;
 import org.dherhf.movie.dto.MovieUpdateDTO;
 import org.dherhf.movie.service.MovieServiceImpl;
 import org.dherhf.movie.vo.MovieVO;
-import org.dherhf.common.result.Result;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -54,11 +53,10 @@ class MovieServiceTest {
         when(movieMapper.selectCount(any())).thenReturn(0L);
         when(movieMapper.insert(any(Movie.class))).thenReturn(1);
 
-        Result<MovieVO> result = movieService.createMovie(createDTO);
+        MovieVO result = movieService.createMovie(createDTO);
 
-        assertEquals(0, result.getCode());
-        assertEquals("流浪地球3", result.getData().getName());
-        assertEquals(0, result.getData().getStatus());
+        assertEquals("流浪地球3", result.getName());
+        assertEquals(0, result.getStatus());
         verify(movieMapper).insert(any(Movie.class));
         System.out.println("[MovieServiceTest] ✓ createMovie_success PASSED");
     }
@@ -83,9 +81,8 @@ class MovieServiceTest {
         when(movieMapper.selectById(1L)).thenReturn(movie);
         when(movieMapper.updateById(any(Movie.class))).thenReturn(1);
 
-        Result<Void> result = movieService.publishMovie(1L);
+        movieService.publishMovie(1L);
 
-        assertEquals(0, result.getCode());
         verify(movieMapper).updateById(any(Movie.class));
         System.out.println("[MovieServiceTest] ✓ publishMovie_success PASSED");
     }
@@ -98,9 +95,8 @@ class MovieServiceTest {
         movie.setStatus(1);
         when(movieMapper.selectById(1L)).thenReturn(movie);
 
-        Result<Void> result = movieService.publishMovie(1L);
+        movieService.publishMovie(1L);
 
-        assertEquals(0, result.getCode());
         verify(movieMapper, never()).updateById(any(Movie.class));
         System.out.println("[MovieServiceTest] ✓ publishMovie_alreadyPublished_noOp PASSED");
     }
@@ -141,9 +137,8 @@ class MovieServiceTest {
         when(scheduleMapper.selectCount(any())).thenReturn(0L);
         when(movieMapper.updateById(any(Movie.class))).thenReturn(1);
 
-        Result<Void> result = movieService.unpublishMovie(1L);
+        movieService.unpublishMovie(1L);
 
-        assertEquals(0, result.getCode());
         verify(movieMapper).updateById(any(Movie.class));
         System.out.println("[MovieServiceTest] ✓ unpublishMovie_noActiveSchedules_success PASSED");
     }
@@ -190,10 +185,9 @@ class MovieServiceTest {
         movie.setName("测试影片");
         when(movieMapper.selectById(1L)).thenReturn(movie);
 
-        Result<MovieVO> result = movieService.userDetail(1L);
+        MovieVO result = movieService.userDetail(1L);
 
-        assertEquals(0, result.getCode());
-        assertEquals("测试影片", result.getData().getName());
+        assertEquals("测试影片", result.getName());
         System.out.println("[MovieServiceTest] ✓ userDetail_published_success PASSED");
     }
 }

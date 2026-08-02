@@ -23,7 +23,7 @@ public class InternalOrderController {
     @Operation(summary = "内部锁座下单")
     @PostMapping("/orders/lock-seat")
     public Result<LockSeatResultVO> lockSeat(@RequestBody InternalLockSeatDTO dto) {
-        return orderService.internalLockSeat(dto);
+        return Result.success(orderService.internalLockSeat(dto));
     }
 
     @Operation(summary = "内部支付订单")
@@ -31,7 +31,7 @@ public class InternalOrderController {
     public Result<PayResultVO> pay(
             @PathVariable Long id,
             @RequestBody InternalPayRequest request) {
-        return orderService.internalPayOrder(request.getUserId(), id, request.getRequestId());
+        return Result.success(orderService.internalPayOrder(request.getUserId(), id, request.getRequestId()));
     }
 
     @Operation(summary = "内部订单列表")
@@ -44,7 +44,7 @@ public class InternalOrderController {
             @RequestParam(required = false) String dateTo,
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer size) {
-        return orderService.internalListOrders(userId, keyword, status, dateFrom, dateTo, page, size);
+        return Result.success(orderService.internalListOrders(userId, keyword, status, dateFrom, dateTo, page, size));
     }
 
     @lombok.Data

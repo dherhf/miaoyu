@@ -23,18 +23,18 @@ public class DashboardController {
     @Operation(summary = "交易概览")
     @GetMapping("/transactions")
     public Result<DashboardTransactionVO> transactions(@RequestParam(defaultValue = "7") String period) {
-        return dashboardService.transactions(period);
+        return Result.success(dashboardService.transactions(period));
     }
 
     @Operation(summary = "影片排行")
     @GetMapping("/movies-ranking")
     public Result<List<MovieRankingVO>> moviesRanking(@RequestParam(defaultValue = "boxOffice") String sortBy) {
-        return dashboardService.moviesRanking(sortBy);
+        return Result.success(dashboardService.moviesRanking(sortBy));
     }
 
     @Operation(summary = "影院分析")
     @GetMapping("/cinemas")
     public Result<List<CinemaAnalysisVO>> cinemasAnalysis() {
-        return dashboardService.cinemasAnalysis();
+        return Result.success(dashboardService.cinemasAnalysis());
     }
 }
