@@ -77,9 +77,10 @@ public class AdminOrderServiceImpl implements AdminOrderService {
             if (ss.getHallCellId() != null) {
                 HallCell cell = hallCellMapper.selectById(ss.getHallCellId());
                 if (cell != null) {
-                    AdminSeatVO seatVO = new AdminSeatVO();
-                    seatVO.setSeatLabel(cell.getSeatLabel());
-                    seatVO.setStatus(ss.getStatus());
+                    AdminSeatVO seatVO = AdminSeatVO.builder()
+                            .seatLabel(cell.getSeatLabel())
+                            .status(ss.getStatus())
+                            .build();
                     seats.add(seatVO);
                 }
             }

@@ -25,10 +25,7 @@ class NotificationServiceTest {
     @Test
     void markRead_success() {
         System.out.println("[NotificationServiceTest] ▶ markRead_success");
-        Notification notification = new Notification();
-        notification.setId(1L);
-        notification.setUserId(1L);
-        notification.setIsRead(0);
+        Notification notification = Notification.builder().id(1L).userId(1L).isRead(0).build();
         when(notificationMapper.selectById(1L)).thenReturn(notification);
         when(notificationMapper.updateById(any(Notification.class))).thenReturn(1);
 
@@ -52,9 +49,7 @@ class NotificationServiceTest {
     @Test
     void markRead_notOwnNotification_throws404() {
         System.out.println("[NotificationServiceTest] ▶ markRead_notOwnNotification_throws404");
-        Notification notification = new Notification();
-        notification.setId(1L);
-        notification.setUserId(999L);
+        Notification notification = Notification.builder().id(1L).userId(999L).build();
         when(notificationMapper.selectById(1L)).thenReturn(notification);
 
         BusinessException ex = assertThrows(BusinessException.class,

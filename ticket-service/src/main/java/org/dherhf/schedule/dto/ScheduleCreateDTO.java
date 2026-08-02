@@ -2,12 +2,18 @@ package org.dherhf.schedule.dto;
 
 import jakarta.validation.constraints.*;
 import lombok.Data;
+import lombok.Builder;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class ScheduleCreateDTO {
 
     @NotNull(message = "影片ID不能为空")

@@ -68,16 +68,16 @@ public class AdminAuthService {
         String token = jwtUtil.generateToken(admin.getId(), "admin");
         authHelper.clearLoginFailure(failKey);
 
-        AdminInfoVO adminInfo = new AdminInfoVO();
-        adminInfo.setId(admin.getId());
-        adminInfo.setName(admin.getName());
-        adminInfo.setStatus(admin.getStatus());
+        AdminInfoVO adminInfo = AdminInfoVO.builder()
+                .id(admin.getId())
+                .name(admin.getName())
+                .status(admin.getStatus())
+                .build();
 
-        AdminLoginVO response = new AdminLoginVO();
-        response.setToken(token);
-        response.setAdminInfo(adminInfo);
-
-        return response;
+        return AdminLoginVO.builder()
+                .token(token)
+                .adminInfo(adminInfo)
+                .build();
     }
 
     /**
@@ -96,11 +96,10 @@ public class AdminAuthService {
             throw new BusinessException(404, "管理员不存在");
         }
 
-        AdminInfoVO vo = new AdminInfoVO();
-        vo.setId(admin.getId());
-        vo.setName(admin.getName());
-        vo.setStatus(admin.getStatus());
-
-        return vo;
+        return AdminInfoVO.builder()
+                .id(admin.getId())
+                .name(admin.getName())
+                .status(admin.getStatus())
+                .build();
     }
 }

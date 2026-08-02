@@ -25,22 +25,28 @@ public class AuditLogService {
                        String action, String targetType, Long targetId,
                        String beforeData, String afterData) {
         try {
-            AuditLog logEntry = new AuditLog();
-            logEntry.setOperatorId(operatorId);
-            logEntry.setOperatorName(operatorName);
-            logEntry.setOperatorType(operatorType);
-            logEntry.setAction(action);
-            logEntry.setTargetType(targetType);
-            logEntry.setTargetId(targetId);
-            logEntry.setBeforeData(beforeData);
-            logEntry.setAfterData(afterData);
+            String ip = null;
+            String userAgent = null;
 
             ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
             if (attrs != null) {
                 HttpServletRequest request = attrs.getRequest();
-                logEntry.setIp(request.getRemoteAddr());
-                logEntry.setUserAgent(request.getHeader("User-Agent"));
+                ip = request.getRemoteAddr();
+                userAgent = request.getHeader("User-Agent");
             }
+
+            AuditLog logEntry = AuditLog.builder()
+                    .operatorId(operatorId)
+                    .operatorName(operatorName)
+                    .operatorType(operatorType)
+                    .action(action)
+                    .targetType(targetType)
+                    .targetId(targetId)
+                    .beforeData(beforeData)
+                    .afterData(afterData)
+                    .ip(ip)
+                    .userAgent(userAgent)
+                    .build();
 
             auditLogMapper.insert(logEntry);
         } catch (Exception e) {

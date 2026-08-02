@@ -1,11 +1,17 @@
 package org.dherhf.auth.vo;
 
 import lombok.Data;
+import lombok.Builder;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 /**
  * 管理员信息视图对象。
  */
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class AdminInfoVO {
 
     /** 管理员 ID */

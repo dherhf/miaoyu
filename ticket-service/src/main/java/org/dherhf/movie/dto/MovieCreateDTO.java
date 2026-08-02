@@ -2,12 +2,18 @@ package org.dherhf.movie.dto;
 
 import jakarta.validation.constraints.*;
 import lombok.Data;
+import lombok.Builder;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class MovieCreateDTO {
 
     @NotBlank(message = "影片名称不能为空")

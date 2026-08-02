@@ -2,8 +2,14 @@ package org.dherhf.cinema.dto;
 
 import jakarta.validation.constraints.*;
 import lombok.Data;
+import lombok.Builder;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class CellDTO {
 
     @NotNull(message = "行号不能为空")

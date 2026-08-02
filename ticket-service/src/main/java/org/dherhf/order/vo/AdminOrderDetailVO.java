@@ -1,6 +1,9 @@
 package org.dherhf.order.vo;
 
 import lombok.Data;
+import lombok.Builder;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 import org.dherhf.cinema.vo.AdminSeatVO;
 
 import java.math.BigDecimal;
@@ -10,6 +13,9 @@ import java.time.LocalTime;
 import java.util.List;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class AdminOrderDetailVO {
 
     private Long id;

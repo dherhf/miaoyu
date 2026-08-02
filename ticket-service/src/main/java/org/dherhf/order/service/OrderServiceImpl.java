@@ -146,19 +146,20 @@ public class OrderServiceImpl implements OrderService {
                 .map(HallCell::getSeatLabel)
                 .collect(Collectors.joining(","));
 
-        Order order = new Order();
-        order.setOrderNo(generateOrderNo());
-        order.setUserId(userId);
-        order.setScheduleId(schedule.getId());
-        order.setMovieName(movie != null ? movie.getName() : "");
-        order.setCinemaName(cinema != null ? cinema.getName() : "");
-        order.setHallName(hall != null ? hall.getName() : "");
-        order.setShowDate(schedule.getShowDate());
-        order.setStartTime(schedule.getStartTime());
-        order.setSeatInfo(seatInfo);
-        order.setTicketCount(dto.getTicketCount());
-        order.setTotalAmount(schedule.getPrice().multiply(BigDecimal.valueOf(dto.getTicketCount())));
-        order.setStatus("pending");
+        Order order = Order.builder()
+                .orderNo(generateOrderNo())
+                .userId(userId)
+                .scheduleId(schedule.getId())
+                .movieName(movie != null ? movie.getName() : "")
+                .cinemaName(cinema != null ? cinema.getName() : "")
+                .hallName(hall != null ? hall.getName() : "")
+                .showDate(schedule.getShowDate())
+                .startTime(schedule.getStartTime())
+                .seatInfo(seatInfo)
+                .ticketCount(dto.getTicketCount())
+                .totalAmount(schedule.getPrice().multiply(BigDecimal.valueOf(dto.getTicketCount())))
+                .status("pending")
+                .build();
         orderMapper.insert(order);
 
         for (ScheduleSeat seat : seats) {
@@ -221,19 +222,20 @@ public class OrderServiceImpl implements OrderService {
         Schedule schedule = scheduleMapper.selectById(order.getScheduleId());
         Cinema cinema = cinemaMapper.selectById(schedule != null ? schedule.getCinemaId() : null);
 
-        PayResultVO vo = new PayResultVO();
-        vo.setId(order.getId());
-        vo.setOrderNo(order.getOrderNo());
-        vo.setStatus(order.getStatus());
-        vo.setPickupCode(order.getPickupCode());
-        vo.setMovieName(order.getMovieName());
-        vo.setCinemaName(order.getCinemaName());
-        vo.setCinemaAddress(cinema != null ? cinema.getAddress() : null);
-        vo.setHallName(order.getHallName());
-        vo.setShowDate(order.getShowDate());
-        vo.setStartTime(order.getStartTime());
-        vo.setSeatInfo(order.getSeatInfo());
-        vo.setTotalAmount(order.getTotalAmount());
+        PayResultVO vo = PayResultVO.builder()
+                .id(order.getId())
+                .orderNo(order.getOrderNo())
+                .status(order.getStatus())
+                .pickupCode(order.getPickupCode())
+                .movieName(order.getMovieName())
+                .cinemaName(order.getCinemaName())
+                .cinemaAddress(cinema != null ? cinema.getAddress() : null)
+                .hallName(order.getHallName())
+                .showDate(order.getShowDate())
+                .startTime(order.getStartTime())
+                .seatInfo(order.getSeatInfo())
+                .totalAmount(order.getTotalAmount())
+                .build();
 
         idempotentService.put(requestId, vo);
         return vo;
@@ -374,28 +376,30 @@ public class OrderServiceImpl implements OrderService {
                         .orderByDesc(Order::getCreatedAt)
                         .last("LIMIT 1"));
 
-        PendingOrderVO vo = new PendingOrderVO();
+        PendingOrderVO vo = PendingOrderVO.builder()
+                .pending(false)
+                .build();
         if (order == null) {
-            vo.setPending(false);
             return vo;
         }
 
         int remaining = ORDER_TIMEOUT_SECONDS - (int) java.time.Duration.between(order.getCreatedAt(), LocalDateTime.now()).getSeconds();
         if (remaining <= 0) {
-            vo.setPending(false);
             // 异步触发超时取消
             new Thread(() -> timeoutCancel(order.getId())).start();
             return vo;
         }
 
-        vo.setPending(true);
-        vo.setOrderId(order.getId());
-        vo.setMovieName(order.getMovieName());
-        vo.setCinemaName(order.getCinemaName());
-        vo.setSeatInfo(order.getSeatInfo());
-        vo.setTotalAmount(order.getTotalAmount());
-        vo.setStatus(order.getStatus());
-        vo.setRemainingSeconds(remaining);
+        vo = PendingOrderVO.builder()
+                .pending(true)
+                .orderId(order.getId())
+                .movieName(order.getMovieName())
+                .cinemaName(order.getCinemaName())
+                .seatInfo(order.getSeatInfo())
+                .totalAmount(order.getTotalAmount())
+                .status(order.getStatus())
+                .remainingSeconds(remaining)
+                .build();
         return vo;
     }
 
@@ -406,26 +410,31 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException(404, "订单不存在");
         }
 
-        RemainingTimeVO vo = new RemainingTimeVO();
+        RemainingTimeVO vo;
         if (!"pending".equals(order.getStatus())) {
-            vo.setRemainingTime(0);
-            vo.setExpired(true);
+            vo = RemainingTimeVO.builder()
+                    .remainingTime(0)
+                    .expired(true)
+                    .build();
             return vo;
         }
 
         int remaining = ORDER_TIMEOUT_SECONDS - (int) java.time.Duration.between(order.getCreatedAt(), LocalDateTime.now()).getSeconds();
-        vo.setRemainingTime(Math.max(0, remaining));
-        vo.setExpireAt(order.getCreatedAt().plusSeconds(ORDER_TIMEOUT_SECONDS));
-        vo.setExpired(remaining <= 0);
+        vo = RemainingTimeVO.builder()
+                .remainingTime(Math.max(0, remaining))
+                .expireAt(order.getCreatedAt().plusSeconds(ORDER_TIMEOUT_SECONDS))
+                .expired(remaining <= 0)
+                .build();
         return vo;
     }
 
     @Override
     public LockSeatResultVO internalLockSeat(InternalLockSeatDTO dto) {
-        LockSeatDTO lockSeatDTO = new LockSeatDTO();
-        lockSeatDTO.setScheduleId(dto.getScheduleId());
-        lockSeatDTO.setSeatIds(dto.getSeatIds());
-        lockSeatDTO.setTicketCount(dto.getTicketCount());
+        LockSeatDTO lockSeatDTO = LockSeatDTO.builder()
+                .scheduleId(dto.getScheduleId())
+                .seatIds(dto.getSeatIds())
+                .ticketCount(dto.getTicketCount())
+                .build();
         return lockSeat(dto.getUserId(), lockSeatDTO, dto.getRequestId());
     }
 

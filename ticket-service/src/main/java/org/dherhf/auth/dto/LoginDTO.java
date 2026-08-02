@@ -2,11 +2,17 @@ package org.dherhf.auth.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
+import lombok.Builder;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 /**
  * 登录请求 DTO,用户端和管理端共用。
  */
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class LoginDTO {
 
     /** 手机号 */

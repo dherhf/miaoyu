@@ -46,26 +46,29 @@ class DashboardServiceTest {
     @Test
     void moviesRanking_withPaidOrders() {
         System.out.println("[DashboardServiceTest] ▶ moviesRanking_withPaidOrders");
-        Order o1 = new Order();
-        o1.setMovieName("流浪地球3");
-        o1.setStatus("paid");
-        o1.setTicketCount(2);
-        o1.setTotalAmount(new BigDecimal("90.00"));
-        o1.setCreatedAt(LocalDateTime.now());
+        Order o1 = Order.builder()
+                .movieName("流浪地球3")
+                .status("paid")
+                .ticketCount(2)
+                .totalAmount(new BigDecimal("90.00"))
+                .createdAt(LocalDateTime.now())
+                .build();
 
-        Order o2 = new Order();
-        o2.setMovieName("流浪地球3");
-        o2.setStatus("paid");
-        o2.setTicketCount(3);
-        o2.setTotalAmount(new BigDecimal("135.00"));
-        o2.setCreatedAt(LocalDateTime.now());
+        Order o2 = Order.builder()
+                .movieName("流浪地球3")
+                .status("paid")
+                .ticketCount(3)
+                .totalAmount(new BigDecimal("135.00"))
+                .createdAt(LocalDateTime.now())
+                .build();
 
-        Order o3 = new Order();
-        o3.setMovieName("哪吒2");
-        o3.setStatus("paid");
-        o3.setTicketCount(1);
-        o3.setTotalAmount(new BigDecimal("45.00"));
-        o3.setCreatedAt(LocalDateTime.now());
+        Order o3 = Order.builder()
+                .movieName("哪吒2")
+                .status("paid")
+                .ticketCount(1)
+                .totalAmount(new BigDecimal("45.00"))
+                .createdAt(LocalDateTime.now())
+                .build();
 
         when(orderMapper.selectList(any())).thenReturn(List.of(o1, o2, o3));
 
