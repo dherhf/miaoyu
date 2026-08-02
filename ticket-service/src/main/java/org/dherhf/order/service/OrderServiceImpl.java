@@ -27,6 +27,7 @@ import org.dherhf.schedule.entity.ScheduleSeat;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -64,9 +65,9 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public LockSeatResultVO lockSeat(Long userId, LockSeatDTO dto, String requestId) {
         // Redis 幂等校验
-        Object cached = idempotentService.getIfPresent(requestId);
+        LockSeatResultVO cached = idempotentService.getIfPresent(requestId, LockSeatResultVO.class);
         if (cached != null) {
-            return (LockSeatResultVO) cached;
+            return cached;
         }
 
         if (!dto.getTicketCount().equals(dto.getSeatIds().size())) {
@@ -178,9 +179,9 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public PayResultVO payOrder(Long userId, Long orderId, String requestId) {
         // Redis 幂等校验
-        Object cached = idempotentService.getIfPresent(requestId);
+        PayResultVO cached = idempotentService.getIfPresent(requestId, PayResultVO.class);
         if (cached != null) {
-            return (PayResultVO) cached;
+            return cached;
         }
 
         Order order = orderMapper.selectById(orderId);
@@ -242,7 +243,7 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public void cancelOrder(Long userId, Long orderId, String requestId) {
         // Redis 幂等校验
-        Object cached = idempotentService.getIfPresent(requestId);
+        String cached = idempotentService.getIfPresent(requestId, String.class);
         if (cached != null) {
             return;
         }
@@ -285,7 +286,7 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public void refundOrder(Long userId, Long orderId, String requestId) {
         // Redis 幂等校验
-        Object cached = idempotentService.getIfPresent(requestId);
+        String cached = idempotentService.getIfPresent(requestId, String.class);
         if (cached != null) {
             return;
         }
@@ -507,6 +508,12 @@ public class OrderServiceImpl implements OrderService {
         if (!timeoutOrders.isEmpty()) {
             log.info("Scanned and cancelled {} timeout orders", timeoutOrders.size());
         }
+    }
+
+    @Scheduled(fixedRate = 60000)
+    public void scanTimeoutOrders() {
+        LocalDateTime deadline = LocalDateTime.now().minusSeconds(ORDER_TIMEOUT_SECONDS);
+        cancelTimeoutOrders(deadline);
     }
 
     private String generateOrderNo() {
