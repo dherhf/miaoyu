@@ -1,13 +1,14 @@
-package org.dherhf.service;
+package org.dherhf.cinema.service;
 
-import org.dherhf.common.BusinessException;
-import org.dherhf.entity.Cinema;
-import org.dherhf.mapper.CinemaMapper;
-import org.dherhf.mapper.ScheduleMapper;
-import org.dherhf.mapper.HallMapper;
-import org.dherhf.dto.CinemaCreateDTO;
-import org.dherhf.vo.CinemaVO;
-import org.dherhf.common.Result;
+import org.dherhf.cinema.service.CinemaServiceImpl;
+import org.dherhf.common.exception.BusinessException;
+import org.dherhf.cinema.entity.Cinema;
+import org.dherhf.cinema.mapper.CinemaMapper;
+import org.dherhf.schedule.mapper.ScheduleMapper;
+import org.dherhf.cinema.mapper.HallMapper;
+import org.dherhf.cinema.dto.CinemaCreateDTO;
+import org.dherhf.cinema.vo.CinemaVO;
+import org.dherhf.common.result.Result;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

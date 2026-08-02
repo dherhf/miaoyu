@@ -1,11 +1,12 @@
-package org.dherhf.service;
+package org.dherhf.dashboard.service;
 
-import org.dherhf.entity.Order;
-import org.dherhf.mapper.OrderMapper;
-import org.dherhf.mapper.ScheduleMapper;
-import org.dherhf.mapper.ScheduleSeatMapper;
-import org.dherhf.vo.MovieRankingVO;
-import org.dherhf.common.Result;
+import org.dherhf.dashboard.service.DashboardServiceImpl;
+import org.dherhf.order.entity.Order;
+import org.dherhf.order.mapper.OrderMapper;
+import org.dherhf.schedule.mapper.ScheduleMapper;
+import org.dherhf.schedule.mapper.ScheduleSeatMapper;
+import org.dherhf.movie.vo.MovieRankingVO;
+import org.dherhf.common.result.Result;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;

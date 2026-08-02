@@ -1,10 +1,11 @@
-package org.dherhf.service;
+package org.dherhf.preference.service;
 
-import org.dherhf.entity.UserPreference;
-import org.dherhf.mapper.UserPreferenceMapper;
-import org.dherhf.dto.PreferenceUpdateDTO;
-import org.dherhf.vo.PreferenceVO;
-import org.dherhf.common.Result;
+import org.dherhf.preference.entity.UserPreference;
+import org.dherhf.preference.mapper.UserPreferenceMapper;
+import org.dherhf.preference.dto.PreferenceUpdateDTO;
+import org.dherhf.preference.service.UserPreferenceServiceImpl;
+import org.dherhf.preference.vo.PreferenceVO;
+import org.dherhf.common.result.Result;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;

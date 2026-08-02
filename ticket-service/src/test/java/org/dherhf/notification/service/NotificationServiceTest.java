@@ -1,10 +1,10 @@
-package org.dherhf.service;
+package org.dherhf.notification.service;
 
-import org.dherhf.common.BusinessException;
-import org.dherhf.entity.Notification;
-import org.dherhf.mapper.NotificationMapper;
-import org.dherhf.vo.NotificationVO;
-import org.dherhf.common.Result;
+import org.dherhf.common.exception.BusinessException;
+import org.dherhf.notification.entity.Notification;
+import org.dherhf.notification.mapper.NotificationMapper;
+import org.dherhf.notification.service.NotificationServiceImpl;
+import org.dherhf.common.result.Result;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;

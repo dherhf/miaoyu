@@ -1,14 +1,15 @@
-package org.dherhf.service;
+package org.dherhf.order.service;
 
-import org.dherhf.common.BusinessException;
-import org.dherhf.entity.Order;
-import org.dherhf.entity.User;
-import org.dherhf.mapper.OrderMapper;
-import org.dherhf.mapper.UserMapper;
-import org.dherhf.mapper.ScheduleSeatMapper;
-import org.dherhf.mapper.HallCellMapper;
-import org.dherhf.vo.AdminOrderDetailVO;
-import org.dherhf.common.Result;
+import org.dherhf.common.exception.BusinessException;
+import org.dherhf.order.entity.Order;
+import org.dherhf.auth.entity.User;
+import org.dherhf.order.mapper.OrderMapper;
+import org.dherhf.auth.mapper.UserMapper;
+import org.dherhf.schedule.mapper.ScheduleSeatMapper;
+import org.dherhf.cinema.mapper.HallCellMapper;
+import org.dherhf.order.service.AdminOrderServiceImpl;
+import org.dherhf.order.vo.AdminOrderDetailVO;
+import org.dherhf.common.result.Result;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
