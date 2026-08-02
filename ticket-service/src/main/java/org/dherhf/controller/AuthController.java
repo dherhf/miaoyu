@@ -9,6 +9,8 @@ import org.dherhf.dto.UserInfoVO;
 import org.dherhf.service.UserAuthService;
 import org.dherhf.common.Result;
 import org.dherhf.util.JwtUtil;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
  * 注册和登录接口无需鉴权（由 {@link org.dherhf.config.WebMvcConfig} 排除拦截）,
  * 登出和获取用户信息接口需携带 {@code Authorization: Bearer {token}} 请求头。
  */
+@Tag(name = "用户认证", description = "注册/登录/登出/用户信息")
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
@@ -31,6 +34,7 @@ public class AuthController {
      * @param request 注册请求,包含手机号和密码
      * @return 注册成功的用户信息
      */
+    @Operation(summary = "用户注册")
     @PostMapping("/register")
     public Result<UserInfoVO> register(@Valid @RequestBody RegisterRequest request) {
         return userAuthService.register(request);
@@ -42,6 +46,7 @@ public class AuthController {
      * @param request 登录请求,包含手机号和密码
      * @return 登录响应,包含 Token 和用户信息
      */
+    @Operation(summary = "用户登录")
     @PostMapping("/login")
     public Result<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         return userAuthService.login(request);
@@ -53,6 +58,7 @@ public class AuthController {
      * @param authHeader Authorization 请求头,格式 {@code Bearer {token}}
      * @return 登出成功的统一响应
      */
+    @Operation(summary = "用户登出")
     @PostMapping("/logout")
     public Result<Void> logout(@RequestHeader("Authorization") String authHeader) {
         String token = authHeader.substring(7);
@@ -67,6 +73,7 @@ public class AuthController {
      *               提取并注入为 request attribute）
      * @return 当前用户信息（手机号脱敏）
      */
+    @Operation(summary = "获取当前用户信息")
     @GetMapping("/me")
     public Result<UserInfoVO> me(@RequestAttribute("userId") Long userId) {
         return userAuthService.getCurrentUser(userId);

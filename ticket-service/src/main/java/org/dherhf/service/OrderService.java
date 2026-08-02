@@ -6,6 +6,8 @@ import org.dherhf.dto.InternalLockSeatDTO;
 import org.dherhf.dto.LockSeatDTO;
 import org.dherhf.vo.*;
 
+import java.time.LocalDateTime;
+
 public interface OrderService {
 
     Result<LockSeatResultVO> lockSeat(Long userId, LockSeatDTO dto, String requestId);
@@ -29,4 +31,8 @@ public interface OrderService {
     Result<PayResultVO> internalPayOrder(Long userId, Long orderId, String requestId);
 
     Result<PageResult<OrderListVO>> internalListOrders(Long userId, String keyword, String status, String dateFrom, String dateTo, Integer page, Integer size);
+
+    void timeoutCancel(Long orderId);
+
+    void cancelTimeoutOrders(LocalDateTime deadline);
 }

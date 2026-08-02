@@ -21,6 +21,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
+import java.util.concurrent.TimeUnit;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -30,6 +33,8 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -50,6 +55,14 @@ class OrderServiceTest {
     private HallMapper hallMapper;
     @Mock
     private HallCellMapper hallCellMapper;
+    @Mock
+    private IdempotentService idempotentService;
+    @Mock
+    private OrderTimeoutService orderTimeoutService;
+    @Mock
+    private RedissonClient redissonClient;
+    @Mock
+    private RLock rLock;
 
     @InjectMocks
     private OrderServiceImpl orderService;
@@ -69,11 +82,21 @@ class OrderServiceTest {
     }
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         lockSeatDTO = new LockSeatDTO();
         lockSeatDTO.setScheduleId(1L);
         lockSeatDTO.setSeatIds(List.of(10L, 11L));
         lockSeatDTO.setTicketCount(2);
+
+        // Common stubs for all tests
+        when(idempotentService.getIfPresent(any())).thenReturn(null);
+        when(redissonClient.getLock(anyString())).thenReturn(rLock);
+        when(rLock.tryLock(anyLong(), anyLong(), any(TimeUnit.class))).thenReturn(true);
+        when(rLock.isHeldByCurrentThread()).thenReturn(true);
+        doNothing().when(rLock).unlock();
+        doNothing().when(idempotentService).put(anyString(), any());
+        doNothing().when(orderTimeoutService).schedule(any());
+        doNothing().when(orderTimeoutService).cancel(any());
     }
 
     @Test
@@ -98,7 +121,7 @@ class OrderServiceTest {
         ss2.setId(101L);
         ss2.setHallCellId(11L);
         ss2.setStatus("available");
-        when(scheduleSeatMapper.selectList(any())).thenReturn(List.of(ss1, ss2));
+        when(scheduleSeatMapper.selectForUpdate(any(), any())).thenReturn(List.of(ss1, ss2));
 
         Movie movie = new Movie();
         movie.setName("流浪地球3");
@@ -154,7 +177,7 @@ class OrderServiceTest {
         ScheduleSeat ss2 = new ScheduleSeat();
         ss2.setHallCellId(11L);
         ss2.setStatus("locked");
-        when(scheduleSeatMapper.selectList(any())).thenReturn(List.of(ss1, ss2));
+        when(scheduleSeatMapper.selectForUpdate(any(), any())).thenReturn(List.of(ss1, ss2));
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> orderService.lockSeat(1L, lockSeatDTO, "req-001"));

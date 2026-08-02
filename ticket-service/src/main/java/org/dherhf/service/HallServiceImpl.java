@@ -13,6 +13,10 @@ import org.dherhf.entity.HallCell;
 import org.dherhf.mapper.CinemaMapper;
 import org.dherhf.mapper.HallCellMapper;
 import org.dherhf.mapper.HallMapper;
+import org.dherhf.mapper.ScheduleMapper;
+import org.dherhf.mapper.ScheduleSeatMapper;
+import org.dherhf.entity.Schedule;
+import org.dherhf.entity.ScheduleSeat;
 import org.dherhf.dto.CellDTO;
 import org.dherhf.dto.HallCreateDTO;
 import org.dherhf.dto.HallLayoutDTO;
@@ -26,6 +30,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -38,6 +43,8 @@ public class HallServiceImpl implements HallService {
     private final HallMapper hallMapper;
     private final HallCellMapper hallCellMapper;
     private final CinemaMapper cinemaMapper;
+    private final ScheduleMapper scheduleMapper;
+    private final ScheduleSeatMapper scheduleSeatMapper;
 
     @Override
     public Result<HallVO> createHall(HallCreateDTO dto) {
@@ -160,7 +167,21 @@ public class HallServiceImpl implements HallService {
             }
         }
 
-        // TODO: 检查影厅是否已有未来排片且存在已售出订单（若有则拒绝修改布局）
+        // 检查影厅是否已有未来排片且存在已售出座位，若有则拒绝修改布局
+        List<Schedule> futureSchedules = scheduleMapper.selectList(
+                new LambdaQueryWrapper<Schedule>()
+                        .eq(Schedule::getHallId, id)
+                        .eq(Schedule::getStatus, "onsale")
+                        .ge(Schedule::getShowDate, LocalDate.now()));
+        for (Schedule sch : futureSchedules) {
+            Long soldCount = scheduleSeatMapper.selectCount(
+                    new LambdaQueryWrapper<ScheduleSeat>()
+                            .eq(ScheduleSeat::getScheduleId, sch.getId())
+                            .eq(ScheduleSeat::getStatus, "sold"));
+            if (soldCount > 0) {
+                throw new BusinessException(409, "影厅已有未来排片且存在已售座位，不可修改布局");
+            }
+        }
 
         hallCellMapper.delete(
                 new LambdaQueryWrapper<HallCell>().eq(HallCell::getHallId, id));
