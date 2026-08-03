@@ -2,17 +2,19 @@ server:
   port: 8080
 
 spring:
+  config:
+    import: "optional:file:.env[.properties]"
   datasource:
-    url: jdbc:mysql://rm-bp1750425ua9gt560go.mysql.rds.aliyuncs.com:3306/szml?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
-    username: szml
-    password: szml@2026
+    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USERNAME}
+    password: ${MYSQL_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
   data:
     redis:
-      host: 119.91.52.251
-      port: 6379
-      password: www.2005
-      database: 0
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD}
+      database: ${REDIS_DATABASE}
 
 mybatis-plus:
   configuration:
@@ -27,9 +29,9 @@ mybatis-plus:
 # JWT 配置
 jwt:
   # 当前密钥
-  current-secret: miaoyu-ticket-service-jwt-secret-key-2026
+  current-secret: ${JWT_CURRENT_SECRET}
   # 旧密钥
-  old-secret:
+  old-secret: ${JWT_OLD_SECRET:}
   # 签发者
   issuer: miaoyu
   # 用户 Token 有效期:24 小时
@@ -40,7 +42,7 @@ jwt:
 # 密码学配置
 crypto:
   # AES-256 Base64 密钥（32 字节）
-  aes-base64-key: REPLACE_WITH_GENERATED_KEY
+  aes-base64-key: ${CRYPTO_AES_KEY}
 
 # 登录防爆破配置
 login:
