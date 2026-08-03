@@ -1,0 +1,145 @@
+import { useSyncExternalStore } from 'react';
+
+// ===================== 类型 =====================
+export type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded';
+
+export interface OrderSeat {
+  seatLabel: string;
+  status: 'sold' | 'available';
+}
+
+export interface OrderItem {
+  id: number;
+  orderNo: string;
+  userPhone: string;
+  userId?: number;
+  movieName: string;
+  cinemaName: string;
+  cinemaAddress?: string;
+  hallName: string;
+  showDate: string;
+  startTime: string;
+  seatInfo: string;
+  ticketCount: number;
+  totalAmount: number;
+  status: OrderStatus;
+  pickupCode?: string;
+  createdAt: string;
+  paidAt?: string;
+  cancelledAt?: string;
+  cancelReason?: string;
+  seats?: OrderSeat[];
+  scheduleId?: number;
+}
+
+interface OrderState {
+  orders: OrderItem[];
+}
+
+// ===================== Mock 数据 =====================
+function buildMockOrders(): OrderItem[] {
+  return [
+    {
+      id: 1, orderNo: 'ORD20260803103001', userPhone: '138****8888',
+      movieName: '流浪地球3', cinemaName: '万达影城', cinemaAddress: '北京市朝阳区建国路88号万达广场5层',
+      hallName: 'IMAX 1号厅', showDate: '2026-08-03', startTime: '10:30',
+      seatInfo: '5排6座, 5排7座', ticketCount: 2, totalAmount: 179.8,
+      status: 'paid', pickupCode: 'A8B3K9F2',
+      createdAt: '2026-08-03 09:55:00', paidAt: '2026-08-03 09:58:30',
+      seats: [
+        { seatLabel: '5排6座', status: 'sold' },
+        { seatLabel: '5排7座', status: 'sold' },
+      ],
+    },
+    {
+      id: 2, orderNo: 'ORD20260803140001', userPhone: '139****6666',
+      movieName: '流浪地球3', cinemaName: '万达影城', cinemaAddress: '北京市朝阳区建国路88号万达广场5层',
+      hallName: 'IMAX 1号厅', showDate: '2026-08-03', startTime: '14:00',
+      seatInfo: '3排4座, 3排5座, 3排6座', ticketCount: 3, totalAmount: 299.7,
+      status: 'paid', pickupCode: 'B2D7H1M4',
+      createdAt: '2026-08-03 13:20:00', paidAt: '2026-08-03 13:22:15',
+      seats: [
+        { seatLabel: '3排4座', status: 'sold' },
+        { seatLabel: '3排5座', status: 'sold' },
+        { seatLabel: '3排6座', status: 'sold' },
+      ],
+    },
+    {
+      id: 3, orderNo: 'ORD20260803193001', userPhone: '137****5555',
+      movieName: '哪吒之魔童闹海', cinemaName: '万达影城', cinemaAddress: '北京市朝阳区建国路88号万达广场5层',
+      hallName: '杜比全景声厅', showDate: '2026-08-03', startTime: '19:30',
+      seatInfo: '4排8座', ticketCount: 1, totalAmount: 69.9,
+      status: 'pending',
+      createdAt: '2026-08-03 16:45:00',
+    },
+    {
+      id: 4, orderNo: 'ORD20260803200001', userPhone: '136****4444',
+      movieName: '封神第二部', cinemaName: 'CGV影城', cinemaAddress: '北京市朝阳区酒仙桥路18号颐堤港3层',
+      hallName: 'IMAX激光厅', showDate: '2026-08-03', startTime: '20:00',
+      seatInfo: '7排11座', ticketCount: 1, totalAmount: 109.9,
+      status: 'cancelled', cancelReason: '用户主动取消',
+      createdAt: '2026-08-03 15:30:00', cancelledAt: '2026-08-03 16:10:00',
+    },
+    {
+      id: 5, orderNo: 'ORD20260803150001', userPhone: '135****3333',
+      movieName: '唐人街探案4', cinemaName: 'CGV影城', cinemaAddress: '北京市朝阳区酒仙桥路18号颐堤港3层',
+      hallName: '1号标准厅', showDate: '2026-08-03', startTime: '15:00',
+      seatInfo: '2排3座, 2排4座', ticketCount: 2, totalAmount: 119.8,
+      status: 'refunded', cancelReason: '用户退票',
+      createdAt: '2026-08-03 14:10:00', paidAt: '2026-08-03 14:12:00',
+      cancelledAt: '2026-08-03 14:30:00',
+    },
+    {
+      id: 6, orderNo: 'ORD20260803180001', userPhone: '134****2222',
+      movieName: '热辣滚烫2', cinemaName: '大地影院', cinemaAddress: '北京市朝阳区望京街9号',
+      hallName: '巨幕厅', showDate: '2026-08-05', startTime: '18:00',
+      seatInfo: '6排9座', ticketCount: 1, totalAmount: 49.9,
+      status: 'paid', pickupCode: 'C5E9K2P7',
+      createdAt: '2026-08-03 17:00:00', paidAt: '2026-08-03 17:01:00',
+      seats: [{ seatLabel: '6排9座', status: 'sold' }],
+    },
+    {
+      id: 7, orderNo: 'ORD20260802090001', userPhone: '133****1111',
+      movieName: '志愿军：存亡之战', cinemaName: '万达影城', cinemaAddress: '北京市朝阳区建国路88号万达广场5层',
+      hallName: '杜比全景声厅', showDate: '2026-08-01', startTime: '13:00',
+      seatInfo: '8排5座', ticketCount: 1, totalAmount: 59.9,
+      status: 'paid', pickupCode: 'D1F6M3R9',
+      createdAt: '2026-08-01 12:00:00', paidAt: '2026-08-01 12:02:00',
+      seats: [{ seatLabel: '8排5座', status: 'sold' }],
+    },
+    {
+      id: 8, orderNo: 'ORD20260802100001', userPhone: '132****0000',
+      movieName: '流浪地球3', cinemaName: '百老汇影城', cinemaAddress: '北京市朝阳区三里屯太古里南区B1',
+      hallName: 'VIP贵宾厅', showDate: '2026-08-02', startTime: '10:00',
+      seatInfo: '3排2座, 3排3座', ticketCount: 2, totalAmount: 299.8,
+      status: 'cancelled', cancelReason: '场次取消',
+      createdAt: '2026-08-01 20:00:00', cancelledAt: '2026-08-02 08:00:00',
+    },
+  ];
+}
+
+// ===================== 模块级状态 =====================
+let state: OrderState = { orders: buildMockOrders() };
+
+const listeners = new Set<() => void>();
+const emit = () => listeners.forEach((l) => l());
+
+// ===================== Store Hook =====================
+export function useOrderStore() {
+  const snapshot = useSyncExternalStore(
+    (cb) => { listeners.add(cb); return () => listeners.delete(cb); },
+    () => state,
+  );
+
+  return {
+    orders: snapshot.orders,
+
+    getOrderById: (id: number): OrderItem | undefined => {
+      return snapshot.orders.find((o) => o.id === id);
+    },
+
+    getOrdersBySchedule: (scheduleId: number): OrderItem[] => {
+      return snapshot.orders.filter((o) => o.scheduleId === scheduleId);
+    },
+  };
+}
