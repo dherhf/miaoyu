@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react';
+import { create } from 'zustand';
 import type { SeatItem, HallItem } from './types';
 import { mockHalls } from './mock';
 
@@ -20,10 +20,6 @@ export const SEAT_STATUS = {
 } as const;
 
 export type { SeatItem, HallItem } from './types';
-
-interface HallState {
-  halls: HallItem[];
-}
 
 // ===================== 纯工具函数 =====================
 export function generateSeats(rows: number, cols: number): SeatItem[] {
@@ -84,46 +80,39 @@ export function removeCol(seats: SeatItem[]): SeatItem[] | { error: string } {
   return seats.filter((s) => s.col !== cols);
 }
 
-// ===================== 模块级状态 =====================
-let state: HallState = { halls: mockHalls };
-
-const listeners = new Set<() => void>();
-const emit = () => listeners.forEach((l) => l());
-
-// ===================== Store Hook =====================
-export function useHallStore() {
-  const snapshot = useSyncExternalStore(
-    (cb) => { listeners.add(cb); return () => listeners.delete(cb); },
-    () => state,
-  );
-
-  return {
-    halls: snapshot.halls,
-
-    getHallsByCinemaId: (cinemaId: string | number): HallItem[] => {
-      return snapshot.halls.filter((h) => String(h.cinemaId) === String(cinemaId));
-    },
-
-    addHall: async (payload: Omit<HallItem, 'id'>): Promise<void> => {
-      const newId = state.halls.length > 0
-        ? Math.max(...state.halls.map((h) => Number(h.id))) + 1
-        : 1;
-      state = { halls: [...state.halls, { ...payload, id: newId, status: 'active' }] };
-      emit();
-    },
-
-    updateHall: async (id: string | number, payload: Partial<HallItem>): Promise<void> => {
-      state = {
-        halls: state.halls.map((h) =>
-          String(h.id) === String(id) ? { ...h, ...payload } : h,
-        ),
-      };
-      emit();
-    },
-
-    deleteHall: (id: string | number): void => {
-      state = { halls: state.halls.filter((h) => String(h.id) !== String(id)) };
-      emit();
-    },
-  };
+// ===================== Store =====================
+interface HallState {
+  halls: HallItem[];
+  getHallsByCinemaId: (cinemaId: string | number) => HallItem[];
+  addHall: (payload: Omit<HallItem, 'id'>) => Promise<void>;
+  updateHall: (id: string | number, payload: Partial<HallItem>) => Promise<void>;
+  deleteHall: (id: string | number) => void;
 }
+
+export const useHallStore = create<HallState>((set, get) => ({
+  halls: mockHalls,
+
+  getHallsByCinemaId: (cinemaId: string | number): HallItem[] => {
+    return get().halls.filter((h) => String(h.cinemaId) === String(cinemaId));
+  },
+
+  addHall: async (payload: Omit<HallItem, 'id'>): Promise<void> => {
+    const halls = get().halls;
+    const newId = halls.length > 0
+      ? Math.max(...halls.map((h) => Number(h.id))) + 1
+      : 1;
+    set((s) => ({ halls: [...s.halls, { ...payload, id: newId, status: 'active' }] }));
+  },
+
+  updateHall: async (id: string | number, payload: Partial<HallItem>): Promise<void> => {
+    set((s) => ({
+      halls: s.halls.map((h) =>
+        String(h.id) === String(id) ? { ...h, ...payload } : h,
+      ),
+    }));
+  },
+
+  deleteHall: (id: string | number): void => {
+    set((s) => ({ halls: s.halls.filter((h) => String(h.id) !== String(id)) }));
+  },
+}));

@@ -1,49 +1,33 @@
-import { useSyncExternalStore } from 'react';
-import type { CinemaStatus, CinemaItem } from './types';
+import { create } from 'zustand';
+import type { CinemaItem } from './types';
 import { mockCinemas } from './mock';
 
 export type { CinemaStatus, CinemaItem } from './types';
 
 interface CinemaState {
   cinemas: CinemaItem[];
+  addCinema: (payload: Omit<CinemaItem, 'id'>) => Promise<void>;
+  updateCinema: (id: number, payload: Partial<CinemaItem>) => Promise<void>;
+  deleteCinema: (id: number) => void;
 }
 
-// ===================== 模块级状态 =====================
-let state: CinemaState = { cinemas: mockCinemas };
+export const useCinemaStore = create<CinemaState>((set, get) => ({
+  cinemas: mockCinemas,
 
-const listeners = new Set<() => void>();
-const emit = () => listeners.forEach((l) => l());
+  addCinema: async (payload: Omit<CinemaItem, 'id'>): Promise<void> => {
+    const newId = get().cinemas.length > 0
+      ? Math.max(...get().cinemas.map((c) => c.id)) + 1
+      : 1;
+    set((s) => ({ cinemas: [...s.cinemas, { ...payload, id: newId }] }));
+  },
 
-// ===================== Store Hook =====================
-export function useCinemaStore() {
-  const snapshot = useSyncExternalStore(
-    (cb) => { listeners.add(cb); return () => listeners.delete(cb); },
-    () => state,
-  );
+  updateCinema: async (id: number, payload: Partial<CinemaItem>): Promise<void> => {
+    set((s) => ({
+      cinemas: s.cinemas.map((c) => (c.id === id ? { ...c, ...payload } : c)),
+    }));
+  },
 
-  return {
-    cinemas: snapshot.cinemas,
-
-    addCinema: async (payload: Omit<CinemaItem, 'id'>): Promise<void> => {
-      const newId = state.cinemas.length > 0
-        ? Math.max(...state.cinemas.map((c) => c.id)) + 1
-        : 1;
-      state = { cinemas: [...state.cinemas, { ...payload, id: newId }] };
-      emit();
-    },
-
-    updateCinema: async (id: number, payload: Partial<CinemaItem>): Promise<void> => {
-      state = {
-        cinemas: state.cinemas.map((c) =>
-          c.id === id ? { ...c, ...payload } : c,
-        ),
-      };
-      emit();
-    },
-
-    deleteCinema: (id: number): void => {
-      state = { cinemas: state.cinemas.filter((c) => c.id !== id) };
-      emit();
-    },
-  };
-}
+  deleteCinema: (id: number): void => {
+    set((s) => ({ cinemas: s.cinemas.filter((c) => c.id !== id) }));
+  },
+}));

@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react';
+import { create } from 'zustand';
 import type {
   DashboardStats,
   TrendRecord,
@@ -22,31 +22,13 @@ interface DashboardState {
   movieRanking: MovieRankItem[];
   cinemaStats: CinemaRow[];
   cinemaTypeDistribution: CinemaDistItem[];
+  refreshDashboard: () => void;
 }
 
-// ===================== 模块级状态 =====================
-let state: DashboardState = buildMockDashboard();
+export const useDashboardStore = create<DashboardState>(() => ({
+  ...buildMockDashboard(),
 
-const listeners = new Set<() => void>();
-const emit = () => listeners.forEach((l) => l());
-
-// ===================== Store Hook =====================
-export function useDashboardStore() {
-  const snapshot = useSyncExternalStore(
-    (cb) => { listeners.add(cb); return () => listeners.delete(cb); },
-    () => state,
-  );
-
-  return {
-    stats: snapshot.stats,
-    trendData: snapshot.trendData,
-    movieRanking: snapshot.movieRanking,
-    cinemaStats: snapshot.cinemaStats,
-    cinemaTypeDistribution: snapshot.cinemaTypeDistribution,
-
-    refreshDashboard: (): void => {
-      state = buildMockDashboard();
-      emit();
-    },
-  };
-}
+  refreshDashboard: (): void => {
+    useDashboardStore.setState(buildMockDashboard());
+  },
+}));
