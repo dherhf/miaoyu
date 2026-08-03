@@ -1,36 +1,7 @@
 import { useSyncExternalStore } from 'react';
+import type { OrderStatus, OrderSeat, OrderItem } from '../types/order';
 
-// ===================== 类型 =====================
-export type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded';
-
-export interface OrderSeat {
-  seatLabel: string;
-  status: 'sold' | 'available';
-}
-
-export interface OrderItem {
-  id: number;
-  orderNo: string;
-  userPhone: string;
-  userId?: number;
-  movieName: string;
-  cinemaName: string;
-  cinemaAddress?: string;
-  hallName: string;
-  showDate: string;
-  startTime: string;
-  seatInfo: string;
-  ticketCount: number;
-  totalAmount: number;
-  status: OrderStatus;
-  pickupCode?: string;
-  createdAt: string;
-  paidAt?: string;
-  cancelledAt?: string;
-  cancelReason?: string;
-  seats?: OrderSeat[];
-  scheduleId?: number;
-}
+export type { OrderStatus, OrderSeat, OrderItem } from '../types/order';
 
 interface OrderState {
   orders: OrderItem[];

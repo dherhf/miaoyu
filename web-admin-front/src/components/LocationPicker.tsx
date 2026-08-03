@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { Input, Button, Space, List, Spin, Typography } from 'antd';
 import { MapPin, Search } from 'lucide-react';
-import { searchPoi, reGeocode, type PoiItem } from '../services/amap';
+import { searchPoi, reGeocode, type PoiItem } from '../api/amap';
 
 export interface LocationData {
   address: string;
