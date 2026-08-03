@@ -1,8 +1,7 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Input, Button, Space, List, Spin, Typography } from 'antd';
+import React, { useState, useCallback } from 'react';
+import { Input, Button, Space, Typography, List, Spin } from 'antd';
 import { MapPin, Search } from 'lucide-react';
-import AMapLoader from '@amap/amap-jsapi-loader';
-import { searchPoi, reGeocode, type PoiItem } from '../api/amap';
+import { searchPoi, reGeocode, type PoiItem } from '../services/amap';
 
 export interface LocationData {
   address: string;
@@ -16,22 +15,12 @@ export interface LocationPickerProps {
   readonly?: boolean;
 }
 
-/** 高德 JS SDK 加载缓存——全局只加载一次 */
-let amapPromise: Promise<typeof AMap> | null = null;
-
-function loadAMap(): Promise<typeof AMap> {
-  if (!amapPromise) {
-    amapPromise = AMapLoader.load({
-      key: import.meta.env.VITE_AMAP_JS_KEY || 'your_amap_js_key_here',
-      version: '2.0',
-    });
-  }
-  return amapPromise;
-}
-
-const MAP_CONTAINER_ID_PREFIX = 'amap-container-';
-let containerIdCounter = 0;
-
+/**
+ * 地图选点组件
+ * 集成 WeaveFox 高德地图服务：
+ * - POI 关键词搜索（输入影院名称 → 候选列表 → 点选回填）
+ * - 手动输入经纬度作为降级方案
+ */
 const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, readonly = false }) => {
   const [address, setAddress] = useState(value?.address ?? '');
   const [longitude, setLongitude] = useState(value?.longitude ?? 0);
@@ -40,25 +29,12 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, readon
   const [searching, setSearching] = useState(false);
   const [poiResults, setPoiResults] = useState<PoiItem[]>([]);
 
-  // 地图相关
-  const mapRef = useRef<AMap.Map | null>(null);
-  const markerRef = useRef<AMap.Marker | null>(null);
-  const containerId = useRef(`${MAP_CONTAINER_ID_PREFIX}${++containerIdCounter}`);
-  const [mapReady, setMapReady] = useState(false);
-
   // 同步外部 value
-  useEffect(() => {
+  React.useEffect(() => {
     if (value) {
       setAddress(value.address);
       setLongitude(value.longitude);
       setLatitude(value.latitude);
-      // 移动地图标记
-      if (mapRef.current && value.longitude && value.latitude) {
-        mapRef.current.setZoomAndCenter(17, [value.longitude, value.latitude]);
-        if (markerRef.current) {
-          markerRef.current.setPosition([value.longitude, value.latitude]);
-        }
-      }
     }
   }, [value]);
 
@@ -72,87 +48,17 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, readon
     [onChange],
   );
 
-  // 更新地图标记
-  const placeMarker = useCallback(
-    (lng: number, lat: number) => {
-      if (!markerRef.current || !mapRef.current) return;
-      markerRef.current.setPosition([lng, lat]);
-      mapRef.current.setZoomAndCenter(17, [lng, lat]);
-    },
-    [],
-  );
-
-  // 点击地图选点
-  const handleMapClick = useCallback(
-    async (e: any) => {
-      const lng = e.lnglat.getLng();
-      const lat = e.lnglat.getLat();
-      placeMarker(lng, lat);
-      try {
-        const res = await reGeocode(`${lng},${lat}`);
-        const addr = res.code === 200 && res.data ? res.data.formattedAddress : `${lng.toFixed(6)}, ${lat.toFixed(6)}`;
-        emit(addr, lng, lat);
-      } catch {
-        emit(`${lng.toFixed(6)}, ${lat.toFixed(6)}`, lng, lat);
-      }
-    },
-    [placeMarker, emit],
-  );
-
-  // 初始化地图
-  useEffect(() => {
-    if (readonly) return;
-
-    let map: AMap.Map | null = null;
-    let marker: AMap.Marker | null = null;
-    let cancelled = false;
-
-    loadAMap().then((AMap) => {
-      if (cancelled) return;
-
-      map = new AMap.Map(containerId.current, {
-        zoom: 14,
-        center: longitude && latitude ? [longitude, latitude] : [116.397428, 39.90923], // 默认北京
-        viewMode: '2D',
-        resizeEnable: true,
-      });
-
-      // 创建标记
-      marker = new AMap.Marker({
-        position: longitude && latitude ? [longitude, latitude] : [116.397428, 39.90923],
-        anchor: 'bottom-center',
-      });
-      map.add(marker);
-
-      // 点击地图事件
-      map.on('click', handleMapClick);
-
-      mapRef.current = map;
-      markerRef.current = marker;
-      setMapReady(true);
-    });
-
-    return () => {
-      cancelled = true;
-      if (map) {
-        map.off('click', handleMapClick);
-        map.destroy();
-      }
-      mapRef.current = null;
-      markerRef.current = null;
-      setMapReady(false);
-    };
-    // 只在 readonly 变化时重新初始化；longitude/latitude 初始值用 ref 方式处理
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [readonly]);
-
   // POI 搜索
   const handleSearch = useCallback(async () => {
     if (!searchKeyword.trim()) return;
     setSearching(true);
     try {
       const res = await searchPoi(searchKeyword.trim(), { pageSize: 10 });
-      setPoiResults(res.code === 200 && res.data ? res.data : []);
+      if (res.code === 200 && res.data) {
+        setPoiResults(res.data);
+      } else {
+        setPoiResults([]);
+      }
     } catch {
       setPoiResults([]);
     } finally {
@@ -160,41 +66,73 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, readon
     }
   }, [searchKeyword]);
 
-  // 选中 POI ——逆地理编码后更新标记与地图
+  // 选中 POI 结果
   const handleSelectPoi = useCallback(
     async (item: PoiItem) => {
       const [lng, lat] = item.location.split(',').map(Number);
-      placeMarker(lng, lat);
+      // 用逆地理编码获取结构化地址
       try {
         const res = await reGeocode(item.location);
-        const addr = res.code === 200 && res.data ? res.data.formattedAddress : item.address;
-        emit(addr || item.address, lng, lat);
+        if (res.code === 200 && res.data) {
+          emit(res.data.formattedAddress || item.address, lng, lat);
+        } else {
+          emit(item.address, lng, lat);
+        }
       } catch {
         emit(item.address, lng, lat);
       }
       setPoiResults([]);
       setSearchKeyword(item.name);
     },
-    [emit, placeMarker],
+    [emit],
+  );
+
+  const handleAddressChange = useCallback(
+    (v: string) => {
+      setAddress(v);
+      onChange?.({ address: v, longitude, latitude });
+    },
+    [longitude, latitude, onChange],
+  );
+
+  const handleLngChange = useCallback(
+    (v: string) => {
+      const num = parseFloat(v) || 0;
+      setLongitude(num);
+      onChange?.({ address, longitude: num, latitude });
+    },
+    [address, latitude, onChange],
+  );
+
+  const handleLatChange = useCallback(
+    (v: string) => {
+      const num = parseFloat(v) || 0;
+      setLatitude(num);
+      onChange?.({ address, longitude, latitude: num });
+    },
+    [address, longitude, onChange],
   );
 
   if (readonly) {
     return (
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#f5f5f5', borderRadius: 6 }}>
+      <div style={{ padding: '12px 0' }}>
+        <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 4 }}>选中位置</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#f5f5f5', borderRadius: 6, fontSize: 14 }}>
           <MapPin size={16} color="#1677ff" />
           <span>{address || '未选择'}</span>
+        </div>
+        <div style={{ marginTop: 8, fontSize: 12, color: '#999' }}>
+          经度 {longitude.toFixed(7)} | 纬度 {latitude.toFixed(7)}
         </div>
       </div>
     );
   }
 
-  const hasLocation = address && longitude !== 0 && latitude !== 0;
-
   return (
-    <div>
-      {/* 搜索区 */}
-      <div style={{ marginBottom: 12 }}>
+    <div style={{ padding: '8px 0' }}>
+      {/* POI 搜索栏 */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 4 }}>搜索地点</div>
         <Space.Compact style={{ width: '100%' }}>
           <Input
             value={searchKeyword}
@@ -208,12 +146,12 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, readon
           </Button>
         </Space.Compact>
 
-        {/* 搜索结果 */}
+        {/* POI 搜索结果列表 */}
         {poiResults.length > 0 && (
           <List
             size="small"
             bordered
-            style={{ marginTop: 8, maxHeight: 180, overflow: 'auto' }}
+            style={{ marginTop: 8, maxHeight: 200, overflow: 'auto' }}
             dataSource={poiResults}
             renderItem={(item) => (
               <List.Item
@@ -224,8 +162,10 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, readon
                 onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
               >
                 <List.Item.Meta
-                  title={<span style={{ fontSize: 13 }}>{item.name}</span>}
-                  description={<span style={{ fontSize: 12, color: '#999' }}>{item.address}</span>}
+                  title={<span style={{ fontSize: 14 }}>{item.name}</span>}
+                  description={
+                    <span style={{ fontSize: 12, color: '#999' }}>{item.address}</span>
+                  }
                 />
               </List.Item>
             )}
@@ -238,44 +178,53 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, readon
         )}
       </div>
 
-      {/* 地图区域 */}
-      <div style={{ position: 'relative', width: '100%', height: 200, borderRadius: 8, border: '1px solid #e8e8e8', overflow: 'hidden' }}>
-        {/* SDK 加载中的占位 */}
-        {!mapReady && (
-          <div style={{
-            position: 'absolute', inset: 0, zIndex: 2,
-            background: '#f0f2f5', display: 'flex',
-            flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
-          }}>
-            <Spin size="small" />
-            <Typography.Text type="secondary" style={{ fontSize: 13 }}>地图加载中...</Typography.Text>
+      {/* 已选位置展示 */}
+      {(address || longitude !== 0 || latitude !== 0) && (
+        <div style={{ marginBottom: 16, padding: 12, background: '#f0f5ff', borderRadius: 8, border: '1px solid #d6e4ff' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <MapPin size={16} color="#1677ff" />
+            <Typography.Text strong style={{ fontSize: 14 }}>{address || '坐标位置'}</Typography.Text>
           </div>
-        )}
-        {/* 地图容器 */}
-        <div id={containerId.current} style={{ width: '100%', height: '100%' }} />
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            {longitude.toFixed(6)}, {latitude.toFixed(6)}
+          </Typography.Text>
+        </div>
+      )}
 
-        {/* 已选位置信息浮层 */}
-        {hasLocation && mapReady && (
-          <div style={{
-            position: 'absolute', bottom: 8, left: 8, right: 8, zIndex: 10,
-            background: 'rgba(255,255,255,0.95)', borderRadius: 6,
-            padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.15)', fontSize: 12,
-          }}>
-            <MapPin size={14} color="#1677ff" />
-            <span style={{ flex: 1, color: '#333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {address}
-            </span>
-            <span style={{ color: '#999', whiteSpace: 'nowrap' }}>
-              {longitude.toFixed(6)}, {latitude.toFixed(6)}
-            </span>
+      {/* 手动输入（降级方案） */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 4 }}>手动微调坐标</div>
+        <Space size={12} style={{ width: '100%' }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 12, color: '#666', marginBottom: 2 }}>经度</div>
+            <Input
+              value={longitude || ''}
+              onChange={(e) => handleLngChange(e.target.value)}
+              placeholder="-180 ~ 180"
+            />
           </div>
-        )}
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 12, color: '#666', marginBottom: 2 }}>纬度</div>
+            <Input
+              value={latitude || ''}
+              onChange={(e) => handleLatChange(e.target.value)}
+              placeholder="-90 ~ 90"
+            />
+          </div>
+        </Space>
       </div>
 
-      <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
-        搜索地址或直接点击地图选择位置
-      </Typography.Text>
+      {/* 详细地址 */}
+      <div style={{ marginBottom: 8 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 4 }}>详细地址</div>
+        <Input
+          value={address}
+          onChange={(e) => handleAddressChange(e.target.value)}
+          placeholder="省市区 + 详细地址"
+          maxLength={200}
+          prefix={<MapPin size={14} color="#999" />}
+        />
+      </div>
     </div>
   );
 };

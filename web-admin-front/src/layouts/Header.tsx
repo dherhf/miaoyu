@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, ChevronDown, LogOut } from 'lucide-react';
-import { Dropdown } from 'antd';
+import { User, Search, ChevronDown, LogOut } from 'lucide-react';
+import { Dropdown, Input } from 'antd';
 import type { MenuProps } from 'antd';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -56,9 +56,16 @@ const AdminHeader: React.FC = () => {
       top: 0,
       zIndex: 40
     }}>
-      <div />
+      {/* 搜索框 */}
+      <div style={{ maxWidth: 480, width: '100%' }}>
+        <Input
+          placeholder="搜索功能、页面或数据..."
+          prefix={<Search size={16} color="#9ca3af" />}
+        />
+      </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }} ref={containerRef}>
+        <div style={{ width: 1, height: 32, background: '#e5e7eb' }} />
 
         <Dropdown
           open={openMenu}

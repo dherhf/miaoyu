@@ -1,8 +1,19 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
-import type { ApiResponse } from '../types/api';
 
-export type { ApiResponse, PageResult } from '../types/api';
+// ===================== 统一响应格式 =====================
+export interface ApiResponse<T = unknown> {
+  code: number;
+  message: string;
+  data: T;
+}
+
+export interface PageResult<T> {
+  total: number;
+  page: number;
+  size: number;
+  records: T[];
+}
 
 // ===================== Axios 实例 =====================
 const request = axios.create({

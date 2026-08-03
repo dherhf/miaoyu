@@ -1,14 +1,20 @@
 import { useSyncExternalStore } from 'react';
-import type { AuthUser, UserRole } from '../types/auth';
-import { mockAdmin } from '../mock';
 
-// ===================== 常量 =====================
+// ===================== 类型定义 =====================
 export const USER_ROLE = {
   SUPER_ADMIN: 'super_admin',
   ADMIN: 'admin',
 } as const;
 
-export type { UserRole, AuthUser } from '../types/auth';
+export type UserRole = (typeof USER_ROLE)[keyof typeof USER_ROLE];
+
+export interface AuthUser {
+  id: number;
+  username: string;
+  realName: string;
+  avatar?: string;
+  role: UserRole;
+}
 
 interface AuthState {
   currentUser: AuthUser | null;
@@ -29,6 +35,14 @@ function setState(partial: Partial<AuthState>) {
   state = { ...state, ...partial };
   emit();
 }
+
+// ===================== Mock 管理员 =====================
+const MOCK_ADMIN: AuthUser = {
+  id: 1,
+  username: 'admin',
+  realName: '系统管理员',
+  role: USER_ROLE.SUPER_ADMIN,
+};
 
 // ===================== Store Hook =====================
 export function useAuthStore() {
@@ -51,8 +65,8 @@ export function useAuthStore() {
       if (username === 'admin' && password === 'admin123') {
         const token = 'mock-jwt-token-' + Date.now();
         localStorage.setItem('adminToken', token);
-        localStorage.setItem('adminUser', JSON.stringify(mockAdmin));
-        setState({ currentUser: mockAdmin });
+        localStorage.setItem('adminUser', JSON.stringify(MOCK_ADMIN));
+        setState({ currentUser: MOCK_ADMIN });
         return { success: true };
       }
       return { success: false, message: '用户名或密码错误' };

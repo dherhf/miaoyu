@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, Form, Input, Button, Typography } from 'antd';
 import type { FormProps } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
+import { UserOutlined, LockOutlined, LoadingOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuthStore } from '../../stores/authStore';
@@ -16,11 +16,9 @@ const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const { login } = useAuthStore();
   const [form] = Form.useForm<LoginFormValues>();
-  const [loading, setLoading] = useState(false);
 
   // 提交登录
   const handleSubmit: FormProps<LoginFormValues>['onFinish'] = async (values) => {
-    setLoading(true);
     // 模拟接口延迟
     await new Promise((resolve) => setTimeout(resolve, 500));
     const result = login(values.username, values.password);
@@ -35,7 +33,6 @@ const LoginPage: React.FC = () => {
         description: result.message || '用户名或密码错误',
       });
     }
-    setLoading(false);
   };
 
   return (
@@ -134,7 +131,7 @@ const LoginPage: React.FC = () => {
               htmlType="submit"
               block
               size="large"
-              loading={loading}
+              icon={<LoadingOutlined />}
             >
               登录
             </Button>

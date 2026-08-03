@@ -29,7 +29,6 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useCinemaStore, useHallStore, useScheduleStore } from '../../stores';
-import LocationPicker from '../../components/LocationPicker';
 
 // ====================== 类型枚举定义 ======================
 export enum CINEMA_STATUS {
@@ -107,28 +106,32 @@ const CinemaForm: React.FC<CinemaFormProps> = ({ data, isEdit, onChange }) => {
         />
       </Form.Item>
 
-      {/* 地图选址：搜索框+搜索按钮+地图画布 */}
-      <Form.Item label="地图选址" required>
-        <LocationPicker
-          value={{ address: data.address, longitude: data.longitude, latitude: data.latitude }}
-          onChange={(loc) => {
-            handleFieldChange('address', loc.address);
-            handleFieldChange('longitude', loc.longitude);
-            handleFieldChange('latitude', loc.latitude);
-          }}
-        />
-      </Form.Item>
-
-      {/* 详细地址：地图选点后自动回填，也可手动修改 */}
-      <Form.Item label="详细地址" name="address" rules={[{ required: true, message: '请选择地址' }]}>
+      {/* 地图坐标+地址（这里仅字段展示，MapPicker你可自行封装 antd 地图组件） */}
+      <Form.Item label="地址" name="address" rules={[{ required: true, message: '请选择地址' }]}>
         <Input
+          readOnly
           value={data.address}
-          onChange={(e) => handleFieldChange('address', e.target.value)}
           placeholder="地图选点后自动回填"
-          maxLength={200}
+          style={{ background: '#f5f5f5' }}
           prefix={<MapPin size={14} />}
         />
       </Form.Item>
+      <Space style={{ marginBottom: 16 }}>
+        <InputNumber
+          addonBefore="经度"
+          value={data.longitude}
+          onChange={(v) => handleFieldChange('longitude', v ?? 0)}
+          step={0.0000001}
+          style={{ width: 200 }}
+        />
+        <InputNumber
+          addonBefore="纬度"
+          value={data.latitude}
+          onChange={(v) => handleFieldChange('latitude', v ?? 0)}
+          step={0.0000001}
+          style={{ width: 200 }}
+        />
+      </Space>
 
       {/* 设施标签多选 */}
       <Form.Item label="设施标签">
