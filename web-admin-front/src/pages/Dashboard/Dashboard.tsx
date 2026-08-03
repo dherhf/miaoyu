@@ -289,6 +289,7 @@ const Dashboard: React.FC = () => {
               </ResponsiveContainer>
             </div>
             <Table<MovieRankItem>
+              rowKey="rank"
               columns={movieColumns}
               dataSource={movieRanking}
               pagination={false}
@@ -314,6 +315,7 @@ const Dashboard: React.FC = () => {
                 </div>
                 <div style={{ flex: 1, overflow: 'hidden', minWidth: 0 }}>
                   <Table<CinemaRow>
+                    rowKey="name"
                     columns={cinemaColumns}
                     dataSource={cinemaStats.slice(0,5)}
                     pagination={false}

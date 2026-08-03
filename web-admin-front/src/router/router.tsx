@@ -1,8 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 
 // 布局文件
-import AdminLayout from '../layouts/AdminLayout';
-import LoginLayout from '../layouts/LoginLayout';
+import MainLayout from '../layouts/MainLayout';
 
 // 页面组件
 import LoginPage from '../pages/login/login';
@@ -29,18 +28,14 @@ const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 /** 全局路由配置 */
 export const router = createBrowserRouter([
   // ----- 公开路由 -----
-  {
-    path: '/login',
-    element: <LoginLayout />,
-    children: [{ index: true, element: <LoginPage /> }],
-  },
+  { path: '/login', element: <LoginPage /> },
 
   // ----- 鉴权后台路由 -----
   {
     path: '/',
     element: (
       <AuthGuard>
-        <AdminLayout />
+        <MainLayout />
       </AuthGuard>
     ),
     children: [
