@@ -1,10 +1,49 @@
-####################################################################################################################
-# WARNING: Do not store sensitive information in this file, as its contents will be included in the Qodana report. #
-####################################################################################################################
+#-------------------------------------------------------------------------------#
+#               Qodana analysis is configured by qodana.yaml file               #
+#             https://www.jetbrains.com/help/qodana/qodana-yaml.html            #
+#-------------------------------------------------------------------------------#
 
+#################################################################################
+#              WARNING: Do not store sensitive information in this file,        #
+#               as its contents will be included in the Qodana report.          #
+#################################################################################
 version: "1.0"
-linter: qodana-jvm
+
+# 指定用于代码分析的检查配置文件 (Profile)
 profile:
-  name: qodana.recommended
-include:
-  - name: CheckDependencyLicenses
+  name: qodana.starter
+
+# 启用检查项
+#include:
+#  - name: <要启用的检查项 ID>
+
+# 禁用检查项
+#exclude:
+#  - name: <要禁用的检查项 ID>
+#    paths:
+#      - <不运行检查的路径>
+
+projectJDK: "21" #(应用于 CI/CD 流水线)
+
+  # 在 Qodana 执行前运行 Shell 命令（应用于 CI/CD 流水线）
+  #bootstrap: sh ./prepare-qodana.sh
+
+  # 在 Qodana 执行前安装 IDE 插件（应用于 CI/CD 流水线）
+  #plugins:
+  #  - id: <插件 ID> #(插件 ID 可在 https://plugins.jetbrains.com 获取)
+
+  # 质量门禁。如果未满足任何条件，将导致 CI/CD 流水线失败
+  # severityThresholds - 配置不同问题严重程度的最大阈值
+  # testCoverageThresholds - 配置整个项目和新增代码的最低代码覆盖率
+  # 代码覆盖率功能在 Ultimate 和 Ultimate Plus 订阅计划中可用
+  #failureConditions:
+  #  severityThresholds:
+  #    any: 15
+  #    critical: 5
+  #  testCoverageThresholds:
+  #    fresh: 70
+#    total: 50
+
+# Qodana 支持其他语言，例如 Python、JavaScript、TypeScript、Go、C#、PHP
+# 有关所有支持的语言，请参阅 https://www.jetbrains.com/help/qodana/linters.html
+linter: jetbrains/qodana-jvm-community:2026.2
