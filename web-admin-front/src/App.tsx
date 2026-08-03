@@ -1,9 +1,7 @@
-import React from 'react';
 import { RouterProvider, createBrowserRouter, Navigate } from 'react-router-dom';
-import { ConfigProvider } from 'antd';
+import { ConfigProvider, App as AntApp } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import 'dayjs/locale/zh-cn';
-import { Toaster } from 'sonner';
 
 // 布局文件
 import { MainLayout } from './layouts';
@@ -20,9 +18,10 @@ import NotFound from './pages/NotFound';
 
 // 状态管理
 import { useAuthStore } from './features/auth';
+import React from "react";
 
 /** 路由鉴权守卫组件 */
-const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+function AuthGuard({ children }: { children: React.ReactNode }) {
   const { isLoggedIn } = useAuthStore();
 
   // 未登录直接跳登录页
@@ -30,7 +29,7 @@ const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
   return <>{children}</>;
-};
+}
 
 // 全局路由配置
 const router = createBrowserRouter([
@@ -60,7 +59,7 @@ const router = createBrowserRouter([
   { path: '*', element: <NotFound /> },
 ]);
 
-const App: React.FC = () => {
+function App() {
   return (
     <React.StrictMode>
       {/* antd全局配置：中文、主色调 */}
@@ -72,19 +71,13 @@ const App: React.FC = () => {
             borderRadius: 6,
           }}}
       >
-        {/* 路由根入口 */}
-        <RouterProvider router={router} />
-
-        {/* 全局消息弹窗 */}
-        <Toaster
-          position="top-right"
-          richColors
-          closeButton
-          duration={3000}
-        />
+        <AntApp>
+          {/* 路由根入口 */}
+          <RouterProvider router={router} />
+        </AntApp>
       </ConfigProvider>
     </React.StrictMode>
   );
-};
+}
 
 export default App;
