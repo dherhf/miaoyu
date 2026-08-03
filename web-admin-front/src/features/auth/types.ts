@@ -19,10 +19,4 @@ export interface LoginResult {
   adminInfo: AdminInfo;
 }
 
-/** 当前登录用户（Store 层使用） */
-export interface AuthUser {
-  id: number;
-  username: string;
-  realName: string;
-  avatar?: string;
-}
+

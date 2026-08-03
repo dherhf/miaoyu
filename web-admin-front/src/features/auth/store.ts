@@ -1,18 +1,18 @@
 import { useSyncExternalStore } from 'react';
-import type { AuthUser } from './types';
-import { mockAdmin } from './mock';
+import type { AdminInfo } from './types';
+import { login as apiLogin, logout as apiLogout } from './api';
 
-export type { AuthUser } from './types';
+export type { AdminInfo } from './types';
 
 interface AuthState {
-  currentUser: AuthUser | null;
+  currentUser: AdminInfo | null;
 }
 
 // ===================== 模块级状态 =====================
 let state: AuthState = {
   currentUser: (() => {
     const saved = localStorage.getItem('adminUser');
-    return saved ? JSON.parse(saved) : null;
+    return saved ? (JSON.parse(saved) as AdminInfo) : null;
   })(),
 };
 
@@ -41,18 +41,19 @@ export function useAuthStore() {
       return !!localStorage.getItem('adminToken') && !!snapshot.currentUser;
     },
 
-    login: (username: string, password: string): { success: boolean; message?: string } => {
-      if (username === 'admin' && password === 'admin123') {
-        const token = 'mock-jwt-token-' + Date.now();
-        localStorage.setItem('adminToken', token);
-        localStorage.setItem('adminUser', JSON.stringify(mockAdmin));
-        setState({ currentUser: mockAdmin });
-        return { success: true };
-      }
-      return { success: false, message: '用户名或密码错误' };
+    login: async (phone: string, password: string): Promise<void> => {
+      const result = await apiLogin({ phone, password });
+      localStorage.setItem('adminToken', result.token);
+      localStorage.setItem('adminUser', JSON.stringify(result.adminInfo));
+      setState({ currentUser: result.adminInfo });
     },
 
-    logout: (): void => {
+    logout: async (): Promise<void> => {
+      try {
+        await apiLogout();
+      } catch {
+        // 即使登出接口失败，也清除本地登录态
+      }
       localStorage.removeItem('adminToken');
       localStorage.removeItem('adminUser');
       setState({ currentUser: null });

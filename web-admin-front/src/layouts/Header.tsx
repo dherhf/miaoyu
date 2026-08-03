@@ -17,7 +17,7 @@ export function AdminHeader({ collapsed, onToggle }: HeaderProps) {
   const { message } = App.useApp();
 
   const handleLogout = () => {
-    logout();
+    void logout();
     navigate('/login');
     void message.success('已退出登录');
   };
@@ -50,20 +50,12 @@ export function AdminHeader({ collapsed, onToggle }: HeaderProps) {
           <div className={styles.trigger}>
             {/* 头像 */}
             <div className={styles.avatar}>
-              {currentUser?.avatar ? (
-                <img
-                  src={currentUser.avatar}
-                  alt="avatar"
-                  className={styles.avatarImg}
-                />
-              ) : (
-                <User size={18} color="#2563eb" />
-              )}
+              <User size={18} color="#2563eb" />
             </div>
 
             <div className={styles.userInfo}>
               <div className={styles.userName}>
-                {currentUser?.realName || currentUser?.username || '管理员'}
+                {currentUser?.name || '管理员'}
               </div>
             </div>
             <ChevronDown size={14} color="#9ca3af" />

@@ -18,7 +18,15 @@ import NotFound from './pages/NotFound';
 
 // 状态管理
 import { useAuthStore } from './features/auth';
+import { setGlobalMessage } from './shared/utils/globalMessage';
 import React from "react";
+
+/** 将 antd message 实例注入全局，供非组件模块（如 axios 拦截器）使用 */
+function GlobalMessageSetup() {
+  const { message } = AntApp.useApp();
+  setGlobalMessage(message);
+  return null;
+}
 
 /** 路由鉴权守卫组件 */
 function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -72,6 +80,7 @@ function App() {
           }}}
       >
         <AntApp>
+          <GlobalMessageSetup />
           {/* 路由根入口 */}
           <RouterProvider router={router} />
         </AntApp>
