@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import type { AuthUser, UserRole } from '../types/auth';
+import { mockAdmin } from '../mock';
 
 // ===================== 常量 =====================
 export const USER_ROLE = {
@@ -29,14 +30,6 @@ function setState(partial: Partial<AuthState>) {
   emit();
 }
 
-// ===================== Mock 管理员 =====================
-const MOCK_ADMIN: AuthUser = {
-  id: 1,
-  username: 'admin',
-  realName: '系统管理员',
-  role: USER_ROLE.SUPER_ADMIN as UserRole,
-};
-
 // ===================== Store Hook =====================
 export function useAuthStore() {
   const snapshot = useSyncExternalStore(
@@ -58,8 +51,8 @@ export function useAuthStore() {
       if (username === 'admin' && password === 'admin123') {
         const token = 'mock-jwt-token-' + Date.now();
         localStorage.setItem('adminToken', token);
-        localStorage.setItem('adminUser', JSON.stringify(MOCK_ADMIN));
-        setState({ currentUser: MOCK_ADMIN });
+        localStorage.setItem('adminUser', JSON.stringify(mockAdmin));
+        setState({ currentUser: mockAdmin });
         return { success: true };
       }
       return { success: false, message: '用户名或密码错误' };
