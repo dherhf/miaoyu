@@ -1,2 +1,66 @@
 server:
   port: 8081
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: agent-service
+  data:
+    redis:
+      host: 119.91.52.251
+      port: 6379
+      password: www.2005
+      database: 1
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+  mongodb:
+    uri: mongodb://119.91.52.251:27017/agent_db
+
+# 票务服务内部调用地址
+ticket-service:
+  base-url: http://localhost:8080
+  # 内部调用 Token（与 ticket-service 约定的静态 Token）
+  internal-token: miaoyu-internal-token-2026
+
+# DeepSeek LLM 配置
+langchain4j:
+  open-ai:
+    chat-model:
+      base-url: https://api.deepseek.com
+      api-key: ${DEEPSEEK_API_KEY:sk-placeholder}
+      model-name: deepseek-chat
+      temperature: 0.3
+      max-tokens: 2048
+      timeout: 60s
+      log-requests: true
+      log-responses: true
+
+# JWT 配置（与 ticket-service 共用密钥）
+jwt:
+  current-secret: miaoyu-ticket-service-jwt-secret-key-2026
+  old-secret:
+  issuer: miaoyu
+  user-expiration: 86400
+
+# Agent 对话配置
+agent:
+  # Redis 会话上下文 TTL（秒）- 24h
+  context-ttl-seconds: 86400
+  # SSE 连接超时（秒）
+  sse-timeout-seconds: 60
+  # 会话自动过期天数
+  session-expire-days: 30
+  # 连续否定阈值（达此值后降级为结构化追问）
+  negate-threshold: 2
+  # 历史消息窗口大小（传给 LLM 的最近 N 轮）
+  history-window: 10
+
+logging:
+  level:
+    org.dherhf: DEBUG
+    dev.langchain4j: DEBUG
