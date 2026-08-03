@@ -1,12 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Table,
   Button,
   Modal,
-  Form,
   Input,
-  InputNumber,
-  Radio,
   Tag,
   Space,
   Select,
@@ -22,184 +19,26 @@ import {
   Power,
   PowerOff,
   Building2,
-  MapPin,
-  Phone,
   Search,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
 import { useCinemaStore } from './store';
 import { useHallStore } from '../hall';
 import { useScheduleStore } from '../schedule';
-import { LocationPicker } from '../amap';
+import type { CinemaItem, CinemaStatus, CinemaCreateParams } from './types';
+import { CinemaForm, CINEMA_STATUS, CINEMA_STATUS_LABELS } from './CinemaForm';
+import type { CinemaFormValues } from './CinemaForm';
 import styles from './CinemaPage.module.css';
 
-// ====================== 类型枚举定义 ======================
-export enum CINEMA_STATUS {
-  ACTIVE = 'active',
-  CLOSED = 'closed',
-}
-
-interface CinemaItem {
-  id: number;
-  name: string;
-  address: string;
-  longitude: number;
-  latitude: number;
-  facilities: string[];
-  rating: number | null;
-  phone: string | null;
-  status: CINEMA_STATUS;
-}
-
-interface CinemaFormValues {
-  name: string;
-  address: string;
-  longitude: number;
-  latitude: number;
-  facilities: string[];
-  rating: number | null;
-  phone: string | null;
-  status: CINEMA_STATUS;
-}
-
-const CINEMA_STATUS_LABELS = {
-  [CINEMA_STATUS.ACTIVE]: { label: '营业中', color: 'green' },
-  [CINEMA_STATUS.CLOSED]: { label: '停业', color: 'gray' },
-};
-
-const FACILITY_TAGS = [
-  'IMAX',
-  '杜比',
-  '4DX',
-  '巨幕厅',
-  'Dolby Atmos',
-  'Reald 3D',
-  '儿童厅',
-  'VIP厅',
-];
-
-// ====================== 表单子组件 ======================
-interface CinemaFormProps {
-  data: CinemaFormValues;
-  isEdit: boolean;
-  onChange: (vals: CinemaFormValues) => void;
-}
-const CinemaForm: React.FC<CinemaFormProps> = ({ data, isEdit, onChange }) => {
-  const handleFieldChange = (field: keyof CinemaFormValues, val: unknown) => {
-    onChange({ ...data, [field]: val });
-  };
-
-  // 切换设施标签
-  const toggleFacility = (tag: string) => {
-    const list = [...data.facilities];
-    const idx = list.indexOf(tag);
-    if (idx > -1) list.splice(idx, 1);
-    else list.push(tag);
-    handleFieldChange('facilities', list);
-  };
-
-  return (
-    <Form layout="vertical" className={styles.form}>
-      {/* 影院名称 */}
-      <Form.Item label="影院名称" name="name" rules={[{ required: true, max: 50, message: '名称1-50字符' }]}>
-        <Input
-          value={data.name}
-          onChange={(e) => handleFieldChange('name', e.target.value)}
-          placeholder="请输入影院名称"
-        />
-      </Form.Item>
-
-      {/* 地图选址：搜索框+搜索按钮+地图画布 */}
-      <Form.Item label="地图选址" required>
-        <LocationPicker
-          value={{ address: data.address, longitude: data.longitude, latitude: data.latitude }}
-          onChange={(loc) => {
-            handleFieldChange('address', loc.address);
-            handleFieldChange('longitude', loc.longitude);
-            handleFieldChange('latitude', loc.latitude);
-          }}
-        />
-      </Form.Item>
-
-      {/* 详细地址：地图选点后自动回填，也可手动修改 */}
-      <Form.Item label="详细地址" name="address" rules={[{ required: true, message: '请选择地址' }]}>
-        <Input
-          value={data.address}
-          onChange={(e) => handleFieldChange('address', e.target.value)}
-          placeholder="地图选点后自动回填"
-          maxLength={200}
-          prefix={<MapPin size={14} />}
-        />
-      </Form.Item>
-
-      {/* 设施标签多选 */}
-      <Form.Item label="设施标签">
-        <Space wrap size={8}>
-          {FACILITY_TAGS.map((tag) => (
-            <Tag
-              key={tag}
-              onClick={() => toggleFacility(tag)}
-              color={data.facilities.includes(tag) ? 'blue' : undefined}
-              className={styles.facilityTag}
-            >
-              {tag}
-            </Tag>
-          ))}
-        </Space>
-      </Form.Item>
-
-      {/* 评分 & 电话 */}
-      <Space size={16} className={styles.ratingPhoneRow}>
-        <Form.Item label="评分" className={styles.formCol}>
-          <InputNumber
-            min={0}
-            max={10}
-            step={0.1}
-            value={data.rating}
-            onChange={(v) => handleFieldChange('rating', v)}
-            placeholder="0-10"
-            className={styles.fullWidth}
-          />
-        </Form.Item>
-        <Form.Item label="联系电话" className={styles.formCol}>
-          <Input
-            value={data.phone ?? ''}
-            onChange={(e) => handleFieldChange('phone', e.target.value)}
-            placeholder="010-xxxxxxx"
-            prefix={<Phone size={14} />}
-          />
-        </Form.Item>
-      </Space>
-
-      {/* 营业状态 */}
-      <Form.Item label="营业状态">
-        {isEdit ? (
-          <Radio.Group
-            value={data.status}
-            onChange={(e) => handleFieldChange('status', e.target.value)}
-          >
-            <Radio value={CINEMA_STATUS.ACTIVE}>营业中</Radio>
-            <Radio value={CINEMA_STATUS.CLOSED}>停业</Radio>
-          </Radio.Group>
-        ) : (
-          <Tag color="green">营业中（新建默认）</Tag>
-        )}
-      </Form.Item>
-    </Form>
-  );
-};
-
-// ====================== 主页面 ======================
-const CinemaManage: React.FC = () => {
+export function CinemaManage() {
   const navigate = useNavigate();
-  const { cinemas, addCinema, updateCinema, deleteCinema } = useCinemaStore();
+  const { cinemas, loading, fetchCinemas, addCinema, updateCinema, toggleCinemaStatus, deleteCinema } = useCinemaStore();
   const { getHallsByCinemaId } = useHallStore();
   const { schedules } = useScheduleStore();
 
   // 弹窗状态
   const [modalOpen, setModalOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [editRow, setEditRow] = useState<CinemaItem | null>(null);
   // 表单值
   const [formData, setFormData] = useState<CinemaFormValues>({
@@ -214,8 +53,12 @@ const CinemaManage: React.FC = () => {
   });
   // 筛选条件
   const [searchText, setSearchText] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
-  const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([]);
+  const [statusFilter, setStatusFilter] = useState<CinemaStatus | undefined>(undefined);
+
+  // 初始加载
+  useEffect(() => {
+    void fetchCinemas();
+  }, [fetchCinemas]);
 
   // 过滤列表
   const tableData = useMemo(() => {
@@ -275,32 +118,48 @@ const CinemaManage: React.FC = () => {
 
   // 表单提交保存
   const handleSubmit: FormProps['onFinish'] = async () => {
-    setLoading(true);
+    setSubmitting(true);
     try {
+      // 剥离 status，API 的 create/update 不接受该字段
+      const { status, ...rest } = formData;
+      const payload: CinemaCreateParams = {
+        ...rest,
+        rating: rest.rating ?? undefined,
+        phone: rest.phone ?? undefined,
+        facilities: rest.facilities.length > 0 ? rest.facilities : undefined,
+      };
       if (editRow) {
-        // 编辑
         const repeatName = cinemas.some((c) => c.name === formData.name && c.id !== editRow.id);
-        if (repeatName) throw new Error('影院名称已存在');
-        await updateCinema(editRow.id, formData);
-        toast.success('影院更新成功');
+        if (repeatName) {
+          void message.error('影院名称已存在');
+          return;
+        }
+        await updateCinema(editRow.id, payload);
+        // 编辑时若状态变更，走独立的停业/营业接口
+        if (editRow.status !== status) {
+          await toggleCinemaStatus(editRow.id, status);
+        }
+        message.success('影院更新成功');
       } else {
-        // 新增
         const repeatName = cinemas.some((c) => c.name === formData.name);
-        if (repeatName) throw new Error('影院名称已存在');
-        await addCinema(formData);
-        toast.success('影院新增成功');
+        if (repeatName) {
+          void message.error('影院名称已存在');
+          return;
+        }
+        await addCinema(payload);
+        message.success('影院新增成功');
       }
       setModalOpen(false);
-    } catch (err: any) {
-      message.error(err.message || '操作失败');
+    } catch {
+      message.error('操作失败');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
   // 切换营业/停业
-  const toggleStatus = (record: CinemaItem) => {
-    const targetStatus = record.status === CINEMA_STATUS.ACTIVE ? CINEMA_STATUS.CLOSED : CINEMA_STATUS.ACTIVE;
+  const toggleStatus = async (record: CinemaItem) => {
+    const targetStatus: CinemaStatus = record.status === CINEMA_STATUS.ACTIVE ? CINEMA_STATUS.CLOSED : CINEMA_STATUS.ACTIVE;
     const targetText = targetStatus === CINEMA_STATUS.ACTIVE ? '营业' : '停业';
     // 判断是否有未结束场次
     const hasUnFinishSchedule = schedules.some(
@@ -312,15 +171,15 @@ const CinemaManage: React.FC = () => {
         content: '该影院存在未结束场次，停业后将暂停售票，确认继续？',
         okText: '确认停业',
         cancelText: '取消',
-        onOk: () => {
-          updateCinema(record.id, { status: targetStatus });
-          toast.success(`影院已${targetText}`);
+        onOk: async () => {
+          await toggleCinemaStatus(record.id, targetStatus);
+          message.success(`影院已${targetText}`);
         },
       });
       return;
     }
-    updateCinema(record.id, { status: targetStatus });
-    toast.success(`影院已${targetText}`);
+    await toggleCinemaStatus(record.id, targetStatus);
+    message.success(`影院已${targetText}`);
   };
 
   // 删除影院
@@ -340,10 +199,10 @@ const CinemaManage: React.FC = () => {
     Modal.confirm({
       title: '删除确认',
       content: `确定删除影院【${record.name}】？删除后不可恢复`,
-      danger: true,
-      onOk: () => {
-        deleteCinema(record.id);
-        toast.success('删除成功');
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        await deleteCinema(record.id);
+        message.success('删除成功');
       },
     });
   };
@@ -391,9 +250,9 @@ const CinemaManage: React.FC = () => {
         return (
           <Space size={4} wrap>
             {list.slice(0, 3).map((tag) => (
-              <Tag key={tag} size="small">{tag}</Tag>
+              <Tag key={tag}>{tag}</Tag>
             ))}
-            {list.length > 3 && <Tag size="small">+{list.length - 3}</Tag>}
+            {list.length > 3 && <Tag>+{list.length - 3}</Tag>}
           </Space>
         );
       },
@@ -419,7 +278,7 @@ const CinemaManage: React.FC = () => {
       key: 'status',
       width: 100,
       align: 'center',
-      render: (val: CINEMA_STATUS) => {
+      render: (val: CinemaStatus) => {
         const cfg = CINEMA_STATUS_LABELS[val];
         return <Tag color={cfg.color}>{cfg.label}</Tag>;
       },
@@ -441,7 +300,7 @@ const CinemaManage: React.FC = () => {
             size="small"
             icon={record.status === CINEMA_STATUS.ACTIVE ? <PowerOff /> : <Power />}
             danger={record.status === CINEMA_STATUS.ACTIVE}
-            onClick={() => toggleStatus(record)}
+            onClick={() => void toggleStatus(record)}
           >
             {record.status === CINEMA_STATUS.ACTIVE ? '停业' : '营业'}
           </Button>
@@ -501,6 +360,7 @@ const CinemaManage: React.FC = () => {
           rowKey="id"
           columns={columns}
           dataSource={tableData}
+          loading={loading}
           pagination={{ pageSize: 10 }}
           bordered
           scroll={{ x: 'max-content' }}
@@ -513,7 +373,7 @@ const CinemaManage: React.FC = () => {
         open={modalOpen}
         maskClosable={false}
         width={580}
-        confirmLoading={loading}
+        confirmLoading={submitting}
         onCancel={() => setModalOpen(false)}
         onOk={handleSubmit}
       >
@@ -521,6 +381,4 @@ const CinemaManage: React.FC = () => {
       </Modal>
     </div>
   );
-};
-
-export default CinemaManage;
+}

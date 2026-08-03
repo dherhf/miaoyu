@@ -1,33 +1,62 @@
 import { create } from 'zustand';
-import type { CinemaItem } from './types';
-import { mockCinemas } from './mock';
+import type { CinemaItem, CinemaStatus, CinemaCreateParams, CinemaListParams } from './types';
+import { mapCinemaRecord } from './types';
+import {
+  getCinemaList,
+  createCinema,
+  updateCinema,
+  closeCinema,
+  openCinema,
+  deleteCinema,
+} from './api';
 
 export type { CinemaStatus, CinemaItem } from './types';
 
 interface CinemaState {
   cinemas: CinemaItem[];
-  addCinema: (payload: Omit<CinemaItem, 'id'>) => Promise<void>;
-  updateCinema: (id: number, payload: Partial<CinemaItem>) => Promise<void>;
-  deleteCinema: (id: number) => void;
+  loading: boolean;
+  fetchCinemas: (params?: CinemaListParams) => Promise<void>;
+  addCinema: (payload: CinemaCreateParams) => Promise<void>;
+  updateCinema: (id: number, payload: CinemaCreateParams) => Promise<void>;
+  toggleCinemaStatus: (id: number, target: CinemaStatus) => Promise<void>;
+  deleteCinema: (id: number) => Promise<void>;
 }
 
 export const useCinemaStore = create<CinemaState>((set, get) => ({
-  cinemas: mockCinemas,
+  cinemas: [],
+  loading: false,
 
-  addCinema: async (payload: Omit<CinemaItem, 'id'>): Promise<void> => {
-    const newId = get().cinemas.length > 0
-      ? Math.max(...get().cinemas.map((c) => c.id)) + 1
-      : 1;
-    set((s) => ({ cinemas: [...s.cinemas, { ...payload, id: newId }] }));
+  fetchCinemas: async (params?: CinemaListParams): Promise<void> => {
+    set({ loading: true });
+    try {
+      const res = await getCinemaList(params ?? { page: 1, size: 100 });
+      set({ cinemas: res.records.map(mapCinemaRecord) });
+    } finally {
+      set({ loading: false });
+    }
   },
 
-  updateCinema: async (id: number, payload: Partial<CinemaItem>): Promise<void> => {
-    set((s) => ({
-      cinemas: s.cinemas.map((c) => (c.id === id ? { ...c, ...payload } : c)),
-    }));
+  addCinema: async (payload: CinemaCreateParams): Promise<void> => {
+    await createCinema(payload);
+    await get().fetchCinemas();
   },
 
-  deleteCinema: (id: number): void => {
-    set((s) => ({ cinemas: s.cinemas.filter((c) => c.id !== id) }));
+  updateCinema: async (id: number, payload: CinemaCreateParams): Promise<void> => {
+    await updateCinema(id, payload);
+    await get().fetchCinemas();
+  },
+
+  toggleCinemaStatus: async (id: number, target: CinemaStatus): Promise<void> => {
+    if (target === 'active') {
+      await openCinema(id);
+    } else {
+      await closeCinema(id);
+    }
+    await get().fetchCinemas();
+  },
+
+  deleteCinema: async (id: number): Promise<void> => {
+    await deleteCinema(id);
+    await get().fetchCinemas();
   },
 }));

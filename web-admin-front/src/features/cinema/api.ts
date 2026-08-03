@@ -39,3 +39,8 @@ export function closeCinema(id: number): Promise<null> {
 export function openCinema(id: number): Promise<null> {
   return request.put(`/cinemas/${id}/open`);
 }
+
+/** 删除影院 */
+export function deleteCinema(id: number): Promise<null> {
+  return request.delete(`/cinemas/${id}`);
+}
