@@ -32,6 +32,9 @@ build/
 ### VS Code ###
 .vscode/
 
+### env ###
+.env
+
 ### codely ###
 .codely-cli/
 mem-log/
