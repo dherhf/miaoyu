@@ -1,31 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import { User, ChevronDown, LogOut } from 'lucide-react';
 import { Dropdown } from 'antd';
 import type { MenuProps } from 'antd';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore, USER_ROLE } from '../stores/authStore';
+import { useAuthStore } from '../features/auth';
+import styles from './Header.module.css';
 
 const AdminHeader: React.FC = () => {
   const { currentUser, logout } = useAuthStore();
   const navigate = useNavigate();
-  const [openMenu, setOpenMenu] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // 点击外部关闭下拉
-  useEffect(() => {
-    const handler = (ev: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(ev.target as Node)) {
-        setOpenMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
 
   const handleLogout = () => {
     logout();
-    setOpenMenu(false);
     navigate('/login');
     toast.success('已退出登录');
   };
@@ -40,61 +27,36 @@ const AdminHeader: React.FC = () => {
     }
   ];
 
-  const roleText = currentUser?.role === USER_ROLE.SUPER_ADMIN ? '超级管理员' : '管理员';
-
   return (
-    <header style={{
-      height: 64,
-      background: '#ffffff',
-      borderBottom: '1px solid #e5e7eb',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: '0 24px',
-      flexShrink: 0,
-      position: 'sticky',
-      top: 0,
-      zIndex: 40
-    }}>
+    <header className={styles.header}>
       <div />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }} ref={containerRef}>
+      <div className={styles.right}>
 
         <Dropdown
-          open={openMenu}
           menu={{ items: menuItems }}
           trigger={['click']}
-          onOpenChange={setOpenMenu}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+          <div className={styles.trigger}>
             {/* 头像 */}
-            <div style={{
-              width: 36,
-              height: 36,
-              borderRadius: '50%',
-              background: '#eff6ff',
-              overflow: 'hidden',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
+            <div className={styles.avatar}>
               {currentUser?.avatar ? (
                 <img
                   src={currentUser.avatar}
                   alt="avatar"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  className={styles.avatarImg}
                 />
               ) : (
                 <User size={18} color="#2563eb" />
               )}
             </div>
 
-            <div style={{ lineHeight: 1.2 }}>
-              <div style={{ fontSize: 14, fontWeight: 500, color: '#111827' }}>
+            <div className={styles.userInfo}>
+              <div className={styles.userName}>
                 {currentUser?.realName || currentUser?.username || '管理员'}
               </div>
-              <div style={{ fontSize: 12, color: '#6b7280' }}>
-                {roleText}
+              <div className={styles.userRole}>
+                管理员
               </div>
             </div>
             <ChevronDown size={14} color="#9ca3af" />
