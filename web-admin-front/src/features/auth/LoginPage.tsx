@@ -1,28 +1,23 @@
 import { useState } from 'react';
-import { Card, Form, Input, Button, Typography, App } from 'antd';
+import { Card, Form, Input, Button, Typography, message } from 'antd';
 import type { FormProps } from 'antd';
 import { PhoneOutlined, LockOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from './store';
+import type { LoginParams } from './types';
 import styles from './LoginPage.module.css';
-
-type LoginFormValues = {
-  phone: string;
-  password: string;
-};
 
 export function LoginPage() {
   const navigate = useNavigate();
   const { login } = useAuthStore();
-  const { message } = App.useApp();
-  const [form] = Form.useForm<LoginFormValues>();
+  const [form] = Form.useForm<LoginParams>();
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit: FormProps<LoginFormValues>['onFinish'] = async (values) => {
+  const handleSubmit: FormProps<LoginParams>['onFinish'] = async (values) => {
     setLoading(true);
     try {
       await login(values.phone, values.password);
-      message.success('登录成功，欢迎使用妙语购票管理后台');
+      await message.success('登录成功，欢迎使用妙语购票管理后台');
       navigate('/dashboard');
     } catch {
       // 错误提示已由 request 拦截器处理
@@ -39,7 +34,7 @@ export function LoginPage() {
         <div className={styles.blobPurple} />
       </div>
 
-      {/* 登录卡片 */}
+      {/* 登录 */}
       <Card
         className={styles.card}
         variant="borderless"
