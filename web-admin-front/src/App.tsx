@@ -6,20 +6,20 @@ import 'dayjs/locale/zh-cn';
 import { Toaster } from 'sonner';
 
 // 布局文件
-import MainLayout from './layouts/MainLayout';
+import { MainLayout } from './layouts';
 
 // 页面组件
-import LoginPage from './pages/login/login';
-import Dashboard from './pages/Dashboard/Dashboard';
-import Movie from './pages/Movie/Movie';
-import Cinema from './pages/cinemas/cinemas';
-import Hall from './pages/halls/halls';
-import Schedule from './pages/schedules/schedules';
-import Order from './pages/Order/Order';
+import { LoginPage } from './features/auth';
+import { DashboardPage } from './features/dashboard';
+import { MoviePage } from './features/movie';
+import { CinemaPage } from './features/cinema';
+import { HallPage } from './features/hall';
+import { SchedulePage } from './features/schedule';
+import { OrderPage } from './features/order';
 import NotFound from './pages/NotFound';
 
 // 状态管理
-import { useAuthStore } from './stores/authStore';
+import { useAuthStore } from './features/auth';
 
 /** 路由鉴权守卫组件 */
 const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -48,12 +48,12 @@ const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
-      { path: 'dashboard', element: <Dashboard /> },
-      { path: 'movies', element: <Movie /> },
-      { path: 'cinemas', element: <Cinema /> },
-      { path: 'halls', element: <Hall /> },
-      { path: 'schedules', element: <Schedule /> },
-      { path: 'orders', element: <Order /> },
+      { path: 'dashboard', element: <DashboardPage /> },
+      { path: 'movies', element: <MoviePage /> },
+      { path: 'cinemas', element: <CinemaPage /> },
+      { path: 'halls', element: <HallPage /> },
+      { path: 'schedules', element: <SchedulePage /> },
+      { path: 'orders', element: <OrderPage /> },
     ],
   },
   // 404兜底路由
