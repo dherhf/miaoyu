@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react';
+import { create } from 'zustand';
 import type { ScheduleStatus, ScheduleItem } from './types';
 import { mockSchedules } from './mock';
 
@@ -21,62 +21,49 @@ export const SCHEDULE_STATUS_LABELS: Record<ScheduleStatus, { label: string; col
 
 interface ScheduleState {
   schedules: ScheduleItem[];
+  hasMovieSchedule: (movieId: number | string) => boolean;
+  addSchedule: (payload: Omit<ScheduleItem, 'id'>) => void;
+  updateSchedule: (id: string | number, payload: Partial<ScheduleItem>) => void;
+  cancelSchedule: (id: string | number) => void;
+  deleteSchedule: (id: string | number) => void;
 }
 
-// ===================== 模块级状态 =====================
-let state: ScheduleState = { schedules: mockSchedules };
+export const useScheduleStore = create<ScheduleState>((set, get) => ({
+  schedules: mockSchedules,
 
-const listeners = new Set<() => void>();
-const emit = () => listeners.forEach((l) => l());
+  hasMovieSchedule: (movieId: number | string): boolean => {
+    return get().schedules.some(
+      (s) => String(s.movieId) === String(movieId) && s.status !== 'cancelled' && s.status !== 'ended',
+    );
+  },
 
-// ===================== Store Hook =====================
-export function useScheduleStore() {
-  const snapshot = useSyncExternalStore(
-    (cb) => { listeners.add(cb); return () => listeners.delete(cb); },
-    () => state,
-  );
+  addSchedule: (payload: Omit<ScheduleItem, 'id'>): void => {
+    const genId = (): string | number => {
+      const schedules = get().schedules;
+      return schedules.length > 0
+        ? Math.max(...schedules.map((s) => Number(s.id))) + 1
+        : 1;
+    };
+    set((s) => ({ schedules: [...s.schedules, { ...payload, id: genId() }] }));
+  },
 
-  const genId = (): string | number => {
-    return state.schedules.length > 0
-      ? Math.max(...state.schedules.map((s) => Number(s.id))) + 1
-      : 1;
-  };
+  updateSchedule: (id: string | number, payload: Partial<ScheduleItem>): void => {
+    set((s) => ({
+      schedules: s.schedules.map((sc) =>
+        String(sc.id) === String(id) ? { ...sc, ...payload } : sc,
+      ),
+    }));
+  },
 
-  return {
-    schedules: snapshot.schedules,
+  cancelSchedule: (id: string | number): void => {
+    set((s) => ({
+      schedules: s.schedules.map((sc) =>
+        String(sc.id) === String(id) ? { ...sc, status: 'cancelled' as ScheduleStatus } : sc,
+      ),
+    }));
+  },
 
-    hasMovieSchedule: (movieId: number | string): boolean => {
-      return snapshot.schedules.some(
-        (s) => String(s.movieId) === String(movieId) && s.status !== 'cancelled' && s.status !== 'ended',
-      );
-    },
-
-    addSchedule: (payload: Omit<ScheduleItem, 'id'>): void => {
-      state = { schedules: [...state.schedules, { ...payload, id: genId() }] };
-      emit();
-    },
-
-    updateSchedule: (id: string | number, payload: Partial<ScheduleItem>): void => {
-      state = {
-        schedules: state.schedules.map((s) =>
-          String(s.id) === String(id) ? { ...s, ...payload } : s,
-        ),
-      };
-      emit();
-    },
-
-    cancelSchedule: (id: string | number): void => {
-      state = {
-        schedules: state.schedules.map((s) =>
-          String(s.id) === String(id) ? { ...s, status: 'cancelled' as ScheduleStatus } : s,
-        ),
-      };
-      emit();
-    },
-
-    deleteSchedule: (id: string | number): void => {
-      state = { schedules: state.schedules.filter((s) => String(s.id) !== String(id)) };
-      emit();
-    },
-  };
-}
+  deleteSchedule: (id: string | number): void => {
+    set((s) => ({ schedules: s.schedules.filter((sc) => String(sc.id) !== String(id)) }));
+  },
+}));
