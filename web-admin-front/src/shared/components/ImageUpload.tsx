@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Upload, Button, message } from 'antd';
 import { UploadCloud, Loader, Trash2 } from 'lucide-react';
+import styles from './ImageUpload.module.css';
 
 export interface ImageUploadProps {
   /** 图片 URL 或 base64 */
@@ -85,31 +86,19 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     onChange?.('');
   };
 
-  const containerStyle: React.CSSProperties = {
-    width,
-    height,
-    borderRadius: 8,
-    border: '1px dashed #d9d9d9',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    overflow: 'hidden',
-    background: '#fafafa',
-    transition: 'border-color 0.3s',
-    position: 'relative',
-  };
+  const containerClassName = disabled
+    ? `${styles.container} ${styles.containerDisabled}`
+    : `${styles.container} ${styles.containerEnabled}`;
 
   // 有图片：预览模式
   if (previewUrl) {
     return (
-      <div style={{ position: 'relative', display: 'inline-block' }}>
-        <div style={containerStyle}>
+      <div className={styles.previewWrapper}>
+        <div className={containerClassName} style={{ width, height }}>
           <img
             src={previewUrl}
             alt="预览"
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            className={styles.previewImage}
           />
         </div>
         {!disabled && (
@@ -118,7 +107,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
             danger
             icon={<Trash2 size={14} />}
             onClick={handleRemove}
-            style={{ position: 'absolute', top: 4, right: 4 }}
+            className={styles.removeButton}
           />
         )}
       </div>
@@ -133,17 +122,17 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       disabled={disabled || uploading}
       accept={accept}
     >
-      <div style={containerStyle}>
+      <div className={containerClassName} style={{ width, height }}>
         {uploading ? (
           <>
             <Loader size={24} color="#1677ff" />
-            <span style={{ fontSize: 12, color: '#999', marginTop: 8 }}>读取中...</span>
+            <span className={styles.hintText}>读取中...</span>
           </>
         ) : (
           <>
             <UploadCloud size={20} color="#999" />
-            <span style={{ fontSize: 12, color: '#999', marginTop: 8 }}>{placeholder}</span>
-            <span style={{ fontSize: 10, color: '#bbb', marginTop: 4 }}>
+            <span className={styles.hintText}>{placeholder}</span>
+            <span className={styles.subHint}>
               JPG/PNG, ≤{maxSizeMB}MB
             </span>
           </>

@@ -25,6 +25,7 @@ import {
 import type { TableProps } from 'antd';
 import dayjs from 'dayjs';
 import { useOrderStore, type OrderItem, type OrderStatus } from './store';
+import styles from './OrderPage.module.css';
 
 // ===================== 常量 =====================
 const ORDER_STATUS_MAP: Record<OrderStatus, { label: string; color: string }> = {
@@ -48,8 +49,6 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ open, order, onClos
 
   const statusCfg = ORDER_STATUS_MAP[order.status];
 
-  const fieldStyle: React.CSSProperties = { marginBottom: 0 };
-
   return (
     <Modal
       title="订单详情"
@@ -59,17 +58,17 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ open, order, onClos
       width={640}
     >
       {/* 订单状态标题 */}
-      <div style={{ textAlign: 'center', marginBottom: 24 }}>
-        <Tag color={statusCfg.color} style={{ fontSize: 16, padding: '4px 20px' }}>
+      <div className={styles.statusTitleContainer}>
+        <Tag color={statusCfg.color} className={styles.statusTag}>
           {statusCfg.label}
         </Tag>
         {order.status === 'paid' && order.pickupCode && (
-          <div style={{ marginTop: 16 }}>
+          <div className={styles.pickupCodeWrapper}>
             <Typography.Text type="secondary">取票码</Typography.Text>
-            <div style={{ fontSize: 32, fontWeight: 700, letterSpacing: 6, fontFamily: 'monospace', color: '#1677ff', marginTop: 4 }}>
+            <div className={styles.pickupCode}>
               {order.pickupCode}
             </div>
-            <div style={{ marginTop: 8, padding: '4px 0', background: '#f5f5f5', borderRadius: 6 }}>
+            <div className={styles.qrCodeWrapper}>
               <QrCode size={80} color="#1677ff" />
             </div>
           </div>
@@ -92,7 +91,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ open, order, onClos
         <Descriptions.Item label="放映时间">{order.startTime}</Descriptions.Item>
         <Descriptions.Item label="座位信息" span={2}>{order.seatInfo}</Descriptions.Item>
         <Descriptions.Item label="订单金额">
-          <Typography.Text strong style={{ color: '#f5222d', fontSize: 16 }}>
+          <Typography.Text strong className={styles.amountText}>
             ¥{order.totalAmount.toFixed(2)}
           </Typography.Text>
         </Descriptions.Item>
@@ -113,8 +112,8 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ open, order, onClos
       {/* 座位明细 */}
       {order.seats && order.seats.length > 0 && (
         <>
-          <Divider orientation="left" style={{ fontSize: 14 }}>座位明细</Divider>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <Divider orientation="left" className={styles.sectionDivider}>座位明细</Divider>
+          <div className={styles.seatsContainer}>
             {order.seats.map((seat, idx) => (
               <Tag key={idx} color={seat.status === 'sold' ? 'blue' : 'default'}>
                 {seat.seatLabel}
@@ -200,8 +199,8 @@ const OrderManage: React.FC = () => {
       dataIndex: 'orderNo',
       width: 200,
       render: (text: string, record) => (
-        <Button type="link" size="small" onClick={() => openDetail(record)} style={{ padding: 0 }}>
-          <Typography.Text code style={{ fontSize: 12 }}>{text}</Typography.Text>
+        <Button type="link" size="small" onClick={() => openDetail(record)} className={styles.orderNoButton}>
+          <Typography.Text code className={styles.cellText}>{text}</Typography.Text>
         </Button>
       ),
     },
@@ -228,9 +227,9 @@ const OrderManage: React.FC = () => {
       key: 'showTime',
       width: 160,
       render: (_v, row) => (
-        <div style={{ fontSize: 13 }}>
+        <div className={styles.showTimeCell}>
           <div>{row.showDate}</div>
-          <div style={{ color: '#666' }}>{row.startTime}</div>
+          <div className={styles.showTimeSub}>{row.startTime}</div>
         </div>
       ),
     },
@@ -246,7 +245,7 @@ const OrderManage: React.FC = () => {
       width: 160,
       ellipsis: true,
       render: (text: string) => (
-        <Typography.Text style={{ fontSize: 12 }}>{text}</Typography.Text>
+        <Typography.Text className={styles.cellText}>{text}</Typography.Text>
       ),
     },
     {
@@ -262,7 +261,7 @@ const OrderManage: React.FC = () => {
       width: 100,
       align: 'right',
       render: (v: number) => (
-        <Typography.Text strong style={{ color: '#f5222d' }}>
+        <Typography.Text strong className={styles.amountCellText}>
           ¥{v.toFixed(2)}
         </Typography.Text>
       ),
@@ -282,7 +281,7 @@ const OrderManage: React.FC = () => {
       dataIndex: 'createdAt',
       width: 170,
       render: (text: string) => (
-        <Typography.Text style={{ fontSize: 12 }}>{text}</Typography.Text>
+        <Typography.Text className={styles.cellText}>{text}</Typography.Text>
       ),
     },
     {
@@ -290,7 +289,7 @@ const OrderManage: React.FC = () => {
       dataIndex: 'paidAt',
       width: 170,
       render: (text?: string) => (
-        <Typography.Text style={{ fontSize: 12, color: text ? undefined : '#ccc' }}>
+        <Typography.Text className={styles.cellText} style={{ color: text ? undefined : '#ccc' }}>
           {text || '--'}
         </Typography.Text>
       ),
@@ -301,7 +300,7 @@ const OrderManage: React.FC = () => {
       width: 150,
       ellipsis: true,
       render: (text?: string) => (
-        <Typography.Text style={{ fontSize: 12, color: text ? undefined : '#ccc' }}>
+        <Typography.Text className={styles.cellText} style={{ color: text ? undefined : '#ccc' }}>
           {text || '--'}
         </Typography.Text>
       ),
@@ -326,26 +325,26 @@ const OrderManage: React.FC = () => {
   ];
 
   return (
-    <div style={{ maxWidth: 1320, margin: '0 auto', padding: 0 }}>
+    <div className={styles.pageContainer}>
       {/* 页面头部 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div className={styles.pageHeader}>
         <div>
-          <h2 style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>订单明细</h2>
-          <p style={{ fontSize: 14, color: '#666', marginTop: 4 }}>
+          <h2 className={styles.pageTitle}>订单明细</h2>
+          <p className={styles.pageSubtitle}>
             查看所有用户订单，支持多维度筛选与详情查看
           </p>
         </div>
       </div>
 
       {/* 筛选栏 */}
-      <div style={{ background: '#fff', padding: 16, borderRadius: 8, marginBottom: 16 }}>
+      <div className={styles.filterBar}>
         <Space size={12} wrap align="center">
           <Input
             placeholder="订单号精确搜索"
             allowClear
             value={orderNo}
             onChange={(e) => handleFilterChange(setOrderNo, e.target.value)}
-            style={{ width: 200 }}
+            className={styles.filterInput}
             prefix={<Search size={14} color="#999" />}
           />
           <Input
@@ -353,21 +352,21 @@ const OrderManage: React.FC = () => {
             allowClear
             value={movieName}
             onChange={(e) => handleFilterChange(setMovieName, e.target.value)}
-            style={{ width: 200 }}
+            className={styles.filterInput}
           />
           <Input
             placeholder="影院名称模糊搜索"
             allowClear
             value={cinemaName}
             onChange={(e) => handleFilterChange(setCinemaName, e.target.value)}
-            style={{ width: 200 }}
+            className={styles.filterInput}
           />
           <Select
             placeholder="全部状态"
             allowClear
             value={statusFilter}
             onChange={(v) => handleFilterChange(setStatusFilter, v)}
-            style={{ width: 120 }}
+            className={styles.statusSelect}
           >
             {Object.entries(ORDER_STATUS_MAP).map(([k, v]) => (
               <Select.Option key={k} value={k}>{v.label}</Select.Option>
@@ -378,7 +377,7 @@ const OrderManage: React.FC = () => {
             value={dateFrom ? dayjs(dateFrom) : undefined}
             onChange={(d) => handleFilterChange(setDateFrom, d?.format('YYYY-MM-DD') || '')}
           />
-          <span style={{ color: '#999' }}>至</span>
+          <span className={styles.dateSeparator}>至</span>
           <DatePicker
             placeholder="结束日期"
             value={dateTo ? dayjs(dateTo) : undefined}
@@ -424,9 +423,9 @@ const OrderManage: React.FC = () => {
         }}
         locale={{
           emptyText: (
-            <div style={{ padding: 40 }}>
+            <div className={styles.emptyState}>
               <Receipt size={48} color="#ccc" />
-              <div style={{ marginTop: 12, color: '#999' }}>暂无订单数据</div>
+              <div className={styles.emptyText}>暂无订单数据</div>
             </div>
           ),
         }}

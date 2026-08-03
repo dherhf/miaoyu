@@ -49,6 +49,7 @@ import {
   removeCol,
 } from './store';
 import { useScheduleStore } from '../schedule';
+import styles from './HallPage.module.css';
 
 // ====================== TS 类型定义 ======================
 type SeatStatusType = 'available' | 'aisle';
@@ -84,37 +85,22 @@ interface HallFormErr {
 
 // ====================== 座位图例组件 ======================
 const SeatLegend: React.FC = () => {
-  const legendWrap: React.CSSProperties = {
-    display: 'flex',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-    fontSize: 14,
-    color: '#666',
-  };
-  const itemStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-  };
-  const blockBase: React.CSSProperties = { width: 16, height: 16, borderRadius: 4 };
   return (
-    <div style={legendWrap}>
-      <div style={itemStyle}>
-        <div style={{ ...blockBase, background: '#1677ff' }} />
+    <div className={styles.legendWrap}>
+      <div className={styles.legendItem}>
+        <div className={`${styles.legendBlock} ${styles.legendBlockAvailable}`} />
         <span>可用</span>
       </div>
-      <div style={itemStyle}>
-        <div style={{ ...blockBase, background: '#999' }} />
+      <div className={styles.legendItem}>
+        <div className={`${styles.legendBlock} ${styles.legendBlockSold}`} />
         <span>已售</span>
       </div>
-      <div style={itemStyle}>
-        <div style={{ ...blockBase, border: '1px solid #d0d0d0', background: 'transparent' }} />
+      <div className={styles.legendItem}>
+        <div className={`${styles.legendBlock} ${styles.legendBlockAisle}`} />
         <span>过道</span>
       </div>
-      <div style={itemStyle}>
-        <div style={{ ...blockBase, background: '#1677ff', boxShadow: '0 0 0 2px #facc15' }} />
+      <div className={styles.legendItem}>
+        <div className={`${styles.legendBlock} ${styles.legendBlockSelected}`} />
         <span>选中</span>
       </div>
     </div>
@@ -268,35 +254,26 @@ const SeatLayoutViewer: React.FC<SeatLayoutViewerProps> = ({
 
   const maxDisplayRows = Math.min(rowCount, 20);
   const maxDisplayCols = Math.min(colCount, 24);
-  const wrapStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', height: '100%' };
-  const toolbarStyle: React.CSSProperties = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: 16, background: '#f5f5f5', borderBottom: '1px solid #e8e8e8' };
-  const gridBoxStyle: React.CSSProperties = { flex: 1, overflow: 'auto', padding: 16, background: '#1f2937' };
-  const screenStyle: React.CSSProperties = { marginBottom: 16, display: 'flex', justifyContent: 'center' };
-  const screenInner: React.CSSProperties = { padding: '6px 48', background: 'linear-gradient(90deg,#4b5564,#a1a1aa,#4b5564)', borderRadius: 8, fontSize: 12, color: '#fff' };
-  const seatRowWrap: React.CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: 4 };
-  const rowLabelStyle: React.CSSProperties = { width: 32, fontSize: 10, color: '#aaa', textAlign: 'center' };
-  const seatBase: React.CSSProperties = { width: 24, height: 24, borderRadius: 6, cursor: 'pointer', userSelect: 'none', transition: 'all 0.2s' };
-  const footerBar: React.CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16', borderTop: '1px solid #e8e8e8', background: '#fff' };
 
   return (
-    <div style={wrapStyle}>
+    <div className={styles.viewerWrap}>
       {/* 顶部工具栏 */}
-      <div style={toolbarStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+      <div className={styles.viewerToolbar}>
+        <div className={styles.toolbarLeft}>
           <Space size={8}>
             <Armchair size={16} color="#1677ff" />
-            <Typography.Text style={{ fontSize: 14, color: '#666' }}>可用座位：</Typography.Text>
-            <Typography.Text strong style={{ fontSize: 18, color: '#1677ff' }}>{availableSeats}</Typography.Text>
+            <Typography.Text className={styles.statLabel}>可用座位：</Typography.Text>
+            <Typography.Text strong className={styles.statValueBlue}>{availableSeats}</Typography.Text>
           </Space>
           <Space size={8}>
             <RectangleHorizontal size={16} color='#999' />
-            <Typography.Text style={{ fontSize: 14, color: '#666' }}>过道：</Typography.Text>
-            <Typography.Text strong style={{ fontSize: 18, color: '#666' }}>{currentSeats.length - availableSeats}</Typography.Text>
+            <Typography.Text className={styles.statLabel}>过道：</Typography.Text>
+            <Typography.Text strong className={styles.statValueGray}>{currentSeats.length - availableSeats}</Typography.Text>
           </Space>
           {isEditMode && selectedCount > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12', background: '#fffbeb', borderRadius: 99 }}>
+            <div className={styles.selectedInfo}>
               <CheckSquare size={16} color='#f59e0b' />
-              <Typography.Text style={{ fontSize: 14, color: '#d97706' }}>已选择 {selectedCount} 个座位</Typography.Text>
+              <Typography.Text className={styles.selectedInfoText}>已选择 {selectedCount} 个座位</Typography.Text>
             </div>
           )}
         </div>
@@ -305,7 +282,7 @@ const SeatLayoutViewer: React.FC<SeatLayoutViewerProps> = ({
             <Button type='primary' size='small' icon={<Pencil size={16} />} onClick={enterEditMode}>编辑布局</Button>
           ) : (
             <>
-              <Typography.Text style={{ fontSize: 12, color: '#999' }}>Ctrl/Cmd+点击多选，拖拽框选</Typography.Text>
+              <Typography.Text className={styles.hintText}>Ctrl/Cmd+点击多选，拖拽框选</Typography.Text>
               <Button size='small' icon={<Square size={14} />} onClick={selectAllSeats}>全选</Button>
               {selectedCount > 0 && (
                 <>
@@ -320,32 +297,23 @@ const SeatLayoutViewer: React.FC<SeatLayoutViewerProps> = ({
       </div>
 
       {/* 座位画布 */}
-      <div style={gridBoxStyle}>
-        <div style={screenStyle}><div style={screenInner}>银 幕</div></div>
+      <div className={styles.viewerGridBox}>
+        <div className={styles.screenWrap}><div className={styles.screenInner}>银 幕</div></div>
         <div ref={gridRef} onMouseLeave={handleMouseUp}>
           {Array.from({ length: maxDisplayRows }).map((_, rowIdx) => {
             const r = rowIdx + 1;
             return (
-              <div key={r} style={seatRowWrap}>
-                <span style={rowLabelStyle}>{r}</span>
+              <div key={r} className={styles.seatRowWrap}>
+                <span className={styles.rowLabel}>{r}</span>
                 {Array.from({ length: maxDisplayCols }).map((_, colIdx) => {
                   const c = colIdx + 1;
                   const status = getSeatStatus(r, c);
                   const sel = isSeatSelected(r, c);
                   const isAisle = status === SEAT_STATUS.AISLE;
-                  let seatStyle: React.CSSProperties = { ...seatBase };
-                  if (isAisle) {
-                    seatStyle.background = 'transparent';
-                    seatStyle.border = '1px solid #777';
-                  } else {
-                    seatStyle.background = '#1677ff';
-                    if (sel) seatStyle.boxShadow = '0 0 0 2px #facc15';
-                    if (isEditMode) seatStyle.cursor = 'pointer';
-                  }
                   return (
                     <div
                       key={c}
-                      style={seatStyle}
+                      className={`${styles.seat} ${isAisle ? styles.seatAisle : sel ? styles.seatSelected : styles.seatAvailable}`}
                       onMouseDown={(e) => handleMouseDown(e, r, c)}
                       onMouseMove={(e) => handleMouseMove(e, r, c)}
                       onClick={() => handleSeatClick(r, c)}
@@ -357,22 +325,22 @@ const SeatLayoutViewer: React.FC<SeatLayoutViewerProps> = ({
             );
           })}
           {/* 列号 */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 4, marginTop: 8 }}>
-            <span style={rowLabelStyle} />
+          <div className={styles.colNumberRow}>
+            <span className={styles.rowLabel} />
             {Array.from({ length: maxDisplayCols }).map((_, i) => (
-              <span key={i} style={{ width: 24, fontSize: 10, color: '#aaa', textAlign: 'center' }}>{i + 1}</span>
+              <span key={i} className={styles.colNumber}>{i + 1}</span>
             ))}
           </div>
         </div>
         {(rowCount > maxDisplayRows || colCount > maxDisplayCols) && (
-          <Typography.Text style={{ display: 'block', textAlign: 'center', fontSize: 12, color: '#999', marginTop: 12 }}>
+          <Typography.Text className={styles.displayLimitText}>
             显示范围：最多 {maxDisplayRows} 行 × {maxDisplayCols} 列，实际布局 {rowCount}行 × {colCount}列
           </Typography.Text>
         )}
       </div>
 
       {/* 底部操作栏 */}
-      <div style={footerBar}>
+      <div className={styles.viewerFooter}>
         <SeatLegend />
         {isEditMode ? (
           <Space size={12}>
@@ -380,7 +348,7 @@ const SeatLayoutViewer: React.FC<SeatLayoutViewerProps> = ({
             <Button type='primary' onClick={saveEdit} icon={<Save size={16} />}>保存布局</Button>
           </Space>
         ) : (
-          <Typography.Text style={{ fontSize: 12, color: '#999' }}>{rowCount}行 × {colCount}列</Typography.Text>
+          <Typography.Text className={styles.hintText}>{rowCount}行 × {colCount}列</Typography.Text>
         )}
       </div>
     </div>
@@ -441,20 +409,14 @@ const SeatLayoutEditor: React.FC<SeatLayoutEditorProps> = ({ seats, onChange }) 
     else onChange(res);
   };
 
-  const wrap: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 16 };
-  const statBox: React.CSSProperties = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: 12, background: '#f5f5f5', borderRadius: 8 };
-  const gridBox: React.CSSProperties = { padding: 16, background: '#1f2937', borderRadius: 8, overflowX: 'auto' };
-  const seatBase: React.CSSProperties = { width: 24, height: 24, borderRadius: 4, cursor: 'pointer', transition: 'all 0.2s' };
-  const rowWrap: React.CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: 4 };
-
   return (
-    <div style={wrap}>
+    <div className={styles.editorWrap}>
       {/* 统计栏 */}
-      <div style={statBox}>
+      <div className={styles.statBox}>
         <Space size={16}>
-          <Typography.Text style={{ fontSize: 14 }}>{rowCount} 行 × {colCount} （共{currentSeats.length}座）</Typography.Text>
-          <Space size={6}><Armchair size={16} color='#1677ff' /><Typography.Text style={{ fontSize: 14 }}>可用：{availableSeats}</Typography.Text></Space>
-          <Space size={6}><RectangleHorizontal size={16} color='#999' /><Typography.Text style={{ fontSize: 14 }}>过道：{currentSeats.length - availableSeats}</Typography.Text></Space>
+          <Typography.Text className={styles.normalText}>{rowCount} 行 × {colCount} （共{currentSeats.length}座）</Typography.Text>
+          <Space size={6}><Armchair size={16} color='#1677ff' /><Typography.Text className={styles.normalText}>可用：{availableSeats}</Typography.Text></Space>
+          <Space size={6}><RectangleHorizontal size={16} color='#999' /><Typography.Text className={styles.normalText}>过道：{currentSeats.length - availableSeats}</Typography.Text></Space>
         </Space>
         <Space size={8}>
           <Button size='small' icon={<Columns size={14} />} onClick={setMiddleColumnAisle}>中间过道</Button>
@@ -462,26 +424,26 @@ const SeatLayoutEditor: React.FC<SeatLayoutEditorProps> = ({ seats, onChange }) 
         </Space>
       </div>
       {/* 行列操作 */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12 }}>
+      <div className={styles.rowColOps}>
         <Space>
-          <Typography.Text style={{ fontSize: 12, color: '#666' }}>行操作：</Typography.Text>
+          <Typography.Text className={styles.opLabelText}>行操作：</Typography.Text>
           <Button size='small' icon={<Plus size={12} />} onClick={onAddRow}>添加行</Button>
           <Button size='small' danger icon={<Minus size={12} />} disabled={rowCount <= 1} onClick={onRemoveRow}>删除行</Button>
         </Space>
         <Space>
-          <Typography.Text style={{ fontSize: 12, color: '#666' }}>列操作：</Typography.Text>
+          <Typography.Text className={styles.opLabelText}>列操作：</Typography.Text>
           <Button size='small' icon={<Plus size={12} />} onClick={onAddCol}>添加列</Button>
           <Button size='small' danger icon={<Minus size={12} />} disabled={colCount <= 1} onClick={onRemoveCol}>删除列</Button>
         </Space>
       </div>
       {/* 座位画布 */}
-      <div style={gridBox}>
-        <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center' }}>
-          <div style={{ padding: '6px 48', background: 'linear-gradient(90deg,#4b5564,#a1a1aa,#4b5564)', borderRadius: 8, fontSize: 12, color: '#fff' }}>银 幕</div>
+      <div className={styles.editorGridBox}>
+        <div className={styles.editorScreenWrap}>
+          <div className={styles.screenInner}>银 幕</div>
         </div>
         {/* 列按钮 */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 4, marginBottom: 8 }}>
-          <span style={{ width: 32 }} />
+        <div className={styles.colButtonRow}>
+          <span className={styles.colSpacer} />
           {Array.from({ length: Math.min(colCount, 24) }).map((_, idx) => {
             const c = idx + 1;
             const allA = isColAllAisle(c);
@@ -489,7 +451,7 @@ const SeatLayoutEditor: React.FC<SeatLayoutEditorProps> = ({ seats, onChange }) 
               <Button
                 key={c}
                 size='small'
-                style={{ width: 24, height: 24, fontSize: 10, padding: 0 }}
+                className={styles.colButton}
                 danger={allA}
                 onClick={() => toggleCol(c, !allA)}
               >{c}</Button>
@@ -501,10 +463,10 @@ const SeatLayoutEditor: React.FC<SeatLayoutEditorProps> = ({ seats, onChange }) 
           const r = idx + 1;
           const rowAll = isRowAllAisle(r);
           return (
-            <div key={r} style={rowWrap}>
+            <div key={r} className={styles.seatRowWrap}>
               <Button
                 size='small'
-                style={{ width: 32, height: 24, fontSize: 10, padding: 0, marginRight: 4 }}
+                className={styles.rowButton}
                 danger={rowAll}
                 onClick={() => toggleRow(r, !rowAll)}
               >{r}</Button>
@@ -516,7 +478,7 @@ const SeatLayoutEditor: React.FC<SeatLayoutEditorProps> = ({ seats, onChange }) 
                   <div
                     key={c}
                     onClick={() => toggleSeat(r, c)}
-                    style={{ ...seatBase, background: aisle ? 'transparent' : '#1677ff', border: aisle ? '1px solid #777' : 'none' }}
+                    className={`${styles.editorSeat} ${aisle ? styles.editorSeatAisle : styles.editorSeatAvailable}`}
                     title={`${r}排${c}列 ${aisle ? '过道' : '可用'}`}
                   />
                 );
@@ -525,7 +487,7 @@ const SeatLayoutEditor: React.FC<SeatLayoutEditorProps> = ({ seats, onChange }) 
           );
         })}
         {(rowCount > 20 || colCount > 24) && (
-          <Typography.Text style={{ display: 'block', textAlign: 'center', fontSize: 12, color: '#999', marginTop: 12 }}>
+          <Typography.Text className={styles.displayLimitText}>
             编辑器显示上限20行×24列，实际 {rowCount}行 × {colCount}列
           </Typography.Text>
         )}
@@ -534,7 +496,7 @@ const SeatLayoutEditor: React.FC<SeatLayoutEditorProps> = ({ seats, onChange }) 
       <Card size='small' styles={{ body: { padding: 12 } }}>
         <SeatLegend />
       </Card>
-      <Typography.Text style={{ fontSize: 12, color: '#666' }}>
+      <Typography.Text className={styles.opLabelText}>
         • 点击座位切换可用/过道 | 点击行列号批量切换 | 过道售票不可选
       </Typography.Text>
     </div>
@@ -555,7 +517,7 @@ const HallForm: React.FC<HallFormProps> = ({ data, errors, onChange }) => {
   }, []);
 
   return (
-    <Form layout='vertical' style={{ gap: 16 }}>
+    <Form layout='vertical' className={styles.hallForm}>
       <Form.Item label='影厅名称' required validateStatus={errors.name ? 'error' : ''} help={errors.name}>
         <Input value={data.name} onChange={e => onField('name', e.target.value)} placeholder='IMAX 1号厅' />
       </Form.Item>
@@ -571,9 +533,9 @@ const HallForm: React.FC<HallFormProps> = ({ data, errors, onChange }) => {
         </Space>
       </Form.Item>
       <Card size='small' styles={{ body: { padding: 12 } }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography.Text style={{ fontSize: 14, color: '#666' }}>预计可用座位</Typography.Text>
-          <Space size={6}><Armchair size={16} color='#1677ff' /><Typography.Text strong style={{ fontSize: 18, color: '#1677ff' }}>{totalSeats} 座</Typography.Text></Space>
+        <div className={styles.seatCountRow}>
+          <Typography.Text className={styles.seatCountLabel}>预计可用座位</Typography.Text>
+          <Space size={6}><Armchair size={16} color='#1677ff' /><Typography.Text strong className={styles.seatCountValue}>{totalSeats} 座</Typography.Text></Space>
         </div>
       </Card>
       <Form.Item label='座位布局编辑' validateStatus={errors.seats ? 'error' : ''} help={errors.seats}>
@@ -629,19 +591,19 @@ const Hall: React.FC = () => {
         const typeItem = HALL_TYPES.find(t => t.value === row.type);
         return (
           <Space size={12}>
-            <div style={{ width: 40, height: 40, borderRadius: 8, background: `${typeItem?.color || 'blue'}10`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div className={styles.hallIconBox} style={{ background: `${typeItem?.color || 'blue'}10` }}>
               <LayoutGrid size={20} style={{ color: `${typeItem?.color || '#1677ff'}` }} />
             </div>
             <div>
               <Typography.Text strong>{name}</Typography.Text>
-              <div><Typography.Text type='secondary' style={{ fontSize: 12 }}>{typeItem?.label}</Typography.Text></div>
+              <div><Typography.Text type='secondary' className={styles.hallTypeLabel}>{typeItem?.label}</Typography.Text></div>
             </div>
           </Space>
         );
       },
     },
     { title: '座位布局', dataIndex: 'rowCount', align: 'center', render: (r, row) => `${r} × ${row.colCount}` },
-    { title: '可用座位', dataIndex: 'totalSeats', align: 'center', render: v => <Space size={4}><Armchair size={14} /><Typography.Text style={{ color: '#1677ff' }}>{v}</Typography.Text></Space> },
+    { title: '可用座位', dataIndex: 'totalSeats', align: 'center', render: v => <Space size={4}><Armchair size={14} /><Typography.Text className={styles.availableSeatsText}>{v}</Typography.Text></Space> },
     {
       title: '状态',
       dataIndex: 'status',
@@ -732,20 +694,15 @@ const Hall: React.FC = () => {
   };
   const backCinema = () => { setSelectedCinemaId(''); navigate('/halls'); };
 
-  const pageWrap: React.CSSProperties = { maxWidth: 1320, margin: '0 auto', padding: 0 };
-  const headerWrap: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 };
-  const selectCinemaBox: React.CSSProperties = { background: '#fff', borderRadius: 8, boxShadow: '0 1px 2px rgba(0,0,0,0.05)', border: '1px solid #e8e8e8', padding: 24, textAlign: 'center' };
-  const filterBox: React.CSSProperties = { background: '#fff', borderRadius: 8, padding: 16, marginBottom: 16 };
-
   return (
-    <div style={pageWrap}>
+    <div className={styles.pageWrap}>
       {/* 页面头部 */}
-      <div style={headerWrap}>
+      <div className={styles.headerWrap}>
         <div>
           {selectedCinemaId && (
-            <Button type='link' size='small' icon={<ArrowLeft size={16} />} onClick={backCinema} style={{ padding: 0, marginBottom: 8 }}>返回影院列表</Button>
+            <Button type='link' size='small' icon={<ArrowLeft size={16} />} onClick={backCinema} className={styles.backButton}>返回影院列表</Button>
           )}
-          <Typography.Title level={3} style={{ margin: 0 }}>
+          <Typography.Title level={3} className={styles.pageTitle}>
             {currentCinema ? `${currentCinema.name} - 影厅管理` : '影厅管理'}
           </Typography.Title>
           <Typography.Text type='secondary'>
@@ -757,19 +714,19 @@ const Hall: React.FC = () => {
 
       {/* 未选影院 - 选择卡片 */}
       {!selectedCinemaId && (
-        <div style={selectCinemaBox}>
-          <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#e6f7ff', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+        <div className={styles.selectCinemaBox}>
+          <div className={styles.selectCinemaIcon}>
             <MapPin size={32} color='#1677ff' />
           </div>
-          <Typography.Title level={5} style={{ margin: '0 0 8' }}>请选择影院</Typography.Title>
-          <Typography.Text type='secondary' style={{ display: 'block', marginBottom: 24 }}>选择对应影院后管理影厅</Typography.Text>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px,1fr))', gap: 16, maxWidth: 900, margin: '0 auto' }}>
+          <Typography.Title level={5} className={styles.selectCinemaTitle}>请选择影院</Typography.Title>
+          <Typography.Text type='secondary' className={styles.selectCinemaHint}>选择对应影院后管理影厅</Typography.Text>
+          <div className={styles.cinemaGrid}>
             {cinemas.map(c => (
               <Card hoverable key={c.id} onClick={() => { setSelectedCinemaId(c.id); navigate(`/halls?cinemaId=${c.id}`); }} styles={{ body: { padding: 16 } }}>
                 <Typography.Text strong>{c.name}</Typography.Text>
-                <div style={{ fontSize: 12, color: '#666', marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.address}</div>
-                <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', fontSize: 12, color: '#999' }}>
-                  <Armchair size={12} style={{ marginRight: 4 }} /> {c.hallCount} 个影厅
+                <div className={styles.cinemaCardAddress}>{c.address}</div>
+                <div className={styles.cinemaCardHalls}>
+                  <Armchair size={12} className={styles.cinemaCardHallIcon} /> {c.hallCount} 个影厅
                 </div>
               </Card>
             ))}
@@ -780,10 +737,10 @@ const Hall: React.FC = () => {
       {/* 已选影院：筛选+表格 */}
       {selectedCinemaId && (
         <>
-          <div style={filterBox}>
+          <div className={styles.filterBox}>
             <Space size={12}>
-              <Input placeholder='搜索影厅名称' value={keyword} onChange={e => setKeyword(e.target.value)} style={{ width: 320 }} prefix={<Search size={14} color='#999' />} allowClear />
-              <Select placeholder='全部类型' allowClear value={typeFilter} onChange={v => setTypeFilter(v)} style={{ width: 140 }}>
+              <Input placeholder='搜索影厅名称' value={keyword} onChange={e => setKeyword(e.target.value)} className={styles.searchInput} prefix={<Search size={14} color='#999' />} allowClear />
+              <Select placeholder='全部类型' allowClear value={typeFilter} onChange={v => setTypeFilter(v)} className={styles.typeSelect}>
                 {HALL_TYPES.map(t => <Select.Option key={t.value} value={t.value}>{t.label}</Select.Option>)}
               </Select>
               <Button type='primary' onClick={handleSearch}>搜索</Button>
@@ -822,7 +779,7 @@ const Hall: React.FC = () => {
           open={layoutModalOpen}
           footer={null}
           width='90%'
-          style={{ top: 40 }}
+          className={styles.layoutModal}
           height='85vh'
           maskClosable={false}
           onCancel={() => setLayoutModalOpen(false)}

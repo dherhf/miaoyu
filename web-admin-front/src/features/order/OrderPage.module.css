@@ -1,0 +1,120 @@
+/* ===== OrderDetailModal ===== */
+.statusTitleContainer {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.statusTag {
+  font-size: 16px;
+  padding: 4px 20px;
+}
+
+.pickupCodeWrapper {
+  margin-top: 16px;
+}
+
+.pickupCode {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 6px;
+  font-family: monospace;
+  color: #1677ff;
+  margin-top: 4px;
+}
+
+.qrCodeWrapper {
+  margin-top: 8px;
+  padding: 4px 0;
+  background: #f5f5f5;
+  border-radius: 6px;
+}
+
+.amountText {
+  color: #f5222d;
+  font-size: 16px;
+}
+
+.sectionDivider {
+  font-size: 14px;
+}
+
+.seatsContainer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ===== Table column renders ===== */
+.orderNoButton {
+  padding: 0;
+}
+
+.cellText {
+  font-size: 12px;
+}
+
+.showTimeCell {
+  font-size: 13px;
+}
+
+.showTimeSub {
+  color: #666;
+}
+
+.amountCellText {
+  color: #f5222d;
+}
+
+/* ===== Page layout ===== */
+.pageContainer {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0;
+}
+
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.pageTitle {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.pageSubtitle {
+  font-size: 14px;
+  color: #666;
+  margin-top: 4px;
+}
+
+.filterBar {
+  background: #fff;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.filterInput {
+  width: 200px;
+}
+
+.statusSelect {
+  width: 120px;
+}
+
+.dateSeparator {
+  color: #999;
+}
+
+.emptyState {
+  padding: 40px;
+}
+
+.emptyText {
+  margin-top: 12px;
+  color: #999;
+}

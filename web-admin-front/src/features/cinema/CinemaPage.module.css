@@ -1,0 +1,82 @@
+/* ===== CinemaForm ===== */
+.form {
+  padding-top: 4px;
+}
+
+.facilityTag {
+  cursor: pointer;
+}
+
+.ratingPhoneRow {
+  width: 100%;
+}
+
+.formCol {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+/* ===== Table column renders ===== */
+.cinemaIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: #e6f7ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cinemaName {
+  font-weight: 500;
+}
+
+.cinemaAddress {
+  font-size: 12px;
+  color: #666;
+}
+
+/* ===== Page layout ===== */
+.page {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0;
+}
+
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.pageTitle {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.pageSubtitle {
+  font-size: 14px;
+  color: #666;
+  margin-top: 4px;
+}
+
+.filterArea {
+  background: #fff;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.searchInput {
+  width: 320px;
+}
+
+.statusSelect {
+  width: 140px;
+}

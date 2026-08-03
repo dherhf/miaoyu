@@ -32,6 +32,7 @@ import { useCinemaStore } from './store';
 import { useHallStore } from '../hall';
 import { useScheduleStore } from '../schedule';
 import { LocationPicker } from '../amap';
+import styles from './CinemaPage.module.css';
 
 // ====================== 类型枚举定义 ======================
 export enum CINEMA_STATUS {
@@ -99,7 +100,7 @@ const CinemaForm: React.FC<CinemaFormProps> = ({ data, isEdit, onChange }) => {
   };
 
   return (
-    <Form layout="vertical" style={{ paddingTop: 4 }}>
+    <Form layout="vertical" className={styles.form}>
       {/* 影院名称 */}
       <Form.Item label="影院名称" name="name" rules={[{ required: true, max: 50, message: '名称1-50字符' }]}>
         <Input
@@ -140,7 +141,7 @@ const CinemaForm: React.FC<CinemaFormProps> = ({ data, isEdit, onChange }) => {
               key={tag}
               onClick={() => toggleFacility(tag)}
               color={data.facilities.includes(tag) ? 'blue' : undefined}
-              style={{ cursor: 'pointer' }}
+              className={styles.facilityTag}
             >
               {tag}
             </Tag>
@@ -149,8 +150,8 @@ const CinemaForm: React.FC<CinemaFormProps> = ({ data, isEdit, onChange }) => {
       </Form.Item>
 
       {/* 评分 & 电话 */}
-      <Space size={16} style={{ width: '100%' }}>
-        <Form.Item label="评分" style={{ flex: 1, marginBottom: 0 }}>
+      <Space size={16} className={styles.ratingPhoneRow}>
+        <Form.Item label="评分" className={styles.formCol}>
           <InputNumber
             min={0}
             max={10}
@@ -158,10 +159,10 @@ const CinemaForm: React.FC<CinemaFormProps> = ({ data, isEdit, onChange }) => {
             value={data.rating}
             onChange={(v) => handleFieldChange('rating', v)}
             placeholder="0-10"
-            style={{ width: '100%' }}
+            className={styles.fullWidth}
           />
         </Form.Item>
-        <Form.Item label="联系电话" style={{ flex: 1, marginBottom: 0 }}>
+        <Form.Item label="联系电话" className={styles.formCol}>
           <Input
             value={data.phone ?? ''}
             onChange={(e) => handleFieldChange('phone', e.target.value)}
@@ -362,21 +363,13 @@ const CinemaManage: React.FC = () => {
       render: (_, record) => (
         <Space size={12}>
           <div
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 8,
-              background: '#e6f7ff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
+            className={styles.cinemaIcon}
           >
             <Building2 color="#1677ff" size={18} />
           </div>
           <div>
-            <div style={{ fontWeight: 500 }}>{record.name}</div>
-            <div style={{ fontSize: 12, color: '#666' }}>{record.address}</div>
+            <div className={styles.cinemaName}>{record.name}</div>
+            <div className={styles.cinemaAddress}>{record.address}</div>
           </div>
         </Space>
       ),
@@ -463,12 +456,12 @@ const CinemaManage: React.FC = () => {
   ];
 
   return (
-    <div style={{ maxWidth: 1320, margin: '0 auto', padding: 0 }}>
+    <div className={styles.page}>
       {/* 页面头部 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div className={styles.pageHeader}>
         <div>
-          <h2 style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>影院管理</h2>
-          <p style={{ fontSize: 14, color: '#666', marginTop: 4 }}>统一管理门店基础信息、营业状态</p>
+          <h2 className={styles.pageTitle}>影院管理</h2>
+          <p className={styles.pageSubtitle}>统一管理门店基础信息、营业状态</p>
         </div>
         <Button type="primary" icon={<Plus size={16} />} onClick={openAdd}>
           新增影院
@@ -476,20 +469,20 @@ const CinemaManage: React.FC = () => {
       </div>
 
       {/* 搜索筛选区 */}
-      <div style={{ background: '#fff', padding: 16, borderRadius: 8, marginBottom: 16 }}>
+      <div className={styles.filterArea}>
         <Space size={12} wrap align="center">
           <Input
             placeholder="搜索影院名称/地址"
             allowClear
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            style={{ width: 320 }}
+            className={styles.searchInput}
             prefix={<Search size={14} color="#999" />}
           />
           <Select
             placeholder="全部状态"
             allowClear
-            style={{ width: 140 }}
+            className={styles.statusSelect}
             value={statusFilter}
             onChange={(v) => setStatusFilter(v)}
             options={[

@@ -41,6 +41,7 @@ import {
   SCHEDULE_STATUS_LABELS,
 } from './store';
 import { useOrderStore } from '../order';
+import styles from './SchedulePage.module.css';
 
 // ===================== 常量与TS类型 =====================
 const LANGUAGE_VERSIONS = [
@@ -131,10 +132,6 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({ data, errors, onChange, cin
     updateField('endTime', end.format('HH:mm'));
   }, [data.movieId, data.showDate, data.showTime, movies]);
 
-  const formItemStyle: React.CSSProperties = { marginBottom: 16 };
-  const twoColWrap: React.CSSProperties = { display: 'flex', gap: 16 };
-  const colItem: React.CSSProperties = { flex: 1 };
-
   return (
     <Form layout="vertical">
       {/* 影院选择 */}
@@ -143,18 +140,18 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({ data, errors, onChange, cin
         required
         validateStatus={errors.cinemaId ? 'error' : ''}
         help={errors.cinemaId}
-        style={formItemStyle}
+        className={styles.formItem}
       >
         <Radio.Group
           value={data.cinemaId}
           onChange={(e) => updateField('cinemaId', e.target.value)}
         >
-          <Space direction="vertical" size={8} style={{ maxHeight: 150, overflow: 'auto', border: '1px solid #e5e7eb', padding: 12, borderRadius: 8 }}>
+          <Space direction="vertical" size={8} className={styles.cinemaListSpace}>
             {cinemas.map(cinema => (
-              <Radio key={cinema.id} value={cinema.id} style={{ alignItems: 'flex-start' }}>
+              <Radio key={cinema.id} value={cinema.id} className={styles.radioAlignStart}>
                 <div>
-                  <div style={{ fontWeight: 500 }}>{cinema.name} {cinema.branch}</div>
-                  <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{cinema.address}</div>
+                  <div className={styles.cinemaName}>{cinema.name} {cinema.branch}</div>
+                  <div className={styles.cinemaAddress}>{cinema.address}</div>
                 </div>
               </Radio>
             ))}
@@ -168,12 +165,12 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({ data, errors, onChange, cin
         required
         validateStatus={errors.hallId ? 'error' : ''}
         help={errors.hallId}
-        style={formItemStyle}
+        className={styles.formItem}
       >
         {!data.cinemaId ? (
-          <div style={{ fontSize: 14, color: '#999' }}>请先选择影院</div>
+          <div className={styles.placeholderHint}>请先选择影院</div>
         ) : cinemaHalls.length === 0 ? (
-          <div style={{ fontSize: 14, color: '#999' }}>该影院暂无可用影厅</div>
+          <div className={styles.placeholderHint}>该影院暂无可用影厅</div>
         ) : (
           <Radio.Group value={data.hallId} onChange={(e) => updateField('hallId', e.target.value)}>
             <Space wrap size={8}>
@@ -191,13 +188,13 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({ data, errors, onChange, cin
         required
         validateStatus={errors.movieId ? 'error' : ''}
         help={errors.movieId}
-        style={formItemStyle}
+        className={styles.formItem}
       >
         <Select
           placeholder="请选择影片"
           value={data.movieId || undefined}
           onChange={(v) => updateField('movieId', v)}
-          style={{ width: '100%' }}
+          className={styles.fullWidth}
         >
           {movies.filter(m => m.status === 'showing' || m.status === 'coming').map(movie => (
             <Select.Option key={movie.id} value={movie.id}>
@@ -208,19 +205,19 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({ data, errors, onChange, cin
       </Form.Item>
 
       {/* 日期 + 时间 双栏 */}
-      <div style={twoColWrap}>
+      <div className={styles.twoColWrap}>
         <Form.Item
           label="放映日期"
           required
           validateStatus={errors.showDate ? 'error' : ''}
           help={errors.showDate}
-          style={colItem}
+          className={styles.colItem}
         >
           <DatePicker
             value={data.showDate ? dayjs(data.showDate) : undefined}
             onChange={(d) => updateField('showDate', d?.format('YYYY-MM-DD'))}
             disabledDate={(d) => d.isBefore(dayjs().subtract(1, 'day'))}
-            style={{ width: '100%' }}
+            className={styles.fullWidth}
           />
         </Form.Item>
         <Form.Item
@@ -228,36 +225,36 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({ data, errors, onChange, cin
           required
           validateStatus={errors.showTime ? 'error' : ''}
           help={errors.showTime}
-          style={colItem}
+          className={styles.colItem}
         >
           <TimePicker
             value={data.showTime ? dayjs(`2000-01-01 ${data.showTime}`) : undefined}
             onChange={(t) => updateField('showTime', t?.format('HH:mm'))}
             format="HH:mm"
-            style={{ width: '100%' }}
+            className={styles.fullWidth}
           />
         </Form.Item>
       </div>
 
       {/* 自动计算结束时间 */}
       {data.endTime && (
-        <div style={{ padding: 12, background: '#f5f5f5', borderRadius: 8, marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 14, color: '#666' }}>预计结束时间</span>
+        <div className={styles.endTimeBar}>
+          <span className={styles.endTimeLabel}>预计结束时间</span>
           <Space size={4}>
             <Clock size={16} color='#666' />
-            <span style={{ fontWeight: 500 }}>{data.endTime}</span>
+            <span className={styles.endTimeValue}>{data.endTime}</span>
           </Space>
         </div>
       )}
 
       {/* 票价 & 语言版本 */}
-      <div style={twoColWrap}>
+      <div className={styles.twoColWrap}>
         <Form.Item
           label="票价"
           required
           validateStatus={errors.price ? 'error' : ''}
           help={errors.price}
-          style={colItem}
+          className={styles.colItem}
         >
           <InputNumber
             addonBefore="¥"
@@ -265,7 +262,7 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({ data, errors, onChange, cin
             step={0.01}
             value={data.price}
             onChange={(v) => updateField('price', v)}
-            style={{ width: '100%' }}
+            className={styles.fullWidth}
             placeholder="0.00"
           />
         </Form.Item>
@@ -274,13 +271,13 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({ data, errors, onChange, cin
           required
           validateStatus={errors.languageVersion ? 'error' : ''}
           help={errors.languageVersion}
-          style={colItem}
+          className={styles.colItem}
         >
           <Select
             placeholder="请选择"
             value={data.languageVersion}
             onChange={(v) => updateField('languageVersion', v)}
-            style={{ width: '100%' }}
+            className={styles.fullWidth}
           >
             {LANGUAGE_VERSIONS.map(item => (
               <Select.Option key={item.value} value={item.value}>{item.label}</Select.Option>
@@ -290,7 +287,7 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({ data, errors, onChange, cin
       </div>
 
       {/* VIP票价 */}
-      <Form.Item label="VIP票价（选填）" style={formItemStyle}>
+      <Form.Item label="VIP票价（选填）" className={styles.formItem}>
         <InputNumber
           addonBefore="¥"
           min={0.01}
@@ -298,7 +295,7 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({ data, errors, onChange, cin
           value={data.vipPrice}
           onChange={(v) => updateField('vipPrice', v)}
           placeholder="优惠价格，不填同原价"
-          style={{ width: '100%' }}
+          className={styles.fullWidth}
         />
       </Form.Item>
     </Form>
@@ -381,8 +378,8 @@ const SchedulePage: React.FC = () => {
       dataIndex: 'movieName',
       render: (name, row) => (
         <div>
-          <div style={{ fontWeight: 500 }}>{name}</div>
-          <div style={{ fontSize: 12, color: '#666' }}>
+          <div className={styles.cellMovieName}>{name}</div>
+          <div className={styles.cellSubText}>
             {LANGUAGE_VERSIONS.find(v => v.value === row.languageVersion)?.label}
           </div>
         </div>
@@ -392,12 +389,12 @@ const SchedulePage: React.FC = () => {
       title: '放映时间',
       dataIndex: 'showDate',
       render: (date, row) => (
-        <div style={{ fontSize: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <div className={styles.cellShowTime}>
+          <div className={styles.cellDateRow}>
             <Calendar size={14} color="#999" />
             {date}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2, color: '#666' }}>
+          <div className={styles.cellTimeRow}>
             <Clock size={14} />
             {row.showTime} - {row.endTime}
           </div>
@@ -409,8 +406,8 @@ const SchedulePage: React.FC = () => {
       dataIndex: 'hallName',
       render: (hallName, row) => (
         <div>
-          <div style={{ fontWeight: 500 }}>{hallName}</div>
-          <div style={{ fontSize: 12, color: '#666' }}>{row.cinemaName}</div>
+          <div className={styles.cellMovieName}>{hallName}</div>
+          <div className={styles.cellSubText}>{row.cinemaName}</div>
         </div>
       ),
     },
@@ -419,10 +416,10 @@ const SchedulePage: React.FC = () => {
       dataIndex: 'price',
       align: 'center',
       render: (price, row) => (
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontWeight: 500, color: '#f97316' }}>¥{price}</div>
+        <div className={styles.cellCenter}>
+          <div className={styles.cellPriceValue}>¥{price}</div>
           {row.vipPrice && row.vipPrice !== price && (
-            <div style={{ fontSize: 12, color: '#999', textDecoration: 'line-through' }}>¥{row.vipPrice}</div>
+            <div className={styles.cellVipPrice}>¥{row.vipPrice}</div>
           )}
         </div>
       ),
@@ -433,19 +430,21 @@ const SchedulePage: React.FC = () => {
       dataIndex: 'soldSeats',
       render: (sold, row) => {
         const rate = calcRate(sold, row.totalSeats);
-        let barColor = '#22c55e';
-        if (rate >= 80) barColor = '#ef4444';
-        else if (rate >= 50) barColor = '#f59e0b';
+        const barClass = rate >= 80 ? styles.barRed : rate >= 50 ? styles.barAmber : styles.barGreen;
+        const textClass = rate >= 80 ? styles.textRed : rate >= 50 ? styles.textAmber : styles.textGreen;
         return (
-          <div style={{ textAlign: 'center' }}>
-            <Space size={4} style={{ justifyContent: 'center' }}>
+          <div className={styles.cellCenter}>
+            <Space size={4} className={styles.cellCenterSpace}>
               <Armchair size={14} color="#999" />
               <span>{sold}/{row.totalSeats}</span>
             </Space>
-            <div style={{ width: 64, height: 6, background: '#eee', borderRadius: 99, margin: 6, marginLeft: 'auto', marginRight: 'auto' }}>
-              <div style={{ width: `${rate}%`, height: '100%', background: barColor, borderRadius: 99 }} />
+            <div className={styles.progressTrack}>
+              <div
+                className={`${styles.progressFill} ${barClass}`}
+                style={{ width: `${rate}%` }}
+              />
             </div>
-            <span style={{ fontSize: 12, color: barColor }}>{rate}%</span>
+            <span className={`${styles.rateText} ${textClass}`}>{rate}%</span>
           </div>
         );
       },
@@ -624,19 +623,19 @@ const SchedulePage: React.FC = () => {
   };
 
   return (
-    <div style={{ maxWidth: 1320, margin: '0 auto', padding: 0 }}>
+    <div className={styles.pageRoot}>
       {/* 页面头部 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div className={styles.pageHeader}>
         <div>
           {selectedCinemaId && (
-            <Button type="link" size="small" icon={<ArrowLeft size={16} />} onClick={backCinema} style={{ padding: 0, marginBottom: 8 }}>
+            <Button type="link" size="small" icon={<ArrowLeft size={16} />} onClick={backCinema} className={styles.backButton}>
               返回影院列表
             </Button>
           )}
-          <h2 style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>
+          <h2 className={styles.pageTitle}>
             {currentCinema ? `${currentCinema.name} ${currentCinema.branch} - 排期管理` : '场次管理'}
           </h2>
-          <p style={{ fontSize: 14, color: '#666', marginTop: 4 }}>
+          <p className={styles.pageSubtitle}>
             {currentCinema ? '管理本影院放映排片' : '请先选择影院查看排期'}
           </p>
         </div>
@@ -647,18 +646,18 @@ const SchedulePage: React.FC = () => {
 
       {/* 未选影院：影院选择卡片 */}
       {!selectedCinemaId && (
-        <div style={{ background: '#fff', padding: 40, borderRadius: 8, textAlign: 'center', border: '1px solid #e8e8e8' }}>
-          <div style={{ width: 64, height: 64, background: '#e6f7ff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+        <div className={styles.cinemaSelectPanel}>
+          <div className={styles.cinemaIconCircle}>
             <MapPin size={32} color="#1677ff" />
           </div>
-          <h3 style={{ fontSize: 18, marginBottom: 8 }}>请选择影院</h3>
-          <p style={{ color: '#999', marginBottom: 24 }}>选择影院后查看、新增放映排期</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px,1fr))', gap: 16, maxWidth: 900, margin: '0 auto' }}>
+          <h3 className={styles.cinemaSelectTitle}>请选择影院</h3>
+          <p className={styles.cinemaSelectDesc}>选择影院后查看、新增放映排期</p>
+          <div className={styles.cinemaGrid}>
             {cinemas.map(cinema => (
               <Card hoverable key={cinema.id} onClick={() => { setSelectedCinemaId(cinema.id); navigate(`/schedules?cinemaId=${cinema.id}`); }}>
-                <div style={{ fontWeight: 500 }}>{cinema.name} {cinema.branch}</div>
-                <div style={{ fontSize: 12, color: '#666', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cinema.address}</div>
-                <div style={{ marginTop: 8, fontSize: 12, color: '#999', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div className={styles.cardCinemaName}>{cinema.name} {cinema.branch}</div>
+                <div className={styles.cardCinemaAddress}>{cinema.address}</div>
+                <div className={styles.cardHallCount}>
                   <Armchair size={12} /> {cinema.hallCount} 个影厅
                 </div>
               </Card>
@@ -671,30 +670,30 @@ const SchedulePage: React.FC = () => {
       {selectedCinemaId && (
         <>
           {/* 筛选栏 */}
-          <div style={{ background: '#fff', padding: 16, borderRadius: 8, marginBottom: 16 }}>
+          <div className={styles.filterBar}>
             <Space wrap size={12} align="center">
               <Input
                 placeholder="搜索影片/影厅"
                 allowClear
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
-                style={{ width: 300 }}
+                className={styles.filterInput}
                 prefix={<Search size={14} color="#999" />}
               />
-              <Select placeholder="全部影片" allowClear value={movieFilter} onChange={(v) => setMovieFilter(v)} style={{ width: 140 }}>
+              <Select placeholder="全部影片" allowClear value={movieFilter} onChange={(v) => setMovieFilter(v)} className={styles.filterSelectMovie}>
                 {movies.map(m => <Select.Option key={m.id} value={m.id}>{m.name}</Select.Option>)}
               </Select>
-              <Select placeholder="全部影厅" allowClear value={hallFilter} onChange={(v) => setHallFilter(v)} style={{ width: 130 }}>
+              <Select placeholder="全部影厅" allowClear value={hallFilter} onChange={(v) => setHallFilter(v)} className={styles.filterSelectHall}>
                 {cinemaHalls.map(h => <Select.Option key={h.id} value={h.id}>{h.name}</Select.Option>)}
               </Select>
-              <Select placeholder="全部状态" allowClear value={statusFilter} onChange={(v) => setStatusFilter(v)} style={{ width: 120 }}>
+              <Select placeholder="全部状态" allowClear value={statusFilter} onChange={(v) => setStatusFilter(v)} className={styles.filterSelectStatus}>
                 {Object.entries(SCHEDULE_STATUS_LABELS).map(([k, v]) => (
                   <Select.Option key={k} value={k}>{v.label}</Select.Option>
                 ))}
               </Select>
               <Space size={8}>
                 <DatePicker value={dateStart ? dayjs(dateStart) : undefined} onChange={(d) => setDateStart(d?.format('YYYY-MM-DD'))} placeholder="起始日期" />
-                <span style={{ color: '#999' }}>至</span>
+                <span className={styles.dateSeparator}>至</span>
                 <DatePicker value={dateEnd ? dayjs(dateEnd) : undefined} onChange={(d) => setDateEnd(d?.format('YYYY-MM-DD'))} placeholder="结束日期" />
               </Space>
             </Space>

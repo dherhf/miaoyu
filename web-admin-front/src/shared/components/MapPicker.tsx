@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { Input, Space, Button, Typography } from 'antd';
 import { MapPin, Navigation } from 'lucide-react';
+import styles from './MapPicker.module.css';
 
 export interface Coordinate {
   /** 经度 */
@@ -88,35 +89,18 @@ const MapPicker: React.FC<MapPickerProps> = ({
     );
   }, [onChange]);
 
-  const labelStyle: React.CSSProperties = {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 2,
-  };
-
   return (
     <div>
       {/* 地图占位区 */}
       <div
-        style={{
-          width: '100%',
-          height,
-          background: '#f0f2f5',
-          borderRadius: 8,
-          border: '1px solid #e8e8e8',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 12,
-          marginBottom: 16,
-        }}
+        className={styles.mapPlaceholder}
+        style={{ height }}
       >
         <MapPin size={40} color="#bfbfbf" />
-        <Typography.Text type="secondary" style={{ fontSize: 14 }}>
+        <Typography.Text type="secondary" className={styles.mapHint}>
           地图组件待集成（高德/百度 SDK）
         </Typography.Text>
-        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+        <Typography.Text type="secondary" className={styles.mapSubHint}>
           当前为手动输入坐标模式
         </Typography.Text>
         {!disabled && (
@@ -130,27 +114,16 @@ const MapPicker: React.FC<MapPickerProps> = ({
         )}
         {/* 坐标展示 */}
         {lng !== 0 && lat !== 0 && (
-          <div
-            style={{
-              marginTop: 8,
-              padding: '6px 16px',
-              background: '#fff',
-              borderRadius: 6,
-              border: '1px solid #e8e8e8',
-              fontSize: 13,
-              color: '#1677ff',
-              fontWeight: 500,
-            }}
-          >
+          <div className={styles.coordinateDisplay}>
             {lng.toFixed(6)}, {lat.toFixed(6)}
           </div>
         )}
       </div>
 
       {/* 手动坐标输入 */}
-      <Space size={12} style={{ width: '100%' }}>
-        <div style={{ flex: 1 }}>
-          <div style={labelStyle}>经度 (Longitude)</div>
+      <Space size={12} className={styles.inputRow}>
+        <div className={styles.inputCol}>
+          <div className={styles.label}>经度 (Longitude)</div>
           <Input
             value={lng || ''}
             onChange={(e) => handleLngChange(e.target.value)}
@@ -159,8 +132,8 @@ const MapPicker: React.FC<MapPickerProps> = ({
             type="number"
           />
         </div>
-        <div style={{ flex: 1 }}>
-          <div style={labelStyle}>纬度 (Latitude)</div>
+        <div className={styles.inputCol}>
+          <div className={styles.label}>纬度 (Latitude)</div>
           <Input
             value={lat || ''}
             onChange={(e) => handleLatChange(e.target.value)}
