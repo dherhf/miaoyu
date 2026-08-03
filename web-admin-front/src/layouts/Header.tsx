@@ -1,20 +1,25 @@
-import React from 'react';
 import { User, ChevronDown, LogOut } from 'lucide-react';
-import { Dropdown } from 'antd';
+import { Button, Dropdown, App } from 'antd';
+import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
-import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../features/auth';
 import styles from './Header.module.css';
 
-const AdminHeader: React.FC = () => {
+export interface HeaderProps {
+  collapsed: boolean;
+  onToggle: () => void;
+}
+
+export function AdminHeader({ collapsed, onToggle }: HeaderProps) {
   const { currentUser, logout } = useAuthStore();
   const navigate = useNavigate();
+  const { message } = App.useApp();
 
   const handleLogout = () => {
     logout();
     navigate('/login');
-    toast.success('已退出登录');
+    void message.success('已退出登录');
   };
 
   const menuItems: MenuProps['items'] = [
@@ -29,7 +34,12 @@ const AdminHeader: React.FC = () => {
 
   return (
     <header className={styles.header}>
-      <div />
+      <Button
+        type="text"
+        icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+        onClick={onToggle}
+        className={styles.foldBtn}
+      />
 
       <div className={styles.right}>
 
@@ -55,9 +65,6 @@ const AdminHeader: React.FC = () => {
               <div className={styles.userName}>
                 {currentUser?.realName || currentUser?.username || '管理员'}
               </div>
-              <div className={styles.userRole}>
-                管理员
-              </div>
             </div>
             <ChevronDown size={14} color="#9ca3af" />
           </div>
@@ -65,6 +72,4 @@ const AdminHeader: React.FC = () => {
       </div>
     </header>
   );
-};
-
-export default AdminHeader;
+}
