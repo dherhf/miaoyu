@@ -4,13 +4,15 @@ server:
     context-path: /
 
 spring:
+  config:
+    import: "optional:file:.env[.properties]"
   application:
     name: agent-service
   data:
     redis:
-      host: 119.91.52.251
-      port: 6379
-      password: www.2005
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
       database: 1
       timeout: 5000ms
       lettuce:
@@ -19,7 +21,7 @@ spring:
           max-idle: 8
           min-idle: 2
   mongodb:
-    uri: mongodb://119.91.52.251:27017/agent_db
+    uri: mongodb://${MONGODB_USERNAME}:${MONGODB_PASSWORD}@${MONGODB_HOST}:${MONGODB_PORT}/${MONGODB_DATABASE}?authSource=${MONGODB_DATABASE}
 
 # 票务服务内部调用地址
 ticket-service:
@@ -32,7 +34,7 @@ langchain4j:
   open-ai:
     chat-model:
       base-url: https://api.deepseek.com
-      api-key: ${DEEPSEEK_API_KEY:sk-placeholder}
+      api-key: ${DEEPSEEK_API_KEY}
       model-name: deepseek-chat
       temperature: 0.3
       max-tokens: 2048
@@ -42,7 +44,7 @@ langchain4j:
 
 # JWT 配置（与 ticket-service 共用密钥）
 jwt:
-  current-secret: miaoyu-ticket-service-jwt-secret-key-2026
+  current-secret: ${JWT_CURRENT_SECRET}
   old-secret:
   issuer: miaoyu
   user-expiration: 86400
