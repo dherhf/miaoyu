@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import type { MovieStatus, MovieItem, MovieFilters } from '../types/movie';
 
 // ===================== 常量 =====================
 export const MOVIE_TYPES = [
@@ -12,30 +13,7 @@ export const MOVIE_TYPES = [
   { value: 'other', label: '其他' },
 ];
 
-// ===================== 类型 =====================
-export type MovieStatus = 'showing' | 'offline';
-
-export interface MovieItem {
-  id: number | string;
-  name: string;
-  types: string[];
-  typeLabel: string;
-  poster_url: string;
-  rating: number | null;
-  duration: number;
-  release_date: string;
-  director: string;
-  actors: string;
-  description: string;
-  status: MovieStatus;
-  hasSchedule?: boolean;
-}
-
-export interface MovieFilters {
-  keyword: string;
-  type?: string;
-  status?: string;
-}
+export type { MovieStatus, MovieItem, MovieFilters } from '../types/movie';
 
 interface MovieState {
   movies: MovieItem[];

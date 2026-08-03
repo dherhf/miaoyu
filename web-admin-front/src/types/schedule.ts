@@ -1,6 +1,8 @@
-import request, { type PageResult } from '../utils/request';
+// ===================== 排期相关类型 =====================
 
-// ===================== 类型 =====================
+// ---------- API 层 ----------
+
+/** 排期列表记录 */
 export interface ScheduleRecord {
   id: number;
   movieId: number;
@@ -22,6 +24,7 @@ export interface ScheduleRecord {
   createdAt: string;
 }
 
+/** 排期详情 */
 export interface ScheduleDetail extends ScheduleRecord {
   moviePosterUrl?: string;
   movieDuration?: number;
@@ -31,6 +34,7 @@ export interface ScheduleDetail extends ScheduleRecord {
   updatedAt?: string;
 }
 
+/** 排期列表查询参数 */
 export interface ScheduleListParams {
   cinemaId?: number;
   movieName?: string;
@@ -41,6 +45,7 @@ export interface ScheduleListParams {
   size?: number;
 }
 
+/** 新增排期参数 */
 export interface ScheduleCreateParams {
   movieId: number;
   cinemaId: number;
@@ -51,6 +56,7 @@ export interface ScheduleCreateParams {
   languageVersion: string;
 }
 
+/** 修改排期参数 */
 export interface ScheduleUpdateParams {
   hallId?: number;
   showDate?: string;
@@ -60,29 +66,28 @@ export interface ScheduleUpdateParams {
   languageVersion?: string;
 }
 
-// ===================== API =====================
+// ---------- Store 层 ----------
 
-/** 查询场次列表 */
-export function getScheduleList(params: ScheduleListParams): Promise<PageResult<ScheduleRecord>> {
-  return request.get('/schedules', { params });
-}
+/** 排期状态 */
+export type ScheduleStatus = 'available' | 'full' | 'ended' | 'cancelled';
 
-/** 查询场次详情 */
-export function getScheduleDetail(id: number): Promise<ScheduleDetail> {
-  return request.get(`/schedules/${id}`);
-}
-
-/** 新增场次 */
-export function createSchedule(data: ScheduleCreateParams): Promise<ScheduleDetail> {
-  return request.post('/schedules', data);
-}
-
-/** 修改场次 */
-export function updateSchedule(id: number, data: ScheduleUpdateParams): Promise<ScheduleDetail> {
-  return request.put(`/schedules/${id}`, data);
-}
-
-/** 取消场次 */
-export function cancelSchedule(id: number): Promise<null> {
-  return request.put(`/schedules/${id}/cancel`);
+/** 排期条目（Store / 页面展示用） */
+export interface ScheduleItem {
+  id: string | number;
+  cinemaId: string | number;
+  cinemaName: string;
+  hallId: string | number;
+  hallName: string;
+  movieId: string | number;
+  movieName: string;
+  showDate: string;
+  showTime: string;
+  endTime: string;
+  price: number;
+  vipPrice?: number;
+  languageVersion: string;
+  totalSeats: number;
+  soldSeats: number;
+  availableSeats: number;
+  status: ScheduleStatus;
 }

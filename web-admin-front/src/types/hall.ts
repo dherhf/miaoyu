@@ -1,6 +1,8 @@
-import request, { type PageResult } from '../utils/request';
+// ===================== 影厅相关类型 =====================
 
-// ===================== 类型 =====================
+// ---------- API 层 ----------
+
+/** 影厅列表记录 */
 export interface HallRecord {
   id: number;
   cinemaId: number;
@@ -14,6 +16,7 @@ export interface HallRecord {
   createdAt: string;
 }
 
+/** 座位单元格 */
 export interface HallCell {
   rowIndex: number;
   colIndex: number;
@@ -23,10 +26,12 @@ export interface HallCell {
   status?: string;
 }
 
+/** 影厅详情（含座位布局） */
 export interface HallDetail extends HallRecord {
   cells: HallCell[];
 }
 
+/** 影厅列表查询参数 */
 export interface HallListParams {
   cinemaId?: number;
   name?: string;
@@ -36,53 +41,52 @@ export interface HallListParams {
   size?: number;
 }
 
+/** 新增影厅参数 */
 export interface HallCreateParams {
   cinemaId: number;
   name: string;
   screenType?: string;
 }
 
+/** 修改影厅基础信息参数 */
 export interface HallUpdateParams {
   name?: string;
   screenType?: string;
   status?: number;
 }
 
+/** 保存座位布局参数 */
 export interface LayoutSaveParams {
   totalRows: number;
   totalCols: number;
   cells: HallCell[];
 }
 
+/** 保存座位布局响应 */
 export interface LayoutSaveResult {
   hallId: number;
   totalSeats: number;
   updatedAt: string;
 }
 
-// ===================== API =====================
+// ---------- Store 层 ----------
 
-/** 查询影厅列表 */
-export function getHallList(params: HallListParams): Promise<PageResult<HallRecord>> {
-  return request.get('/halls', { params });
+/** 座位条目（Store 层简化版） */
+export interface SeatItem {
+  row: number;
+  col: number;
+  status: 'available' | 'aisle';
 }
 
-/** 查询影厅详情（含座位布局） */
-export function getHallDetail(id: number): Promise<HallDetail> {
-  return request.get(`/halls/${id}`);
-}
-
-/** 新增影厅 */
-export function createHall(data: HallCreateParams): Promise<HallRecord> {
-  return request.post('/halls', data);
-}
-
-/** 修改影厅基础信息 */
-export function updateHall(id: number, data: HallUpdateParams): Promise<HallRecord> {
-  return request.put(`/halls/${id}`, data);
-}
-
-/** 保存/更新影厅座位布局 */
-export function saveHallLayout(id: number, data: LayoutSaveParams): Promise<LayoutSaveResult> {
-  return request.put(`/halls/${id}/layout`, data);
+/** 影厅条目（Store / 页面展示用） */
+export interface HallItem {
+  id: string | number;
+  cinemaId: string | number;
+  name: string;
+  type: string;
+  rowCount: number;
+  colCount: number;
+  totalSeats: number;
+  seats: SeatItem[];
+  status: string;
 }

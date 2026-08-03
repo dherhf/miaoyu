@@ -1,20 +1,13 @@
 import { useSyncExternalStore } from 'react';
+import type { AuthUser, UserRole } from '../types/auth';
 
-// ===================== 类型定义 =====================
+// ===================== 常量 =====================
 export const USER_ROLE = {
   SUPER_ADMIN: 'super_admin',
   ADMIN: 'admin',
 } as const;
 
-export type UserRole = (typeof USER_ROLE)[keyof typeof USER_ROLE];
-
-export interface AuthUser {
-  id: number;
-  username: string;
-  realName: string;
-  avatar?: string;
-  role: UserRole;
-}
+export type { UserRole, AuthUser } from '../types/auth';
 
 interface AuthState {
   currentUser: AuthUser | null;
@@ -41,7 +34,7 @@ const MOCK_ADMIN: AuthUser = {
   id: 1,
   username: 'admin',
   realName: '系统管理员',
-  role: USER_ROLE.SUPER_ADMIN,
+  role: USER_ROLE.SUPER_ADMIN as UserRole,
 };
 
 // ===================== Store Hook =====================

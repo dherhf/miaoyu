@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import type { SeatItem, HallItem } from '../types/hall';
 
 // ===================== 常量 =====================
 export const HALL_TYPES = [
@@ -17,24 +18,7 @@ export const SEAT_STATUS = {
   AISLE: 'aisle',
 } as const;
 
-// ===================== 类型 =====================
-export interface SeatItem {
-  row: number;
-  col: number;
-  status: 'available' | 'aisle';
-}
-
-export interface HallItem {
-  id: string | number;
-  cinemaId: string | number;
-  name: string;
-  type: string;
-  rowCount: number;
-  colCount: number;
-  totalSeats: number;
-  seats: SeatItem[];
-  status: string;
-}
+export type { SeatItem, HallItem } from '../types/hall';
 
 interface HallState {
   halls: HallItem[];
@@ -45,7 +29,7 @@ export function generateSeats(rows: number, cols: number): SeatItem[] {
   const seats: SeatItem[] = [];
   for (let r = 1; r <= rows; r++) {
     for (let c = 1; c <= cols; c++) {
-      seats.push({ row: r, col: c, status: SEAT_STATUS.AVAILABLE });
+      seats.push({ row: r, col: c, status: SEAT_STATUS.AVAILABLE as 'available' });
     }
   }
   return seats;
@@ -70,7 +54,7 @@ export function addRow(seats: SeatItem[]): SeatItem[] | { error: string } {
   const newRow = rows + 1;
   const newSeats: SeatItem[] = [];
   for (let c = 1; c <= cols; c++) {
-    newSeats.push({ row: newRow, col: c, status: SEAT_STATUS.AVAILABLE });
+    newSeats.push({ row: newRow, col: c, status: 'available' });
   }
   return [...seats, ...newSeats];
 }
@@ -88,7 +72,7 @@ export function addCol(seats: SeatItem[]): SeatItem[] | { error: string } {
   const newCol = cols + 1;
   const newSeats: SeatItem[] = [];
   for (let r = 1; r <= rows; r++) {
-    newSeats.push({ row: r, col: newCol, status: SEAT_STATUS.AVAILABLE });
+    newSeats.push({ row: r, col: newCol, status: 'available' });
   }
   return [...seats, ...newSeats];
 }
@@ -159,7 +143,7 @@ function generateMockSeats(rows: number, cols: number, aisleCols: number): SeatI
   for (let r = 1; r <= rows; r++) {
     for (let c = 1; c <= cols; c++) {
       const isAisle = aisleCols > 0 && c >= midStart && c < midStart + aisleCols;
-      seats.push({ row: r, col: c, status: isAisle ? SEAT_STATUS.AISLE : SEAT_STATUS.AVAILABLE });
+      seats.push({ row: r, col: c, status: isAisle ? 'aisle' : 'available' });
     }
   }
   return seats;
