@@ -1,21 +1,7 @@
 import { useSyncExternalStore } from 'react';
+import type { CinemaStatus, CinemaItem } from '../types/cinema';
 
-// ===================== 类型 =====================
-export type CinemaStatus = 'active' | 'closed';
-
-export interface CinemaItem {
-  id: number;
-  name: string;
-  address: string;
-  longitude: number;
-  latitude: number;
-  facilities: string[];
-  rating: number | null;
-  phone: string | null;
-  status: CinemaStatus;
-  branch?: string;
-  hallCount?: number;
-}
+export type { CinemaStatus, CinemaItem } from '../types/cinema';
 
 interface CinemaState {
   cinemas: CinemaItem[];

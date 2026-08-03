@@ -1,40 +1,12 @@
 import request, { type PageResult } from '../utils/request';
+import type {
+  CinemaRecord,
+  CinemaDetail,
+  CinemaListParams,
+  CinemaCreateParams,
+} from '../types/cinema';
 
-// ===================== 类型 =====================
-export interface CinemaRecord {
-  id: number;
-  name: string;
-  address: string;
-  longitude: number;
-  latitude: number;
-  facilities?: string[];
-  rating?: number;
-  phone?: string;
-  status: number; // 1=营业中 0=停业
-  hallCount: number;
-  createdAt: string;
-}
-
-export interface CinemaDetail extends CinemaRecord {
-  updatedAt: string;
-}
-
-export interface CinemaListParams {
-  keyword?: string;
-  status?: number;
-  page?: number;
-  size?: number;
-}
-
-export interface CinemaCreateParams {
-  name: string;
-  address: string;
-  longitude: number;
-  latitude: number;
-  facilities?: string[];
-  rating?: number;
-  phone?: string;
-}
+export type { CinemaRecord, CinemaDetail, CinemaListParams, CinemaCreateParams } from '../types/cinema';
 
 // ===================== API =====================
 
