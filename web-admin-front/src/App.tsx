@@ -17,9 +17,9 @@ import { OrderPage } from './features/order';
 import NotFound from './pages/NotFound';
 
 // 状态管理
-import { useAuthStore } from './features/auth';
+import { useAuthStore, authApi } from './features/auth';
 import { setGlobalMessage } from './shared/utils/globalMessage';
-import React from "react";
+import React, { useEffect } from "react";
 
 /** 将 antd message 实例注入全局，供非组件模块（如 axios 拦截器）使用 */
 function GlobalMessageSetup() {
@@ -28,12 +28,29 @@ function GlobalMessageSetup() {
   return null;
 }
 
+/** 登录态恢复：有 token 但无 profile 时重新拉取 */
+function ProfileInitializer() {
+  const token = useAuthStore((s) => s.token);
+  const setProfile = useAuthStore((s) => s.setProfile);
+
+  useEffect(() => {
+    if (token) {
+      authApi.getCurrentAdmin().then(setProfile).catch(() => {
+        // token 失效时清除登录态
+        useAuthStore.getState().clear();
+      });
+    }
+  }, [token, setProfile]);
+
+  return null;
+}
+
 /** 路由鉴权守卫组件 */
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { isLoggedIn } = useAuthStore();
+  const token = useAuthStore((s) => s.token);
 
   // 未登录直接跳登录页
-  if (!isLoggedIn()) {
+  if (!token) {
     return <Navigate to="/login" replace />;
   }
   return <>{children}</>;
@@ -81,6 +98,7 @@ function App() {
       >
         <AntApp>
           <GlobalMessageSetup />
+          <ProfileInitializer />
           {/* 路由根入口 */}
           <RouterProvider router={router} />
         </AntApp>

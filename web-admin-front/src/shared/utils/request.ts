@@ -1,5 +1,6 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { getGlobalMessage } from './globalMessage';
+import { useAuthStore } from '../../features/auth';
 
 // 通用 API 响应类型
 
@@ -29,7 +30,7 @@ const request = axios.create({
 request.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     // 注入 Token
-    const token = localStorage.getItem('adminToken');
+    const token = useAuthStore.getState().token;
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -53,8 +54,7 @@ request.interceptors.response.use(
 
     // 401 → 清除登录态跳转
     if (res.code === 401) {
-      localStorage.removeItem('adminToken');
-      localStorage.removeItem('adminUser');
+      useAuthStore.getState().clear();
       window.location.href = '/login';
       return Promise.reject(new Error('未登录或登录已过期'));
     }
@@ -74,8 +74,7 @@ request.interceptors.response.use(
         message = serverMsg || '请求参数错误';
         break;
       case 401:
-        localStorage.removeItem('adminToken');
-        localStorage.removeItem('adminUser');
+        useAuthStore.getState().clear();
         window.location.href = '/login';
         message = '未登录或登录已过期';
         break;

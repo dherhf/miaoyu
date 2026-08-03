@@ -1,41 +1,40 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { AdminInfo } from './types';
-import { login as apiLogin, logout as apiLogout } from './api';
+import { authApi } from './api';
 
 export type { AdminInfo } from './types';
 
 interface AuthState {
-  currentUser: AdminInfo | null;
-  isLoggedIn: () => boolean;
-  login: (phone: string, password: string) => Promise<void>;
+  token: string | null;
+  profile: AdminInfo | null;
+  setToken: (token: string | null) => void;
+  setProfile: (profile: AdminInfo | null) => void;
+  clear: () => void;
   logout: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
-  currentUser: (() => {
-    const saved = localStorage.getItem('adminUser');
-    return saved ? (JSON.parse(saved) as AdminInfo) : null;
-  })(),
-
-  isLoggedIn: (): boolean => {
-    return !!localStorage.getItem('adminToken') && !!get().currentUser;
-  },
-
-  login: async (phone: string, password: string): Promise<void> => {
-    const result = await apiLogin({ phone, password });
-    localStorage.setItem('adminToken', result.token);
-    localStorage.setItem('adminUser', JSON.stringify(result.adminInfo));
-    set({ currentUser: result.adminInfo });
-  },
-
-  logout: async (): Promise<void> => {
-    try {
-      await apiLogout();
-    } catch {
-      // 即使登出接口失败，也清除本地登录态
-    }
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem('adminUser');
-    set({ currentUser: null });
-  },
-}));
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      token: null,
+      profile: null,
+      setToken: (token) => set({ token }),
+      setProfile: (profile) => set({ profile }),
+      clear: () => set({ token: null, profile: null }),
+      logout: async () => {
+        try {
+          await authApi.logout();
+        } catch {
+          // 即使登出接口失败，也清除本地登录态
+        }
+        set({ token: null, profile: null });
+      },
+    }),
+    {
+      name: 'auth-storage',
+      // 只持久化 token，profile 每次刷新后重新拉取
+      partialize: (state) => ({ token: state.token }),
+    },
+  ),
+);
