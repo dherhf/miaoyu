@@ -1,7 +1,3 @@
-// ===================== 影院相关类型 =====================
-
-// ---------- API 层 ----------
-
 /** 影院列表记录 */
 export interface CinemaRecord {
   id: number;
@@ -41,8 +37,6 @@ export interface CinemaCreateParams {
   phone?: string;
 }
 
-// ---------- Store 层 ----------
-
 /** 影院营业状态 */
 export type CinemaStatus = 'active' | 'closed';
 
@@ -59,4 +53,30 @@ export interface CinemaItem {
   status: CinemaStatus;
   branch?: string;
   hallCount?: number;
+}
+
+/** API status (1=营业 0=停业) → CinemaStatus */
+export function mapCinemaStatus(status: number): CinemaStatus {
+  return status === 1 ? 'active' : 'closed';
+}
+
+/** CinemaStatus → API status (1=营业 0=停业) */
+export function toApiStatus(status: CinemaStatus): number {
+  return status === 'active' ? 1 : 0;
+}
+
+/** CinemaRecord → CinemaItem */
+export function mapCinemaRecord(record: CinemaRecord): CinemaItem {
+  return {
+    id: record.id,
+    name: record.name,
+    address: record.address,
+    longitude: record.longitude,
+    latitude: record.latitude,
+    facilities: record.facilities ?? [],
+    rating: record.rating ?? null,
+    phone: record.phone ?? null,
+    status: mapCinemaStatus(record.status),
+    hallCount: record.hallCount,
+  };
 }
