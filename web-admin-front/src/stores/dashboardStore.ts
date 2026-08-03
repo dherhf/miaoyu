@@ -1,43 +1,19 @@
 import { useSyncExternalStore } from 'react';
+import type {
+  DashboardStats,
+  TrendRecord,
+  MovieRankItem,
+  CinemaRow,
+  CinemaDistItem,
+} from '../types/dashboard';
 
-// ===================== 类型 =====================
-export interface DashboardStats {
-  todayOrders: number;
-  todayRevenue: number;
-  todayTickets: number;
-  todayRefunds: number;
-  conversionRate: number;
-  avgOrderValue: number;
-  pendingOrders: number;
-  timeoutRate: number;
-}
-
-export interface TrendRecord {
-  date: string;
-  orders: number;
-  revenue: number;
-}
-
-export interface MovieRankItem {
-  rank: number;
-  name: string;
-  type: string;
-  boxOffice: number;
-  occupancy: number;
-}
-
-export interface CinemaRow {
-  name: string;
-  branch: string;
-  dailyRevenue: number;
-  occupancy: number;
-}
-
-export interface CinemaDistItem {
-  name: string;
-  value: number;
-  count: number;
-}
+export type {
+  DashboardStats,
+  TrendRecord,
+  MovieRankItem,
+  CinemaRow,
+  CinemaDistItem,
+} from '../types/dashboard';
 
 interface DashboardState {
   stats: DashboardStats;
@@ -119,7 +95,6 @@ export function useDashboardStore() {
     cinemaTypeDistribution: snapshot.cinemaTypeDistribution,
 
     refreshDashboard: (): void => {
-      // In mock mode, just re-randomize slightly to simulate refresh
       state = buildMockDashboard();
       emit();
     },

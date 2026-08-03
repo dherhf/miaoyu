@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import type { ScheduleStatus, ScheduleItem } from '../types/schedule';
 
 // ===================== 常量 =====================
 export const SCHEDULE_STATUS = {
@@ -8,7 +9,7 @@ export const SCHEDULE_STATUS = {
   CANCELLED: 'cancelled',
 } as const;
 
-export type ScheduleStatus = (typeof SCHEDULE_STATUS)[keyof typeof SCHEDULE_STATUS];
+export type { ScheduleStatus, ScheduleItem } from '../types/schedule';
 
 export const SCHEDULE_STATUS_LABELS: Record<ScheduleStatus, { label: string; color: string }> = {
   available: { label: '可售', color: 'green' },
@@ -16,27 +17,6 @@ export const SCHEDULE_STATUS_LABELS: Record<ScheduleStatus, { label: string; col
   ended: { label: '已结束', color: 'blue' },
   cancelled: { label: '已取消', color: 'gray' },
 };
-
-// ===================== 类型 =====================
-export interface ScheduleItem {
-  id: string | number;
-  cinemaId: string | number;
-  cinemaName: string;
-  hallId: string | number;
-  hallName: string;
-  movieId: string | number;
-  movieName: string;
-  showDate: string;
-  showTime: string;
-  endTime: string;
-  price: number;
-  vipPrice?: number;
-  languageVersion: string;
-  totalSeats: number;
-  soldSeats: number;
-  availableSeats: number;
-  status: ScheduleStatus;
-}
 
 interface ScheduleState {
   schedules: ScheduleItem[];
