@@ -12,7 +12,7 @@ export interface HeaderProps {
 }
 
 export function AdminHeader({ collapsed, onToggle }: HeaderProps) {
-  const { currentUser, logout } = useAuthStore();
+  const { profile, logout } = useAuthStore();
   const navigate = useNavigate();
   const { message } = App.useApp();
 
@@ -55,7 +55,7 @@ export function AdminHeader({ collapsed, onToggle }: HeaderProps) {
 
             <div className={styles.userInfo}>
               <div className={styles.userName}>
-                {currentUser?.name || '管理员'}
+                {profile?.name || '管理员'}
               </div>
             </div>
             <ChevronDown size={14} color="#9ca3af" />

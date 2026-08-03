@@ -1,22 +1,25 @@
 import { useState } from 'react';
-import { Card, Form, Input, Button, Typography, message } from 'antd';
+import { Card, Form, Input, Button, Typography, App as AntApp } from 'antd';
 import type { FormProps } from 'antd';
 import { PhoneOutlined, LockOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { authApi } from './api';
 import { useAuthStore } from './store';
 import type { LoginParams } from './types';
 import styles from './LoginPage.module.css';
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { login } = useAuthStore();
   const [form] = Form.useForm<LoginParams>();
   const [loading, setLoading] = useState(false);
+  const { message } = AntApp.useApp();
 
   const handleSubmit: FormProps<LoginParams>['onFinish'] = async (values) => {
     setLoading(true);
     try {
-      await login(values.phone, values.password);
+      const { token, adminInfo } = await authApi.login(values);
+      useAuthStore.getState().setToken(token);
+      useAuthStore.getState().setProfile(adminInfo);
       await message.success('登录成功，欢迎使用妙语购票管理后台');
       navigate('/dashboard');
     } catch {
