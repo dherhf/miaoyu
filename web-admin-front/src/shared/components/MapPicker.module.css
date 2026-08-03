@@ -1,0 +1,45 @@
+.mapPlaceholder {
+  width: 100%;
+  background: #f0f2f5;
+  border-radius: 8px;
+  border: 1px solid #e8e8e8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.mapHint {
+  font-size: 14px;
+}
+
+.mapSubHint {
+  font-size: 12px;
+}
+
+.coordinateDisplay {
+  margin-top: 8px;
+  padding: 6px 16px;
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #e8e8e8;
+  font-size: 13px;
+  color: #1677ff;
+  font-weight: 500;
+}
+
+.inputRow {
+  width: 100%;
+}
+
+.inputCol {
+  flex: 1;
+}
+
+.label {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 2px;
+}

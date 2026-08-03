@@ -1,0 +1,260 @@
+/* ===== StatCard ===== */
+.statCard {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #f3f4f6;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.3s ease;
+}
+
+.statCard:hover {
+  box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.08);
+}
+
+.statCardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.statTitle {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+  margin: 0;
+}
+
+.statValue {
+  font-size: 24px;
+  font-weight: 700;
+  color: #111827;
+  margin-top: 8px;
+  margin-bottom: 0;
+}
+
+.statUnitYen {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.statUnitPercent {
+  font-size: 16px;
+}
+
+.statChange {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+.statChangeUp {
+  color: #16a34a;
+}
+
+.statChangeDown {
+  color: #dc2626;
+}
+
+.statChangeLabel {
+  color: #9ca3af;
+  margin-left: 4px;
+}
+
+.statIconWrapper {
+  padding: 12px;
+  border-radius: 12px;
+}
+
+/* ===== ChartCard ===== */
+.chartCard {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #f3f4f6;
+  overflow: hidden;
+}
+
+.chartCardHeader {
+  padding: 16px 20px;
+  border-bottom: 1px solid #f3f4f6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chartCardTitle {
+  margin: 0;
+  font-weight: 600;
+}
+
+.chartCardBody {
+  padding: 20px;
+}
+
+/* ===== Table column renders ===== */
+.rankBadge {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.rankBadgeTop {
+  background: #1677ff;
+  color: #fff;
+}
+
+.rankBadgeNormal {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.occupancyTag {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.occupancyHigh {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.occupancyMid {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.occupancyLow {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.occupancyBarContainer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.occupancyBarTrack {
+  width: 64px;
+  height: 6px;
+  background: #f3f4f6;
+  border-radius: 99px;
+}
+
+.occupancyBarFill {
+  height: 100%;
+  background: #1677ff;
+  border-radius: 99px;
+}
+
+.occupancyBarText {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* ===== Page layout ===== */
+.page {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0;
+}
+
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.pageTitle {
+  margin: 0;
+}
+
+.pageSubtitle {
+  font-size: 14px;
+  color: #6b7280;
+  margin-top: 4px;
+  margin-bottom: 0;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.updateTime {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.statsRow {
+  margin-bottom: 24px;
+}
+
+.bottomRow {
+  margin-top: 24px;
+}
+
+.trendChart {
+  height: 288px;
+}
+
+.movieChart {
+  height: 160px;
+  margin-bottom: 16px;
+}
+
+.cinemaStatsLayout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pieTableRow {
+  display: flex;
+  gap: 16px;
+}
+
+.pieContainer {
+  width: 200px;
+  height: 200px;
+  flex-shrink: 0;
+}
+
+.tableContainer {
+  flex: 1;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.legendDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}

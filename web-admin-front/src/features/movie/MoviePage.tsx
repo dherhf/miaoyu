@@ -36,6 +36,7 @@ import type {
 import dayjs from 'dayjs';
 import { useMovieStore, MOVIE_TYPES } from './store';
 import { useScheduleStore } from '../schedule';
+import styles from './MoviePage.module.css';
 
 // ===================== TS 类型定义 =====================
 type MovieStatus = 'showing' | 'offline';
@@ -109,10 +110,9 @@ const MovieForm: React.FC<MovieFormProps> = ({ data, errors, onChange }) => {
       return false;
     },
   };
-  const uploadStyle: React.CSSProperties = { width: 120, height: 168 };
 
   return (
-    <Form layout="vertical" style={{ gap: 16 }}>
+    <Form layout="vertical" className={styles.form}>
       {/* 影片名称 */}
       <Form.Item
         label="影片名称"
@@ -156,7 +156,7 @@ const MovieForm: React.FC<MovieFormProps> = ({ data, errors, onChange }) => {
         required
       >
         <InputNumber
-          style={{ width: '100%' }}
+          className={styles.fullWidth}
           min={1}
           max={300}
           value={data.duration || null}
@@ -166,15 +166,15 @@ const MovieForm: React.FC<MovieFormProps> = ({ data, errors, onChange }) => {
       </Form.Item>
 
       {/* 评分 & 上映日期 双栏 */}
-      <div style={{ display: 'flex', gap: 16 }}>
+      <div className={styles.ratingDateRow}>
         <Form.Item
           label="评分"
-          style={{ flex: 1, marginBottom: 0 }}
+          className={styles.formCol}
           validateStatus={errors.rating ? 'error' : ''}
           help={errors.rating}
         >
           <InputNumber
-            style={{ width: '100%' }}
+            className={styles.fullWidth}
             min={0}
             max={10}
             step={0.1}
@@ -185,13 +185,13 @@ const MovieForm: React.FC<MovieFormProps> = ({ data, errors, onChange }) => {
         </Form.Item>
         <Form.Item
           label="上映日期"
-          style={{ flex: 1, marginBottom: 0 }}
+          className={styles.formCol}
           validateStatus={errors.release_date ? 'error' : ''}
           help={errors.release_date}
           required
         >
           <DatePicker
-            style={{ width: '100%' }}
+            className={styles.fullWidth}
             value={data.release_date ? dayjs(data.release_date) : null}
             onChange={(d) => updateField('release_date', d?.format('YYYY-MM-DD') || '')}
             disabledDate={(d) => d.isAfter(dayjs())}
@@ -200,10 +200,10 @@ const MovieForm: React.FC<MovieFormProps> = ({ data, errors, onChange }) => {
       </div>
 
       {/* 导演 & 主演 */}
-      <div style={{ display: 'flex', gap: 16 }}>
+      <div className={styles.directorActorsRow}>
         <Form.Item
           label="导演"
-          style={{ flex: 1, marginBottom: 0 }}
+          className={styles.formCol}
           validateStatus={errors.director ? 'error' : ''}
           help={errors.director}
           required
@@ -216,7 +216,7 @@ const MovieForm: React.FC<MovieFormProps> = ({ data, errors, onChange }) => {
         </Form.Item>
         <Form.Item
           label="主演"
-          style={{ flex: 1, marginBottom: 0 }}
+          className={styles.formCol}
           validateStatus={errors.actors ? 'error' : ''}
           help={errors.actors}
         >
@@ -248,11 +248,11 @@ const MovieForm: React.FC<MovieFormProps> = ({ data, errors, onChange }) => {
       >
         <Upload {...uploadConfig}>
           {data.poster_url ? (
-            <img src={data.poster_url} alt="海报" style={uploadStyle} />
+            <img src={data.poster_url} alt="海报" className={styles.uploadImage} />
           ) : (
-            <div style={{ ...uploadStyle, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#999' }}>
+            <div className={styles.uploadPlaceholder}>
               <Film size={20} />
-              <div style={{ fontSize: 12, marginTop: 4 }}>上传海报</div>
+              <div className={styles.uploadPlaceholderText}>上传海报</div>
             </div>
           )}
         </Upload>
@@ -321,18 +321,18 @@ const MovieManage: React.FC = () => {
       dataIndex: 'name',
       render: (name, row) => (
         <Space size={12}>
-          <div style={{ width: 40, height: 56, background: '#f0f0f0', borderRadius: 6, overflow: 'hidden' }}>
+          <div className={styles.posterThumb}>
             {row.poster_url ? (
-              <img src={row.poster_url} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={row.poster_url} alt={name} className={styles.posterImage} />
             ) : (
-              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div className={styles.posterPlaceholder}>
                 <Film size={18} color='#aaa' />
               </div>
             )}
           </div>
           <div>
-            <div style={{ fontWeight: 500 }}>{name}</div>
-            <div style={{ fontSize: 12, color: '#666' }}>
+            <div className={styles.movieName}>{name}</div>
+            <div className={styles.movieTypes}>
               {row.types.map((t) => MOVIE_TYPES.find(mt => mt.value === t)?.label).join('、')}
             </div>
           </div>
@@ -345,7 +345,7 @@ const MovieManage: React.FC = () => {
       align: 'center',
       sorter: true,
       render: (val) => (
-        <span style={{ fontWeight: 600, color: val >= 8 ? '#16a34a' : val >= 6 ? '#ea580c' : '#666' }}>
+        <span className={`${styles.ratingValue} ${val >= 8 ? styles.ratingHigh : val >= 6 ? styles.ratingMid : styles.ratingLow}`}>
           {val}
         </span>
       ),
@@ -550,25 +550,25 @@ const MovieManage: React.FC = () => {
   };
 
   return (
-    <div style={{ maxWidth: 1320, margin: '0 auto', padding: 0 }}>
+    <div className={styles.page}>
       {/* 页面头部 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div className={styles.pageHeader}>
         <div>
-          <h2 style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>影片管理</h2>
-          <p style={{ fontSize: 14, color: '#666', marginTop: 4 }}>管理上架/下架影片基础资料</p>
+          <h2 className={styles.pageTitle}>影片管理</h2>
+          <p className={styles.pageSubtitle}>管理上架/下架影片基础资料</p>
         </div>
         <Button type="primary" icon={<Plus size={16} />} onClick={openAdd}>新增影片</Button>
       </div>
 
       {/* 搜索筛选栏 */}
-      <div style={{ background: '#fff', padding: 16, borderRadius: 8, marginBottom: 16 }}>
+      <div className={styles.filterArea}>
         <Space size={12} wrap align="center">
           <Input
             placeholder="搜索影片/导演/主演"
             allowClear
             value={searchValue}
             onChange={(e) => setFilters({ keyword: e.target.value })}
-            style={{ width: 320 }}
+            className={styles.searchInput}
             prefix={<Search size={14} color="#999" />}
           />
           <Select
@@ -576,7 +576,7 @@ const MovieManage: React.FC = () => {
             allowClear
             value={typeFilter}
             onChange={(v) => setFilters({ type: v })}
-            style={{ width: 140 }}
+            className={styles.typeSelect}
           >
             {MOVIE_TYPES.map(item => (
               <Select.Option key={item.value} value={item.value}>{item.label}</Select.Option>
@@ -587,7 +587,7 @@ const MovieManage: React.FC = () => {
             allowClear
             value={statusFilter}
             onChange={(v) => setFilters({ status: v })}
-            style={{ width: 120 }}
+            className={styles.statusSelect}
           >
             <Select.Option value="showing">上架</Select.Option>
             <Select.Option value="offline">下架</Select.Option>
@@ -598,7 +598,7 @@ const MovieManage: React.FC = () => {
           )}
           {selectedIds.length > 0 && (
             <>
-              <span style={{ fontSize: 14, color: '#666' }}>已选{selectedIds.length}部</span>
+              <span className={styles.selectedCount}>已选{selectedIds.length}部</span>
               <Button onClick={() => batchOperate('showing')}>批量上架</Button>
               <Button danger onClick={() => batchOperate('offline')}>批量下架</Button>
             </>
@@ -640,11 +640,11 @@ const MovieManage: React.FC = () => {
         onOk={onSubmitForm}
       >
         {hasScheduleTip && (
-          <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', padding: 12, borderRadius: 8, marginBottom: 16, display: 'flex', gap: 8 }}>
+          <div className={styles.scheduleTip}>
             <AlertTriangle size={18} color="#f59e0b" />
             <div>
-              <div style={{ fontWeight: 500, color: '#92400e' }}>该影片存在关联场次</div>
-              <div style={{ fontSize: 13, color: '#b45309', marginTop: 2 }}>修改信息会影响排期展示，请谨慎编辑</div>
+              <div className={styles.scheduleTipTitle}>该影片存在关联场次</div>
+              <div className={styles.scheduleTipDesc}>修改信息会影响排期展示，请谨慎编辑</div>
             </div>
           </div>
         )}

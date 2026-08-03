@@ -3,6 +3,7 @@ import { Input, Button, Space, List, Spin, Typography } from 'antd';
 import { MapPin, Search } from 'lucide-react';
 import AMapLoader from '@amap/amap-jsapi-loader';
 import { searchPoi, reGeocode, type PoiItem } from './api';
+import styles from './LocationPicker.module.css';
 
 export interface LocationData {
   address: string;
@@ -181,7 +182,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, readon
   if (readonly) {
     return (
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#f5f5f5', borderRadius: 6 }}>
+        <div className={styles.readonlyBar}>
           <MapPin size={16} color="#1677ff" />
           <span>{address || '未选择'}</span>
         </div>
@@ -194,8 +195,8 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, readon
   return (
     <div>
       {/* 搜索区 */}
-      <div style={{ marginBottom: 12 }}>
-        <Space.Compact style={{ width: '100%' }}>
+      <div className={styles.searchArea}>
+        <Space.Compact className={styles.searchCompact}>
           <Input
             value={searchKeyword}
             onChange={(e) => setSearchKeyword(e.target.value)}
@@ -213,67 +214,56 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, readon
           <List
             size="small"
             bordered
-            style={{ marginTop: 8, maxHeight: 180, overflow: 'auto' }}
+            className={styles.poiList}
             dataSource={poiResults}
             renderItem={(item) => (
               <List.Item
                 key={item.id}
                 onClick={() => handleSelectPoi(item)}
-                style={{ cursor: 'pointer', padding: '8px 12px' }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = '#f0f5ff'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                className={styles.poiListItem}
               >
                 <List.Item.Meta
-                  title={<span style={{ fontSize: 13 }}>{item.name}</span>}
-                  description={<span style={{ fontSize: 12, color: '#999' }}>{item.address}</span>}
+                  title={<span className={styles.poiName}>{item.name}</span>}
+                  description={<span className={styles.poiAddress}>{item.address}</span>}
                 />
               </List.Item>
             )}
           />
         )}
         {searching && (
-          <div style={{ textAlign: 'center', padding: 12 }}>
+          <div className={styles.searchingHint}>
             <Spin size="small" />
           </div>
         )}
       </div>
 
       {/* 地图区域 */}
-      <div style={{ position: 'relative', width: '100%', height: 200, borderRadius: 8, border: '1px solid #e8e8e8', overflow: 'hidden' }}>
+      <div className={styles.mapWrapper}>
         {/* SDK 加载中的占位 */}
         {!mapReady && (
-          <div style={{
-            position: 'absolute', inset: 0, zIndex: 2,
-            background: '#f0f2f5', display: 'flex',
-            flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
-          }}>
+          <div className={styles.mapLoading}>
             <Spin size="small" />
-            <Typography.Text type="secondary" style={{ fontSize: 13 }}>地图加载中...</Typography.Text>
+            <Typography.Text type="secondary" className={styles.loadingText}>地图加载中...</Typography.Text>
           </div>
         )}
         {/* 地图容器 */}
-        <div id={containerId.current} style={{ width: '100%', height: '100%' }} />
+        <div id={containerId.current} className={styles.mapContainer} />
 
         {/* 已选位置信息浮层 */}
         {hasLocation && mapReady && (
-          <div style={{
-            position: 'absolute', bottom: 8, left: 8, right: 8, zIndex: 10,
-            background: 'rgba(255,255,255,0.95)', borderRadius: 6,
-            padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.15)', fontSize: 12,
-          }}>
+          <div className={styles.locationOverlay}>
             <MapPin size={14} color="#1677ff" />
-            <span style={{ flex: 1, color: '#333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span className={styles.overlayAddress}>
               {address}
             </span>
-            <span style={{ color: '#999', whiteSpace: 'nowrap' }}>
+            <span className={styles.overlayCoords}>
               {longitude.toFixed(6)}, {latitude.toFixed(6)}
             </span>
           </div>
         )}
       </div>
 
-      <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
+      <Typography.Text type="secondary" className={styles.hintText}>
         搜索地址或直接点击地图选择位置
       </Typography.Text>
     </div>

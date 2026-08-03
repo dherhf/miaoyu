@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Input } from 'antd';
 import { Search, X } from 'lucide-react';
 import type { InputProps } from 'antd';
+import styles from './SearchBar.module.css';
 
 export interface SearchBarProps extends Omit<InputProps, 'onChange' | 'value' | 'defaultValue'> {
   /** 搜索回调（300ms 防抖） */
@@ -94,7 +95,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
           <X
             size={14}
             color="#9ca3af"
-            style={{ cursor: 'pointer' }}
+            className={styles.clearIcon}
             onClick={handleClear}
           />
         ) : undefined

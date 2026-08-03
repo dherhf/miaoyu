@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import { Table } from 'antd';
 import type { TableProps } from 'antd';
 import { Inbox } from 'lucide-react';
+import styles from './DataTable.module.css';
 
 export interface DataTableColumnConfig {
   /** 状态列映射配置，当列使用 StatusTag 渲染时传入 */
@@ -80,9 +81,9 @@ function DataTable<T extends Record<string, any>>({
       rowSelection={rowSelection}
       locale={{
         emptyText: (
-          <div style={{ padding: '40px 0' }}>
+          <div className={styles.emptyState}>
             {emptyIcon || <Inbox size={48} color="#d9d9d9" />}
-            <div style={{ marginTop: 12, color: '#999', fontSize: 14 }}>
+            <div className={styles.emptyText}>
               {emptyText}
             </div>
           </div>

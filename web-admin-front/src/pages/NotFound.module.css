@@ -1,0 +1,45 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: #ffffff;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.bgCircle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 60%);
+  filter: blur(60px);
+  pointer-events: none;
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+}
+
+.code {
+  font-size: 96px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.description {
+  font-size: 18px;
+  margin-top: 16px;
+  display: block;
+}
+
+.backButton {
+  margin-top: 32px;
+}

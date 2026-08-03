@@ -1,0 +1,234 @@
+/* ===================== Form shared ===================== */
+.formItem {
+  margin-bottom: 16px;
+}
+.twoColWrap {
+  display: flex;
+  gap: 16px;
+}
+.colItem {
+  flex: 1;
+}
+.fullWidth {
+  width: 100%;
+}
+
+/* ===================== Cinema list in form ===================== */
+.cinemaListSpace {
+  max-height: 150px;
+  overflow: auto;
+  border: 1px solid #e5e7eb;
+  padding: 12px;
+  border-radius: 8px;
+}
+.radioAlignStart {
+  align-items: flex-start;
+}
+.cinemaName {
+  font-weight: 500;
+}
+.cinemaAddress {
+  font-size: 12px;
+  color: #666;
+  margin-top: 2px;
+}
+.placeholderHint {
+  font-size: 14px;
+  color: #999;
+}
+
+/* ===================== End time bar ===================== */
+.endTimeBar {
+  padding: 12px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.endTimeLabel {
+  font-size: 14px;
+  color: #666;
+}
+.endTimeValue {
+  font-weight: 500;
+}
+
+/* ===================== Page layout ===================== */
+.pageRoot {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0;
+}
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.backButton {
+  padding: 0;
+  margin-bottom: 8px;
+}
+.pageTitle {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0;
+}
+.pageSubtitle {
+  font-size: 14px;
+  color: #666;
+  margin-top: 4px;
+}
+
+/* ===================== Cinema selection panel ===================== */
+.cinemaSelectPanel {
+  background: #fff;
+  padding: 40px;
+  border-radius: 8px;
+  text-align: center;
+  border: 1px solid #e8e8e8;
+}
+.cinemaIconCircle {
+  width: 64px;
+  height: 64px;
+  background: #e6f7ff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+}
+.cinemaSelectTitle {
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+.cinemaSelectDesc {
+  color: #999;
+  margin-bottom: 24px;
+}
+.cinemaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+.cardCinemaName {
+  font-weight: 500;
+}
+.cardCinemaAddress {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cardHallCount {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #999;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ===================== Filter bar ===================== */
+.filterBar {
+  background: #fff;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+.filterInput {
+  width: 300px;
+}
+.filterSelectMovie {
+  width: 140px;
+}
+.filterSelectHall {
+  width: 130px;
+}
+.filterSelectStatus {
+  width: 120px;
+}
+.dateSeparator {
+  color: #999;
+}
+
+/* ===================== Table cells ===================== */
+.cellMovieName {
+  font-weight: 500;
+}
+.cellSubText {
+  font-size: 12px;
+  color: #666;
+}
+.cellShowTime {
+  font-size: 14px;
+}
+.cellDateRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.cellTimeRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  color: #666;
+}
+.cellCenter {
+  text-align: center;
+}
+.cellPriceValue {
+  font-weight: 500;
+  color: #f97316;
+}
+.cellVipPrice {
+  font-size: 12px;
+  color: #999;
+  text-decoration: line-through;
+}
+.cellCenterSpace {
+  justify-content: center;
+}
+
+/* ===================== Progress bar ===================== */
+.progressTrack {
+  width: 64px;
+  height: 6px;
+  background: #eee;
+  border-radius: 99px;
+  margin: 6px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.progressFill {
+  height: 100%;
+  border-radius: 99px;
+}
+.barGreen {
+  background: #22c55e;
+}
+.barAmber {
+  background: #f59e0b;
+}
+.barRed {
+  background: #ef4444;
+}
+.rateText {
+  font-size: 12px;
+}
+.textGreen {
+  color: #22c55e;
+}
+.textAmber {
+  color: #f59e0b;
+}
+.textRed {
+  color: #ef4444;
+}

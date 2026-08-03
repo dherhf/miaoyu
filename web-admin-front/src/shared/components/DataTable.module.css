@@ -1,0 +1,9 @@
+.emptyState {
+  padding: 40px 0;
+}
+
+.emptyText {
+  margin-top: 12px;
+  color: #999;
+  font-size: 14px;
+}
