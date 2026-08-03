@@ -1,0 +1,67 @@
+.container {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  position: relative;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+}
+
+.bgDecoration {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.blobBlue {
+  position: absolute;
+  top: 25%;
+  left: 25%;
+  width: 384px;
+  height: 384px;
+  background: rgba(24, 144, 255, 0.05);
+  border-radius: 50%;
+  filter: blur(48px);
+}
+
+.blobPurple {
+  position: absolute;
+  bottom: 25%;
+  right: 25%;
+  width: 384px;
+  height: 384px;
+  background: rgba(114, 46, 209, 0.05);
+  border-radius: 50%;
+  filter: blur(48px);
+}
+
+.card {
+  width: 100%;
+  max-width: 440px;
+  z-index: 1;
+}
+
+.titleArea {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.title {
+  margin: 0;
+}
+
+.footer {
+  text-align: center;
+  margin-top: 32px;
+}
+
+.footerText {
+  font-size: 12px;
+}
+
+.submitItem {
+  margin-top: 8px;
+}

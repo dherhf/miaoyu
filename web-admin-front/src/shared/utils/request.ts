@@ -1,17 +1,31 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import { toast } from 'sonner';
-import type { ApiResponse } from '../types/api';
+import { getGlobalMessage } from './globalMessage';
 
-export type { ApiResponse, PageResult } from '../types/api';
+// 通用 API 响应类型
 
-// ===================== Axios 实例 =====================
+/** 后端统一响应格式 */
+export interface ApiResponse<T = unknown> {
+  code: number;
+  message: string;
+  data: T;
+}
+
+/** 分页查询结果 */
+export interface PageResult<T> {
+  total: number;
+  page: number;
+  size: number;
+  records: T[];
+}
+
+// Axios 实例
 const request = axios.create({
   baseURL: '/api/v1/admin',
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
 });
 
-// ===================== 请求拦截器 =====================
+// 请求拦截器
 request.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     // 注入 Token
@@ -24,7 +38,7 @@ request.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
-// ===================== 响应拦截器 =====================
+// 响应拦截器
 request.interceptors.response.use(
   (response) => {
     const res = response.data as ApiResponse;
@@ -45,7 +59,7 @@ request.interceptors.response.use(
       return Promise.reject(new Error('未登录或登录已过期'));
     }
 
-    toast.error(errMsg);
+    getGlobalMessage()?.error(errMsg);
     return Promise.reject(new Error(errMsg));
   },
   (error: AxiosError<ApiResponse>) => {
@@ -79,7 +93,7 @@ request.interceptors.response.use(
         break;
     }
 
-    toast.error(message);
+    getGlobalMessage()?.error(message);
     return Promise.reject(new Error(message));
   },
 );
