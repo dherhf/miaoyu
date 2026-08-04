@@ -90,3 +90,66 @@ export interface HallItem {
   seats: SeatItem[];
   status: string;
 }
+
+/** 影厅表单值 */
+export interface HallFormValues {
+  name: string;
+  type: string;
+  rowCount: number;
+  colCount: number;
+  totalSeats: number;
+  seats: SeatItem[];
+}
+
+// ---------- 映射函数 ----------
+
+/** API status (1=启用 0=停用) → HallItem status string */
+export function mapHallStatus(status: number): string {
+  return status === 1 ? 'active' : 'inactive';
+}
+
+/** HallItem status string → API status (1=启用 0=停用) */
+export function toApiHallStatus(status: string): number {
+  return status === 'active' ? 1 : 0;
+}
+
+/** HallCell → SeatItem */
+export function mapHallCell(cell: HallCell): SeatItem {
+  return {
+    row: cell.rowIndex,
+    col: cell.colIndex,
+    status: cell.cellType === 'void' ? 'aisle' : 'available',
+  };
+}
+
+/** SeatItem → HallCell */
+export function toHallCell(seat: SeatItem): HallCell {
+  return {
+    rowIndex: seat.row,
+    colIndex: seat.col,
+    cellType: seat.status === 'aisle' ? 'void' : 'seat',
+  };
+}
+
+/** HallRecord → HallItem */
+export function mapHallRecord(record: HallRecord): HallItem {
+  return {
+    id: record.id,
+    cinemaId: record.cinemaId,
+    name: record.name,
+    type: record.screenType,
+    rowCount: record.totalRows,
+    colCount: record.totalCols,
+    totalSeats: record.seatCount,
+    seats: [],
+    status: mapHallStatus(record.status),
+  };
+}
+
+/** HallDetail → HallItem（含座位布局） */
+export function mapHallDetail(detail: HallDetail): HallItem {
+  return {
+    ...mapHallRecord(detail),
+    seats: (detail.cells ?? []).map(mapHallCell),
+  };
+}

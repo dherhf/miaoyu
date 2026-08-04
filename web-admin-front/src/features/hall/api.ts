@@ -40,4 +40,8 @@ export const hallApi = {
   /** 保存/更新影厅座位布局 */
   saveHallLayout: (id: number, data: LayoutSaveParams): Promise<LayoutSaveResult> =>
     request.put(`/halls/${id}/layout`, data),
+
+  /** 删除影厅 */
+  deleteHall: (id: number): Promise<null> =>
+    request.delete(`/halls/${id}`),
 };
