@@ -1,32 +1,20 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { toast } from 'sonner';
 import {
   Plus,
-  Search,
   Edit2,
   Power,
   PowerOff,
   Film,
   AlertTriangle,
 } from 'lucide-react';
-import {
-  Table,
-  Modal,
-  Input,
-  Button,
-  Space,
-  Tag,
-  Select,
-  Card,
-  message,
-  Form,
-} from 'antd';
-import type { TableProps } from 'antd';
+import { Modal, Button, Space, Tag, message, Form } from 'antd';
+import { ProTable } from '@ant-design/pro-components';
+import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import dayjs from 'dayjs';
 import { useMovieStore, MOVIE_TYPES } from './store';
 import { useScheduleStore } from '../schedule';
 import { movieApi } from './api';
-import request from '../../shared/utils/request';
 import type { MovieStatus, MovieItem, MovieCreateParams, MovieFormValues } from './types';
 import { mapMovieStatus, toApiStatus } from './types';
 import { MovieForm } from './MovieForm';
@@ -47,151 +35,17 @@ const EMPTY_FORM: MovieFormValues = {
 
 //主页面 Movie 影片管理
 export function MovieManage() {
-  const { movies, loading, total, fetchMovies, addMovie, editMovie, toggleStatus } = useMovieStore();
+  const actionRef = useRef<ActionType>(null);
+  const { fetchMovies, addMovie, editMovie, toggleStatus } = useMovieStore();
   const { hasMovieSchedule } = useScheduleStore();
 
-  // 筛选 / 分页 / 排序状态
-  const [searchInput, setSearchInput] = useState('');
-  const [appliedKeyword, setAppliedKeyword] = useState('');
-  const [typeFilter, setTypeFilter] = useState<string | undefined>(undefined);
-  const [statusFilter, setStatusFilter] = useState<MovieStatus | undefined>(undefined);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [sortParam, setSortParam] = useState<string | undefined>(undefined);
-
-  // 弹窗状态
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingMovie, setEditingMovie] = useState<MovieItem | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [hasScheduleTip, setHasScheduleTip] = useState(false);
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  // antd Form 实例
   const [form] = Form.useForm<MovieFormValues>();
-  const posterUrl = Form.useWatch('posterUrl', form);
-
-  // 服务端查询
-  useEffect(() => {
-    void fetchMovies({
-      keyword: appliedKeyword || undefined,
-      type: typeFilter,
-      status: statusFilter !== undefined ? toApiStatus(statusFilter) : undefined,
-      page,
-      size: pageSize,
-      sort: sortParam,
-    });
-  }, [fetchMovies, appliedKeyword, typeFilter, statusFilter, page, pageSize, sortParam]);
-
-  // 表格列配置
-  const tableColumns: TableProps<MovieItem>['columns'] = useMemo(() => [
-    {
-      title: '影片名称',
-      dataIndex: 'name',
-      render: (name, row) => (
-        <Space size={12}>
-          <div className={styles.posterThumb}>
-            {row.posterUrl ? (
-              <img src={row.posterUrl} alt={name} className={styles.posterImage} />
-            ) : (
-              <div className={styles.posterPlaceholder}>
-                <Film size={18} color='#aaa' />
-              </div>
-            )}
-          </div>
-          <div>
-            <div className={styles.movieName}>{name}</div>
-            <div className={styles.movieTypes}>
-              {row.types.map((t) => MOVIE_TYPES.find(mt => mt.value === t)?.label).join('、')}
-            </div>
-          </div>
-        </Space>
-      ),
-    },
-    {
-      title: '评分',
-      dataIndex: 'rating',
-      align: 'center',
-      sorter: true,
-      sortOrder: sortParam === 'rating_desc' ? 'descend' : undefined,
-      render: (val) => (
-        <span className={`${styles.ratingValue} ${val >= 8 ? styles.ratingHigh : val >= 6 ? styles.ratingMid : styles.ratingLow}`}>
-          {val}
-        </span>
-      ),
-    },
-    {
-      title: '时长',
-      dataIndex: 'duration',
-      align: 'center',
-      render: (v) => `${v}分钟`,
-    },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      align: 'center',
-      render: (status: MovieStatus) => (
-        <Tag color={status === 'showing' ? 'green' : 'default'}>
-          {status === 'showing' ? '上架' : '下架'}
-        </Tag>
-      ),
-    },
-    {
-      title: '上映日期',
-      dataIndex: 'releaseDate',
-      align: 'center',
-      sorter: true,
-      sortOrder: (sortParam === undefined || sortParam === 'releaseDateDesc') ? 'descend' : undefined,
-    },
-    {
-      title: '操作',
-      width: 160,
-      align: 'center',
-      render: (_v, row) => (
-        <Space size={8}>
-          <Button size="small" icon={<Edit2 size={14} />} onClick={() => openEdit(row)}>编辑</Button>
-          {row.status === 'offline' ? (
-            <Button size="small" type="link" icon={<Power size={14} />} onClick={() => handleToggle(row, 'showing')}>上架</Button>
-          ) : (
-            <Button size="small" danger type="link" icon={<PowerOff size={14} />} onClick={() => handleToggle(row, 'offline')}>下架</Button>
-          )}
-        </Space>
-      ),
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [sortParam]);
-
-  // 表格分页 + 排序
-  const onTableChange: TableProps<MovieItem>['onChange'] = (pagination, _filters, sorter) => {
-    setPage(pagination.current ?? 1);
-    setPageSize(pagination.pageSize ?? 10);
-    setSelectedIds([]);
-
-    const s = Array.isArray(sorter) ? sorter[0] : sorter;
-    if (s.order === 'descend' && s.field === 'rating') {
-      setSortParam('rating_desc');
-    } else {
-      setSortParam(undefined);
-    }
-  };
-
-  // 搜索
-  const onSearch = () => {
-    setAppliedKeyword(searchInput);
-    setPage(1);
-    setSelectedIds([]);
-  };
-
-  // 筛选重置
-  const onResetFilter = () => {
-    setSearchInput('');
-    setAppliedKeyword('');
-    setTypeFilter(undefined);
-    setStatusFilter(undefined);
-    setSortParam(undefined);
-    setPage(1);
-    setSelectedIds([]);
-  };
 
   // 打开新增弹窗
   const openAdd = () => {
@@ -199,7 +53,6 @@ export function MovieManage() {
     setHasScheduleTip(false);
     form.resetFields();
     form.setFieldsValue(EMPTY_FORM);
-    setPendingFile(null);
     setModalOpen(true);
   };
 
@@ -208,7 +61,6 @@ export function MovieManage() {
     setEditingMovie(row);
     const existSchedule = hasMovieSchedule(row.id);
     setHasScheduleTip(existSchedule);
-    // 先用列表数据填充
     form.setFieldsValue({
       name: row.name,
       types: row.types,
@@ -222,7 +74,6 @@ export function MovieManage() {
       status: row.status,
     } as unknown as Partial<MovieFormValues>);
     setModalOpen(true);
-    // 拉取详情补全
     try {
       const detail = await movieApi.getMovieDetail(row.id);
       form.setFieldsValue({
@@ -254,19 +105,21 @@ export function MovieManage() {
         onOk: async () => {
           await toggleStatus([row.id], targetStatus);
           toast.success(`已${action}`);
+          actionRef.current?.reload();
         },
       });
       return;
     }
     await toggleStatus([row.id], targetStatus);
     toast.success(`已${action}`);
+    actionRef.current?.reload();
   };
 
   // 批量操作
   const batchOperate = async (targetStatus: MovieStatus) => {
     if (selectedIds.length === 0) return message.warning('请先勾选影片');
     const action = targetStatus === 'showing' ? '上架' : '下架';
-    const hasRelated = selectedIds.some(id => hasMovieSchedule(id));
+    const hasRelated = selectedIds.some((id) => hasMovieSchedule(id));
     if (targetStatus === 'offline' && hasRelated) {
       Modal.confirm({
         title: '批量下架',
@@ -277,6 +130,7 @@ export function MovieManage() {
           await toggleStatus(selectedIds, targetStatus);
           toast.success(`成功${action}${selectedIds.length}部影片`);
           setSelectedIds([]);
+          actionRef.current?.reload();
         },
       });
       return;
@@ -284,6 +138,7 @@ export function MovieManage() {
     await toggleStatus(selectedIds, targetStatus);
     toast.success(`成功${action}${selectedIds.length}部影片`);
     setSelectedIds([]);
+    actionRef.current?.reload();
   };
 
   // 保存提交
@@ -291,22 +146,10 @@ export function MovieManage() {
     try {
       const values = await form.validateFields();
       setSubmitting(true);
-
-      // 如果有新选的文件，提交时才上传到 OSS
-      let posterUrl = values.posterUrl;
-      if (pendingFile) {
-        const formData = new FormData();
-        formData.append('file', pendingFile);
-        const res = await request.post<{ objectKey: string }>('/upload/image', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        posterUrl = res.objectKey;
-      }
-
       const payload: MovieCreateParams = {
         name: values.name,
         types: values.types,
-        posterUrl,
+        posterUrl: values.posterUrl,
         rating: values.rating ?? 0,
         duration: values.duration,
         releaseDate: dayjs.isDayjs(values.releaseDate)
@@ -330,7 +173,7 @@ export function MovieManage() {
         toast.success('新增影片成功');
       }
       setModalOpen(false);
-      setPendingFile(null);
+      actionRef.current?.reload();
     } catch {
       // validateFields 失败时 antd 自动展示校验信息
     } finally {
@@ -338,95 +181,179 @@ export function MovieManage() {
     }
   };
 
-  return (
-    <div className={styles.page}>
-      {/* 页面头部 */}
-      <div className={styles.pageHeader}>
-        <div>
-          <h2 className={styles.pageTitle}>影片管理</h2>
-          <p className={styles.pageSubtitle}>管理上架/下架影片基础资料</p>
-        </div>
-        <Button type="primary" icon={<Plus size={16} />} onClick={openAdd}>新增影片</Button>
-      </div>
-
-      {/* 搜索筛选栏 */}
-      <div className={styles.filterArea}>
-        <Space size={12} wrap align="center">
-          <Input
-            placeholder="搜索影片名称"
-            allowClear
-            value={searchInput}
-            onChange={(e) => {
-              setSearchInput(e.target.value);
-              if (!e.target.value) {
-                setAppliedKeyword('');
-                setPage(1);
-              }
-            }}
-            onPressEnter={onSearch}
-            className={styles.searchInput}
-            prefix={<Search size={14} color="#999" />}
-          />
-          <Select
-            placeholder="全部类型"
-            allowClear
-            value={typeFilter}
-            onChange={(v) => { setTypeFilter(v); setPage(1); }}
-            className={styles.typeSelect}
+  const columns: ProColumns<MovieItem>[] = [
+    {
+      title: '影片名称',
+      dataIndex: 'name',
+      render: (_, record) => (
+        <Space size={12}>
+          <div className={styles.posterThumb}>
+            {record.posterUrl ? (
+              <img src={record.posterUrl} alt={record.name} className={styles.posterImage} />
+            ) : (
+              <div className={styles.posterPlaceholder}>
+                <Film size={18} color='#aaa' />
+              </div>
+            )}
+          </div>
+          <div>
+            <div className={styles.movieName}>{record.name}</div>
+            <div className={styles.movieTypes}>
+              {record.types.map((t) => MOVIE_TYPES.find((mt) => mt.value === t)?.label).join('、')}
+            </div>
+          </div>
+        </Space>
+      ),
+    },
+    {
+      title: '评分',
+      dataIndex: 'rating',
+      align: 'center',
+      sorter: true,
+      search: false,
+      render: (_, record) => {
+        const val = record.rating ?? 0;
+        return (
+          <span
+            className={`${styles.ratingValue} ${
+              val >= 8 ? styles.ratingHigh : val >= 6 ? styles.ratingMid : styles.ratingLow
+            }`}
           >
-            {MOVIE_TYPES.map(item => (
-              <Select.Option key={item.value} value={item.value}>{item.label}</Select.Option>
-            ))}
-          </Select>
-          <Select
-            placeholder="全部状态"
-            allowClear
-            value={statusFilter}
-            onChange={(v) => { setStatusFilter(v); setPage(1); }}
-            className={styles.statusSelect}
-          >
-            <Select.Option value="showing">上架</Select.Option>
-            <Select.Option value="offline">下架</Select.Option>
-          </Select>
-          <Button type="primary" onClick={onSearch}>搜索</Button>
-          {(appliedKeyword || typeFilter || statusFilter) && (
-            <Button onClick={onResetFilter}>重置</Button>
-          )}
-          {selectedIds.length > 0 && (
-            <>
-              <span className={styles.selectedCount}>已选{selectedIds.length}部</span>
-              <Button onClick={() => batchOperate('showing')}>批量上架</Button>
-              <Button danger onClick={() => batchOperate('offline')}>批量下架</Button>
-            </>
+            {val || '-'}
+          </span>
+        );
+      },
+    },
+    {
+      title: '时长',
+      dataIndex: 'duration',
+      align: 'center',
+      search: false,
+      render: (_, record) => `${record.duration}分钟`,
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      align: 'center',
+      valueType: 'select',
+      valueEnum: {
+        showing: { text: '上架' },
+        offline: { text: '下架' },
+      },
+      render: (_, record) => (
+        <Tag color={record.status === 'showing' ? 'green' : 'default'}>
+          {record.status === 'showing' ? '上架' : '下架'}
+        </Tag>
+      ),
+    },
+    {
+      title: '上映日期',
+      dataIndex: 'releaseDate',
+      align: 'center',
+      sorter: true,
+      search: false,
+    },
+    {
+      title: '类型',
+      dataIndex: 'type',
+      hideInTable: true,
+      valueType: 'select',
+      valueEnum: Object.fromEntries(MOVIE_TYPES.map((t) => [t.value, { text: t.label }])),
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 160,
+      align: 'center',
+      search: false,
+      render: (_, record) => (
+        <Space size={8}>
+          <Button size="small" icon={<Edit2 size={14} />} onClick={() => openEdit(record)}>
+            编辑
+          </Button>
+          {record.status === 'offline' ? (
+            <Button
+              size="small"
+              type="link"
+              icon={<Power size={14} />}
+              onClick={() => handleToggle(record, 'showing')}
+            >
+              上架
+            </Button>
+          ) : (
+            <Button
+              size="small"
+              danger
+              type="link"
+              icon={<PowerOff size={14} />}
+              onClick={() => handleToggle(record, 'offline')}
+            >
+              下架
+            </Button>
           )}
         </Space>
-      </div>
+      ),
+    },
+  ];
 
-      {/* 表格 */}
-      <Card styles={{ body: { padding: 0 } }}>
-        <Table<MovieItem>
-          rowKey="id"
-          columns={tableColumns}
-          dataSource={movies}
-          loading={loading}
-          bordered
-          scroll={{ x: 'max-content' }}
-          onChange={onTableChange}
-          pagination={{
-            current: page,
-            pageSize,
-            pageSizeOptions: [10, 20, 50],
-            total,
-            showSizeChanger: true,
-          }}
-          rowSelection={{
-            selectedRowKeys: selectedIds,
-            onChange: (keys) => setSelectedIds(keys as number[]),
-          }}
-        />
-      </Card>
+  return (
+    <div className={styles.page}>
+      <ProTable<MovieItem>
+        actionRef={actionRef}
+        rowKey="id"
+        columns={columns}
+        request={async (params, sort) => {
+          let sortParam: string | undefined;
+          if (sort?.rating === 'descend') {
+            sortParam = 'rating_desc';
+          }
+          const statusValue = params.status as MovieStatus | undefined;
+          await fetchMovies({
+            keyword: params.name || undefined,
+            type: params.type || undefined,
+            status: statusValue ? toApiStatus(statusValue) : undefined,
+            page: params.current ?? 1,
+            size: params.pageSize ?? 10,
+            sort: sortParam,
+          });
+          const state = useMovieStore.getState();
+          return {
+            data: state.movies,
+            success: true,
+            total: state.total,
+          };
+        }}
+        search={{ labelWidth: 'auto', span: 6, defaultCollapsed: false }}
+        pagination={{
+          pageSize: 10,
+          pageSizeOptions: [10, 20, 50],
+          showSizeChanger: true,
+        }}
+        bordered
+        scroll={{ x: 'max-content' }}
+        headerTitle="影片管理"
+        toolBarRender={() => [
+          <Button key="add" type="primary" icon={<Plus size={16} />} onClick={openAdd}>
+            新增影片
+          </Button>,
+        ]}
+        rowSelection={{
+          selectedRowKeys: selectedIds,
+          onChange: (keys) => setSelectedIds(keys as string[]),
+        }}
+        tableAlertOptionRender={() => (
+          <Space size={12}>
+            <span>已选{selectedIds.length}部</span>
+            <Button size="small" onClick={() => batchOperate('showing')}>
+              批量上架
+            </Button>
+            <Button size="small" danger onClick={() => batchOperate('offline')}>
+              批量下架
+            </Button>
+          </Space>
+        )}
+      />
 
-      {/* 新增/编辑弹窗 */}
       <Modal
         title={editingMovie ? '编辑影片' : '新增影片'}
         open={modalOpen}
@@ -445,7 +372,7 @@ export function MovieManage() {
             </div>
           </div>
         )}
-        <MovieForm form={form} onFileSelect={setPendingFile} />
+        <MovieForm form={form} />
       </Modal>
     </div>
   );
