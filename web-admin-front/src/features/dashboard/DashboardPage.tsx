@@ -2,20 +2,20 @@ import React from 'react';
 import { Row, Col, Button, Table, Typography } from 'antd';
 import type { TableProps } from 'antd';
 import {
-  ShoppingCart,
-  DollarSign,
-  Ticket,
-  RotateCcw,
-  Target,
-  Coins,
-  Clock,
-  AlertCircle,
-  BarChart3,
-  Film,
-  Building2,
-  ArrowUpRight,
-  ArrowDownRight,
-} from 'lucide-react';
+  ShoppingCartOutlined,
+  DollarOutlined,
+  BarcodeOutlined,
+  RollbackOutlined,
+  AimOutlined,
+  MoneyCollectOutlined,
+  ClockCircleOutlined,
+  ExclamationCircleOutlined,
+  BarChartOutlined,
+  PlaySquareOutlined,
+  BankOutlined,
+  ArrowUpOutlined,
+  ArrowDownOutlined,
+} from '@ant-design/icons';
 import {
   LineChart,
   Line,
@@ -100,7 +100,7 @@ const StatCard: React.FC<StatItem> = ({ title, value, unit = '', change, changeT
           </p>
           {change !== undefined && (
             <div className={`${styles.statChange} ${changeType === 'up' ? styles.statChangeUp : styles.statChangeDown}`}>
-              {changeType === 'up' ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
+              {changeType === 'up' ? <ArrowUpOutlined style={{ fontSize: 16 }} /> : <ArrowDownOutlined style={{ fontSize: 16 }} />}
               <span>{change}%</span>
               <span className={styles.statChangeLabel}>较昨日</span>
             </div>
@@ -110,7 +110,7 @@ const StatCard: React.FC<StatItem> = ({ title, value, unit = '', change, changeT
           className={styles.statIconWrapper}
           style={{ background: styleConfig.bg, color: styleConfig.text }}
         >
-          <Icon size={24} />
+          <Icon style={{ fontSize: 24 }} />
         </div>
       </div>
     </div>
@@ -127,7 +127,7 @@ const ChartCard: React.FC<ChartCardProps> = ({ title, icon: Icon, children }) =>
   return (
     <div className={styles.chartCard}>
       <div className={styles.chartCardHeader}>
-        <Icon size={20} color="#6b7280" />
+        <Icon style={{ fontSize: 20, color: '#6b7280' }} />
         <Typography.Title level={5} className={styles.chartCardTitle}>{title}</Typography.Title>
       </div>
       <div className={styles.chartCardBody}>{children}</div>
@@ -211,33 +211,33 @@ const Dashboard: React.FC = () => {
       {/* 统计卡片栅格 */}
       <Row gutter={16} className={styles.statsRow}>
         <Col xs={12} sm={6} xl={6}>
-          <StatCard title="今日订单总数" value={stats.todayOrders} change={12.5} changeType="up" icon={ShoppingCart} color="blue" />
+          <StatCard title="今日订单总数" value={stats.todayOrders} change={12.5} changeType="up" icon={ShoppingCartOutlined} color="blue" />
         </Col>
         <Col xs={12} sm={6} xl={6}>
-          <StatCard title="今日交易额" value={stats.todayRevenue} unit="¥" change={8.3} changeType="up" icon={DollarSign} color="green" />
+          <StatCard title="今日交易额" value={stats.todayRevenue} unit="¥" change={8.3} changeType="up" icon={DollarOutlined} color="green" />
         </Col>
         <Col xs={12} sm={6} xl={6}>
-          <StatCard title="今日出票量" value={stats.todayTickets} change={5.2} changeType="up" icon={Ticket} color="purple" />
+          <StatCard title="今日出票量" value={stats.todayTickets} change={5.2} changeType="up" icon={BarcodeOutlined} color="purple" />
         </Col>
         <Col xs={12} sm={6} xl={6}>
-          <StatCard title="今日退票量" value={stats.todayRefunds} change={2.1} changeType="down" icon={RotateCcw} color="red" />
+          <StatCard title="今日退票量" value={stats.todayRefunds} change={2.1} changeType="down" icon={RollbackOutlined} color="red" />
         </Col>
         <Col xs={12} sm={6} xl={6}>
-          <StatCard title="订单转化率" value={stats.conversionRate} unit="%" change={1.5} changeType="up" icon={Target} color="orange" />
+          <StatCard title="订单转化率" value={stats.conversionRate} unit="%" change={1.5} changeType="up" icon={AimOutlined} color="orange" />
         </Col>
         <Col xs={12} sm={6} xl={6}>
-          <StatCard title="平均客单价" value={stats.avgOrderValue} unit="¥" change={3.2} changeType="up" icon={Coins} color="cyan" />
+          <StatCard title="平均客单价" value={stats.avgOrderValue} unit="¥" change={3.2} changeType="up" icon={MoneyCollectOutlined} color="cyan" />
         </Col>
         <Col xs={12} sm={6} xl={6}>
-          <StatCard title="待支付订单" value={stats.pendingOrders} icon={Clock} color="pink" />
+          <StatCard title="待支付订单" value={stats.pendingOrders} icon={ClockCircleOutlined} color="pink" />
         </Col>
         <Col xs={12} sm={6} xl={6}>
-          <StatCard title="超时取消率" value={stats.timeoutRate} unit="%" change={0.5} changeType="down" icon={AlertCircle} color="indigo" />
+          <StatCard title="超时取消率" value={stats.timeoutRate} unit="%" change={0.5} changeType="down" icon={ExclamationCircleOutlined} color="indigo" />
         </Col>
       </Row>
 
       {/* 趋势图 */}
-      <ChartCard title="近7天订单量&交易额趋势" icon={BarChart3}>
+      <ChartCard title="近7天订单量&交易额趋势" icon={BarChartOutlined}>
         <div className={styles.trendChart}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={trendData}>
@@ -257,7 +257,7 @@ const Dashboard: React.FC = () => {
       {/* 影片+影院双栏 */}
       <Row gutter={16} className={styles.bottomRow}>
         <Col xs={24} lg={12}>
-          <ChartCard title="影片热度前十" icon={Film}>
+          <ChartCard title="影片热度前十" icon={PlaySquareOutlined}>
             <div className={styles.movieChart}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={movieRanking.slice(0,5)} layout="vertical">
@@ -281,7 +281,7 @@ const Dashboard: React.FC = () => {
         </Col>
 
         <Col xs={24} lg={12}>
-          <ChartCard title="影院运营分析" icon={Building2}>
+          <ChartCard title="影院运营分析" icon={BankOutlined}>
             <div className={styles.cinemaStatsLayout}>
               <div className={styles.pieTableRow}>
                 <div className={styles.pieContainer}>
