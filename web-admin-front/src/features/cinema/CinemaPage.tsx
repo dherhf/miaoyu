@@ -13,14 +13,14 @@ import {
 } from 'antd';
 import type { TableProps, FormProps } from 'antd';
 import {
-  Plus,
-  Edit2,
-  Trash2,
-  Power,
-  PowerOff,
-  Building2,
-  Search,
-} from 'lucide-react';
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  PlayCircleOutlined,
+  StopOutlined,
+  BankOutlined,
+  SearchOutlined,
+} from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useCinemaStore } from './store';
 import { useHallStore } from '../hall';
@@ -224,7 +224,7 @@ export function CinemaManage() {
           <div
             className={styles.cinemaIcon}
           >
-            <Building2 color="#1677ff" size={18} />
+            <BankOutlined style={{ color: '#1677ff', fontSize: 18 }} />
           </div>
           <div>
             <div className={styles.cinemaName}>{record.name}</div>
@@ -293,19 +293,19 @@ export function CinemaManage() {
           <Button type="link" size="small" onClick={() => goHallPage(record.id)}>
             影厅管理
           </Button>
-          <Button size="small" icon={<Edit2 />} onClick={() => openEdit(record)}>
+          <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)}>
             编辑
           </Button>
           <Button
             size="small"
-            icon={record.status === CINEMA_STATUS.ACTIVE ? <PowerOff /> : <Power />}
+            icon={record.status === CINEMA_STATUS.ACTIVE ? <StopOutlined /> : <PlayCircleOutlined />}
             danger={record.status === CINEMA_STATUS.ACTIVE}
             onClick={() => void toggleStatus(record)}
           >
             {record.status === CINEMA_STATUS.ACTIVE ? '停业' : '营业'}
           </Button>
           <Popconfirm title="确认删除该影院？" onConfirm={() => handleDelete(record)}>
-            <Button size="small" danger icon={<Trash2 />}>
+            <Button size="small" danger icon={<DeleteOutlined />}>
               删除
             </Button>
           </Popconfirm>
@@ -322,7 +322,7 @@ export function CinemaManage() {
           <h2 className={styles.pageTitle}>影院管理</h2>
           <p className={styles.pageSubtitle}>统一管理门店基础信息、营业状态</p>
         </div>
-        <Button type="primary" icon={<Plus size={16} />} onClick={openAdd}>
+        <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>
           新增影院
         </Button>
       </div>
@@ -336,7 +336,7 @@ export function CinemaManage() {
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             className={styles.searchInput}
-            prefix={<Search size={14} color="#999" />}
+            prefix={<SearchOutlined style={{ color: '#999', fontSize: 14 }} />}
           />
           <Select
             placeholder="全部状态"

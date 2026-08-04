@@ -1,14 +1,7 @@
 import { create } from 'zustand';
 import type { CinemaItem, CinemaStatus, CinemaCreateParams, CinemaListParams } from './types';
 import { mapCinemaRecord } from './types';
-import {
-  getCinemaList,
-  createCinema,
-  updateCinema,
-  closeCinema,
-  openCinema,
-  deleteCinema,
-} from './api';
+import { cinemaApi } from './api';
 
 export type { CinemaStatus, CinemaItem } from './types';
 
@@ -29,7 +22,7 @@ export const useCinemaStore = create<CinemaState>((set, get) => ({
   fetchCinemas: async (params?: CinemaListParams): Promise<void> => {
     set({ loading: true });
     try {
-      const res = await getCinemaList(params ?? { page: 1, size: 100 });
+      const res = await cinemaApi.getList(params ?? { page: 1, size: 100 });
       set({ cinemas: res.records.map(mapCinemaRecord) });
     } finally {
       set({ loading: false });
@@ -37,26 +30,26 @@ export const useCinemaStore = create<CinemaState>((set, get) => ({
   },
 
   addCinema: async (payload: CinemaCreateParams): Promise<void> => {
-    await createCinema(payload);
+    await cinemaApi.create(payload);
     await get().fetchCinemas();
   },
 
   updateCinema: async (id: number, payload: CinemaCreateParams): Promise<void> => {
-    await updateCinema(id, payload);
+    await cinemaApi.update(id, payload);
     await get().fetchCinemas();
   },
 
   toggleCinemaStatus: async (id: number, target: CinemaStatus): Promise<void> => {
     if (target === 'active') {
-      await openCinema(id);
+      await cinemaApi.open(id);
     } else {
-      await closeCinema(id);
+      await cinemaApi.close(id);
     }
     await get().fetchCinemas();
   },
 
   deleteCinema: async (id: number): Promise<void> => {
-    await deleteCinema(id);
+    await cinemaApi.delete(id);
     await get().fetchCinemas();
   },
 }));
