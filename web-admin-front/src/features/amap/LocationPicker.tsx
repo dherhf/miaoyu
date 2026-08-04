@@ -47,30 +47,34 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, readon
   const containerId = useRef(`${MAP_CONTAINER_ID_PREFIX}${++containerIdCounter}`);
   const [mapReady, setMapReady] = useState(false);
 
-  // 同步外部 value
+  // 始终持有最新的 onChange，避免地图事件监听器中的闭包过期
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  // 同步外部 value（仅在关键字段变化时触发，避免每次渲染都重置内部状态）
+  const valAddr = value?.address ?? '';
+  const valLng = value?.longitude ?? 0;
+  const valLat = value?.latitude ?? 0;
   useEffect(() => {
-    if (value) {
-      setAddress(value.address);
-      setLongitude(value.longitude);
-      setLatitude(value.latitude);
-      // 移动地图标记
-      if (mapRef.current && value.longitude && value.latitude) {
-        mapRef.current.setZoomAndCenter(17, [value.longitude, value.latitude]);
-        if (markerRef.current) {
-          markerRef.current.setPosition([value.longitude, value.latitude]);
-        }
+    setAddress(valAddr);
+    setLongitude(valLng);
+    setLatitude(valLat);
+    if (mapRef.current && valLng && valLat) {
+      mapRef.current.setZoomAndCenter(17, [valLng, valLat]);
+      if (markerRef.current) {
+        markerRef.current.setPosition([valLng, valLat]);
       }
     }
-  }, [value]);
+  }, [valAddr, valLng, valLat]);
 
   const emit = useCallback(
     (addr: string, lng: number, lat: number) => {
       setAddress(addr);
       setLongitude(lng);
       setLatitude(lat);
-      onChange?.({ address: addr, longitude: lng, latitude: lat });
+      onChangeRef.current?.({ address: addr, longitude: lng, latitude: lat });
     },
-    [onChange],
+    [],
   );
 
   // 更新地图标记
