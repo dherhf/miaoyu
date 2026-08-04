@@ -23,7 +23,7 @@ public interface CinemaService {
 
     CinemaVO adminDetail(Long id);
 
-    PageResult<CinemaUserListVO> userList(BigDecimal longitude, BigDecimal latitude, Long movieId, Integer page, Integer size);
+    PageResult<CinemaUserListVO> userList(BigDecimal longitude, BigDecimal latitude, Long movieId, String keyword, Integer page, Integer size);
 
     CinemaVO userDetail(Long id);
 }

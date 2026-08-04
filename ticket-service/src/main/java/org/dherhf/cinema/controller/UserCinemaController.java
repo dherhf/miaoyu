@@ -28,7 +28,7 @@ public class UserCinemaController {
             @RequestParam(required = false) Long movieId,
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer size) {
-        return Result.success(cinemaService.userList(longitude, latitude, movieId, page, size));
+        return Result.success(cinemaService.userList(longitude, latitude, movieId, null, page, size));
     }
 
     @Operation(summary = "影院详情(用户端)")

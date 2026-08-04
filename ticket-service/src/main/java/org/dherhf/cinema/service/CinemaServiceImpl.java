@@ -141,9 +141,9 @@ public class CinemaServiceImpl implements CinemaService {
     }
 
     @Override
-    public PageResult<CinemaUserListVO> userList(BigDecimal longitude, BigDecimal latitude, Long movieId, Integer page, Integer size) {
-        // Redis 列表缓存：仅缓存营业中影院全量列表（不带经纬度/影片ID筛选时）
-        boolean cacheable = (longitude == null && latitude == null && movieId == null && page == 1 && size >= 100);
+    public PageResult<CinemaUserListVO> userList(BigDecimal longitude, BigDecimal latitude, Long movieId, String keyword, Integer page, Integer size) {
+        // Redis 列表缓存：仅缓存营业中影院全量列表（不带经纬度/影片ID/关键词筛选时）
+        boolean cacheable = (longitude == null && latitude == null && movieId == null && (keyword == null || keyword.isBlank()) && page == 1 && size >= 100);
         if (cacheable) {
             String json = redisTemplate.opsForValue().get(CACHE_LIST_OPEN);
             if (json != null) {
@@ -158,7 +158,8 @@ public class CinemaServiceImpl implements CinemaService {
         }
 
         LambdaQueryWrapper<Cinema> wrapper = new LambdaQueryWrapper<Cinema>()
-                .eq(Cinema::getStatus, CinemaStatus.OPEN.getCode());
+                .eq(Cinema::getStatus, CinemaStatus.OPEN.getCode())
+                .and(keyword != null && !keyword.isBlank(), w -> w.like(Cinema::getName, keyword));
 
         List<Cinema> cinemas = cinemaMapper.selectList(wrapper);
 

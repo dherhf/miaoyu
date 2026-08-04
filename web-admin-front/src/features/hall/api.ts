@@ -34,11 +34,11 @@ export const hallApi = {
     request.post('/halls', data),
 
   /** 修改影厅基础信息 */
-  updateHall: (id: number, data: HallUpdateParams): Promise<HallRecord> =>
+  updateHall: (id: string, data: HallUpdateParams): Promise<HallRecord> =>
     request.put(`/halls/${id}`, data),
 
   /** 保存/更新影厅座位布局 */
-  saveHallLayout: (id: number, data: LayoutSaveParams): Promise<LayoutSaveResult> =>
+  saveHallLayout: (id: string, data: LayoutSaveParams): Promise<LayoutSaveResult> =>
     request.put(`/halls/${id}/layout`, data),
 
   /** 删除影厅 */

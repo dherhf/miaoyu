@@ -3,6 +3,8 @@ package org.dherhf.schedule.controller;
 import lombok.RequiredArgsConstructor;
 import org.dherhf.common.result.PageResult;
 import org.dherhf.common.result.Result;
+import org.dherhf.movie.service.MovieService;
+import org.dherhf.movie.vo.MovieVO;
 import org.dherhf.schedule.service.ScheduleService;
 import org.dherhf.schedule.vo.ScheduleDetailVO;
 import org.dherhf.schedule.vo.ScheduleListVO;
@@ -18,16 +20,25 @@ import org.springframework.web.bind.annotation.*;
 public class InternalScheduleController {
 
     private final ScheduleService scheduleService;
+    private final MovieService movieService;
 
     @Operation(summary = "内部场次列表")
     @GetMapping("/sessions")
     public Result<PageResult<ScheduleListVO>> list(
-            @RequestParam(required = false) String movieName,
+            @RequestParam(required = false) Long movieId,
             @RequestParam(required = false) Long cinemaId,
-            @RequestParam(required = false) String showDate,
+            @RequestParam(required = false) String date,
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer size) {
-        return Result.success(scheduleService.userList(movieName, cinemaId, showDate, page, size));
+        String movieName = null;
+        if (movieId != null) {
+            try {
+                MovieVO movie = movieService.userDetail(movieId);
+                movieName = movie.getName();
+            } catch (Exception ignored) {
+            }
+        }
+        return Result.success(scheduleService.userList(movieName, cinemaId, date, page, size));
     }
 
     @Operation(summary = "内部场次详情")

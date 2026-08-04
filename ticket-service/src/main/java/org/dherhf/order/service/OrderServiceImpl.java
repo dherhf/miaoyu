@@ -475,6 +475,16 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    public void internalCancelOrder(Long userId, Long orderId, String requestId) {
+        cancelOrder(userId, orderId, requestId);
+    }
+
+    @Override
+    public void internalRefundOrder(Long userId, Long orderId, String requestId) {
+        refundOrder(userId, orderId, requestId);
+    }
+
+    @Override
     public PageResult<OrderListVO> internalListOrders(Long userId, String keyword, String status, String dateFrom, String dateTo, Integer page, Integer size) {
         Page<Order> pageParam = new Page<>(page, size);
         LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<Order>()

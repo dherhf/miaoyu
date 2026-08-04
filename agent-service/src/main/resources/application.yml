@@ -21,7 +21,12 @@ spring:
           max-idle: 8
           min-idle: 2
   mongodb:
-    uri: mongodb://${MONGODB_USERNAME}:${MONGODB_PASSWORD}@${MONGODB_HOST}:${MONGODB_PORT}/${MONGODB_DATABASE}?authSource=${MONGODB_DATABASE}
+    host: ${MONGODB_HOST}
+    port: ${MONGODB_PORT}
+    database: ${MONGODB_DATABASE}
+    username: ${MONGODB_USERNAME}
+    password: ${MONGODB_PASSWORD}
+    auto-index-creation: true
 
 # 票务服务内部调用地址
 ticket-service:
@@ -33,7 +38,7 @@ ticket-service:
 langchain4j:
   open-ai:
     chat-model:
-      base-url: https://api.deepseek.com
+      base-url: https://api.deepseek.com/v1
       api-key: ${DEEPSEEK_API_KEY}
       model-name: deepseek-chat
       temperature: 0.3

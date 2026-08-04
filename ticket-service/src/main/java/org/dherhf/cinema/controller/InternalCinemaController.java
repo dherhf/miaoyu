@@ -10,8 +10,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
-
 @Tag(name = "影院内部接口", description = "Agent调用的影院接口")
 @RestController
 @RequestMapping("/internal")
@@ -23,12 +21,11 @@ public class InternalCinemaController {
     @Operation(summary = "内部影院列表")
     @GetMapping("/cinemas")
     public Result<PageResult<CinemaUserListVO>> list(
-            @RequestParam(required = false) BigDecimal longitude,
-            @RequestParam(required = false) BigDecimal latitude,
-            @RequestParam(required = false) Long movieId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String facilities,
             @RequestParam(defaultValue = "1") Integer page,
-            @RequestParam(defaultValue = "20") Integer size) {
-        return Result.success(cinemaService.userList(longitude, latitude, movieId, page, size));
+            @RequestParam(defaultValue = "100") Integer size) {
+        return Result.success(cinemaService.userList(null, null, null, keyword, page, size));
     }
 
     @Operation(summary = "内部影院详情")

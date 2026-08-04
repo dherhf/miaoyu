@@ -82,7 +82,6 @@ export interface ScheduleItem {
   showTime: string;
   endTime: string;
   price: number;
-  vipPrice?: number;
   languageVersion: string;
   totalSeats: number;
   soldSeats: number;

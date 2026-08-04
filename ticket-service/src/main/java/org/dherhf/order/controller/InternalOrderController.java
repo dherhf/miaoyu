@@ -6,6 +6,7 @@ import org.dherhf.common.result.Result;
 import org.dherhf.order.dto.InternalLockSeatDTO;
 import org.dherhf.order.service.OrderService;
 import org.dherhf.order.vo.LockSeatResultVO;
+import org.dherhf.order.vo.OrderDetailVO;
 import org.dherhf.order.vo.OrderListVO;
 import org.dherhf.order.vo.PayResultVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -47,8 +48,40 @@ public class InternalOrderController {
         return Result.success(orderService.internalListOrders(userId, keyword, status, dateFrom, dateTo, page, size));
     }
 
+    @Operation(summary = "内部订单详情")
+    @GetMapping("/orders/{id}")
+    public Result<OrderDetailVO> detail(
+            @PathVariable Long id,
+            @RequestParam Long userId) {
+        return Result.success(orderService.detail(userId, id));
+    }
+
+    @Operation(summary = "内部取消订单")
+    @PostMapping("/orders/{id}/cancel")
+    public Result<Void> cancel(
+            @PathVariable Long id,
+            @RequestBody InternalCancelRequest request) {
+        orderService.internalCancelOrder(request.getUserId(), id, request.getRequestId());
+        return Result.success();
+    }
+
+    @Operation(summary = "内部退票")
+    @PostMapping("/orders/{id}/refund")
+    public Result<Void> refund(
+            @PathVariable Long id,
+            @RequestBody InternalCancelRequest request) {
+        orderService.internalRefundOrder(request.getUserId(), id, request.getRequestId());
+        return Result.success();
+    }
+
     @lombok.Data
     public static class InternalPayRequest {
+        private Long userId;
+        private String requestId;
+    }
+
+    @lombok.Data
+    public static class InternalCancelRequest {
         private Long userId;
         private String requestId;
     }

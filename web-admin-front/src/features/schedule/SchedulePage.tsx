@@ -48,6 +48,9 @@ export function SchedulePage() {
   const hallStore = useHallStore();
   const scheduleStore = useScheduleStore();
   const { schedules: allSchedules, loading: scheduleLoading, fetchSchedules } = scheduleStore;
+  const { fetchCinemas } = cinemaStore;
+  const { fetchMovies } = movieStore;
+  const { fetchHalls } = hallStore;
 
   // URL影院参数
   const cinemaIdParam = searchParams.get('cinemaId');
@@ -74,7 +77,6 @@ export function SchedulePage() {
     showTime: '',
     endTime: '',
     price: 0,
-    vipPrice: undefined,
     languageVersion: 'chinese_2d',
   });
   const [formErrors, setFormErrors] = useState<ScheduleFormErr>({});
@@ -84,10 +86,17 @@ export function SchedulePage() {
     if (cinemaIdParam) setSelectedCinemaId(cinemaIdParam);
   }, [cinemaIdParam]);
 
-  // 初始加载排期数据
+  // 初始加载：排期 + 影院 + 影片
   useEffect(() => {
     void fetchSchedules();
-  }, [fetchSchedules]);
+    void fetchCinemas({ page: 1, size: 100 });
+    void fetchMovies({ page: 1, size: 100 });
+  }, [fetchSchedules, fetchCinemas, fetchMovies]);
+
+  // 选中影院时加载该影院的影厅
+  useEffect(() => {
+    if (selectedCinemaId) void fetchHalls({ cinemaId: selectedCinemaId });
+  }, [selectedCinemaId, fetchHalls]);
 
   // 数据缓存
   const cinemas = cinemaStore.cinemas;
@@ -124,7 +133,6 @@ export function SchedulePage() {
       showTime: '',
       endTime: '',
       price: 0,
-      vipPrice: undefined,
       languageVersion: 'chinese_2d',
     });
     setFormErrors({});
@@ -142,7 +150,6 @@ export function SchedulePage() {
       showTime: row.showTime,
       endTime: row.endTime,
       price: row.price,
-      vipPrice: row.vipPrice,
       languageVersion: row.languageVersion,
     });
     setFormErrors({});
@@ -306,12 +313,9 @@ export function SchedulePage() {
       title: '票价',
       dataIndex: 'price',
       align: 'center',
-      render: (price, row) => (
+      render: (price) => (
         <div className={styles.cellCenter}>
           <div className={styles.cellPriceValue}>¥{price}</div>
-          {row.vipPrice && row.vipPrice !== price && (
-            <div className={styles.cellVipPrice}>¥{row.vipPrice}</div>
-          )}
         </div>
       ),
     },
