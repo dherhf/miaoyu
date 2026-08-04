@@ -5,8 +5,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dherhf.agent.common.ErrorCodeEnum;
-import org.dherhf.agent.common.JwtUtil;
-import org.dherhf.agent.common.Result;
+import org.dherhf.common.util.JwtUtil;
+import org.dherhf.common.result.Result;
 import org.dherhf.agent.model.dto.CreateSessionRequest;
 import org.dherhf.agent.model.dto.CreateSessionResponse;
 import org.dherhf.agent.model.dto.SendMessageRequest;
@@ -56,7 +56,7 @@ public class ChatController {
     ) {
         Long userId = resolveUserId(httpRequest);
         if (userId == null) {
-            return Result.error(ErrorCodeEnum.UNAUTHORIZED);
+            return Result.error(ErrorCodeEnum.UNAUTHORIZED.getCode(), ErrorCodeEnum.UNAUTHORIZED.getMessage());
         }
         String title = request == null ? null : request.getTitle();
         ChatSessionDocument session = chatSessionService.createSession(userId, title);
@@ -117,7 +117,7 @@ public class ChatController {
     ) {
         Long userId = resolveUserId(httpRequest);
         if (userId == null) {
-            return Result.error(ErrorCodeEnum.UNAUTHORIZED);
+            return Result.error(ErrorCodeEnum.UNAUTHORIZED.getCode(), ErrorCodeEnum.UNAUTHORIZED.getMessage());
         }
 
         List<ChatSessionDocument> sessions = chatSessionService.listSessions(userId, page, size);
@@ -151,12 +151,12 @@ public class ChatController {
     ) {
         Long userId = resolveUserId(httpRequest);
         if (userId == null) {
-            return Result.error(ErrorCodeEnum.UNAUTHORIZED);
+            return Result.error(ErrorCodeEnum.UNAUTHORIZED.getCode(), ErrorCodeEnum.UNAUTHORIZED.getMessage());
         }
 
         var opt = chatSessionService.getSession(id, userId);
         if (opt.isEmpty()) {
-            return Result.error(ErrorCodeEnum.SESSION_NOT_FOUND);
+            return Result.error(ErrorCodeEnum.SESSION_NOT_FOUND.getCode(), ErrorCodeEnum.SESSION_NOT_FOUND.getMessage());
         }
 
         ChatSessionDocument session = opt.get();
@@ -197,12 +197,12 @@ public class ChatController {
     ) {
         Long userId = resolveUserId(httpRequest);
         if (userId == null) {
-            return Result.error(ErrorCodeEnum.UNAUTHORIZED);
+            return Result.error(ErrorCodeEnum.UNAUTHORIZED.getCode(), ErrorCodeEnum.UNAUTHORIZED.getMessage());
         }
 
         boolean deleted = chatSessionService.deleteSession(id, userId);
         if (!deleted) {
-            return Result.error(ErrorCodeEnum.SESSION_NOT_FOUND);
+            return Result.error(ErrorCodeEnum.SESSION_NOT_FOUND.getCode(), ErrorCodeEnum.SESSION_NOT_FOUND.getMessage());
         }
         return Result.success();
     }
@@ -215,6 +215,6 @@ public class ChatController {
             return null;
         }
         String token = auth.substring(7);
-        return jwtUtil.parseUserId(token);
+        return jwtUtil.getUserId(token);
     }
 }

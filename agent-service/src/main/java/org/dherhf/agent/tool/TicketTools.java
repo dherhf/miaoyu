@@ -4,7 +4,7 @@ import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import lombok.extern.slf4j.Slf4j;
 import org.dherhf.agent.common.ErrorCodeEnum;
-import org.dherhf.agent.common.Result;
+import org.dherhf.common.result.Result;
 import org.dherhf.agent.model.card.CardPayload;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;

@@ -2,7 +2,7 @@ package org.dherhf.agent.tool;
 
 import lombok.extern.slf4j.Slf4j;
 import org.dherhf.agent.common.ErrorCodeEnum;
-import org.dherhf.agent.common.Result;
+import org.dherhf.common.result.Result;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -46,7 +46,7 @@ public class TicketServiceClient {
                     .body(Result.class);
         } catch (Exception ex) {
             log.error("[searchMovies] 调用 ticket-service 失败: keyword={}, type={}", keyword, type, ex);
-            return Result.error(ErrorCodeEnum.TOOL_ERROR, "影片查询失败：" + ex.getMessage());
+            return Result.error(ErrorCodeEnum.TOOL_ERROR.getCode(), "影片查询失败：" + ex.getMessage());
         }
     }
 
@@ -70,7 +70,7 @@ public class TicketServiceClient {
                     .body(Result.class);
         } catch (Exception ex) {
             log.error("[searchCinemas] 调用 ticket-service 失败: keyword={}, facilities={}", keyword, facilities, ex);
-            return Result.error(ErrorCodeEnum.TOOL_ERROR, "影院查询失败：" + ex.getMessage());
+            return Result.error(ErrorCodeEnum.TOOL_ERROR.getCode(), "影院查询失败：" + ex.getMessage());
         }
     }
 
@@ -97,7 +97,7 @@ public class TicketServiceClient {
                     .body(Result.class);
         } catch (Exception ex) {
             log.error("[searchSessions] 调用 ticket-service 失败: movieId={}, cinemaId={}, date={}", movieId, cinemaId, date, ex);
-            return Result.error(ErrorCodeEnum.TOOL_ERROR, "场次查询失败：" + ex.getMessage());
+            return Result.error(ErrorCodeEnum.TOOL_ERROR.getCode(), "场次查询失败：" + ex.getMessage());
         }
     }
 
@@ -112,7 +112,7 @@ public class TicketServiceClient {
                     .body(Result.class);
         } catch (Exception ex) {
             log.error("[getSeatMap] 调用 ticket-service 失败: sessionId={}", sessionId, ex);
-            return Result.error(ErrorCodeEnum.TOOL_ERROR, "座位图获取失败：" + ex.getMessage());
+            return Result.error(ErrorCodeEnum.TOOL_ERROR.getCode(), "座位图获取失败：" + ex.getMessage());
         }
     }
 
@@ -133,7 +133,7 @@ public class TicketServiceClient {
                     .body(Result.class);
         } catch (Exception ex) {
             log.error("[queryUserOrders] 调用 ticket-service 失败: userId={}, status={}", userId, status, ex);
-            return Result.error(ErrorCodeEnum.TOOL_ERROR, "订单查询失败：" + ex.getMessage());
+            return Result.error(ErrorCodeEnum.TOOL_ERROR.getCode(), "订单查询失败：" + ex.getMessage());
         }
     }
 
@@ -148,7 +148,7 @@ public class TicketServiceClient {
                     .body(Result.class);
         } catch (Exception ex) {
             log.error("[queryOrderDetail] 调用 ticket-service 失败: orderId={}, userId={}", orderId, userId, ex);
-            return Result.error(ErrorCodeEnum.TOOL_ERROR, "订单详情获取失败：" + ex.getMessage());
+            return Result.error(ErrorCodeEnum.TOOL_ERROR.getCode(), "订单详情获取失败：" + ex.getMessage());
         }
     }
 
@@ -171,7 +171,7 @@ public class TicketServiceClient {
                     .body(Result.class);
         } catch (Exception ex) {
             log.error("[lockSeat] 调用 ticket-service 失败: userId={}, scheduleId={}, seatIds={}", userId, scheduleId, seatIds, ex);
-            return Result.error(ErrorCodeEnum.TOOL_ERROR, "锁座下单失败：" + ex.getMessage());
+            return Result.error(ErrorCodeEnum.TOOL_ERROR.getCode(), "锁座下单失败：" + ex.getMessage());
         }
     }
 
@@ -191,7 +191,7 @@ public class TicketServiceClient {
                     .body(Result.class);
         } catch (Exception ex) {
             log.error("[payOrder] 调用 ticket-service 失败: userId={}, orderId={}", userId, orderId, ex);
-            return Result.error(ErrorCodeEnum.TOOL_ERROR, "支付订单失败：" + ex.getMessage());
+            return Result.error(ErrorCodeEnum.TOOL_ERROR.getCode(), "支付订单失败：" + ex.getMessage());
         }
     }
 
@@ -211,7 +211,7 @@ public class TicketServiceClient {
                     .body(Result.class);
         } catch (Exception ex) {
             log.error("[cancelOrder] 调用 ticket-service 失败: userId={}, orderId={}", userId, orderId, ex);
-            return Result.error(ErrorCodeEnum.TOOL_ERROR, "取消订单失败：" + ex.getMessage());
+            return Result.error(ErrorCodeEnum.TOOL_ERROR.getCode(), "取消订单失败：" + ex.getMessage());
         }
     }
 
@@ -231,7 +231,7 @@ public class TicketServiceClient {
                     .body(Result.class);
         } catch (Exception ex) {
             log.error("[refundOrder] 调用 ticket-service 失败: userId={}, orderId={}", userId, orderId, ex);
-            return Result.error(ErrorCodeEnum.TOOL_ERROR, "退票失败：" + ex.getMessage());
+            return Result.error(ErrorCodeEnum.TOOL_ERROR.getCode(), "退票失败：" + ex.getMessage());
         }
     }
 }

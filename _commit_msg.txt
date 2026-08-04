@@ -1,0 +1,9 @@
+refactor: common 模块 + 日期格式统一蚂蚁规范
+
+- 新建 common Maven 子模块（JacksonConfig/Result/PageResult/BusinessException/JwtUtil）
+- agent-service 删除 JacksonConfig/Result/JwtUtil 副本，改引用 common
+- ticket-service 删除 JacksonConfig，改引用 common
+- AgentApplication 添加 @ComponentScan(org.dherhf)
+- 清理无效 @JsonFormat 注解
+- 日期格式统一 yyyy-MM-dd HH:mm:ss / yyyy-MM-dd
+- 230 个测试全部通过

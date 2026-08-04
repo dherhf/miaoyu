@@ -30,6 +30,13 @@
     </dependencyManagement>
 
     <dependencies>
+        <!-- Common 模块 -->
+        <dependency>
+            <groupId>org.dherhf</groupId>
+            <artifactId>common</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+
         <!-- MyBatis-Plus -->
         <dependency>
             <groupId>com.baomidou</groupId>

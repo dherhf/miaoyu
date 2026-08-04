@@ -17,6 +17,7 @@
     <description>miaoyu</description>
 
     <modules>
+        <module>common</module>
         <module>ticket-service</module>
         <module>agent-service</module>
     </modules>

@@ -4,7 +4,7 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
-import org.dherhf.agent.common.JwtUtil;
+import org.dherhf.common.util.JwtUtil;
 import org.dherhf.agent.document.ChatMessage;
 import org.dherhf.agent.document.ChatSessionDocument;
 import org.dherhf.agent.enums.SessionStatusEnum;
@@ -88,7 +88,7 @@ class ChatControllerTest {
         @DisplayName("有效 Token + 标题创建成功")
         void createWithTitle() throws Exception {
             String token = generateTestToken(100L);
-            when(jwtUtil.parseUserId(anyString())).thenReturn(100L);
+            when(jwtUtil.getUserId(anyString())).thenReturn(100L);
 
             ChatSessionDocument doc = new ChatSessionDocument();
             doc.setSessionId("abc123");
@@ -118,7 +118,7 @@ class ChatControllerTest {
         @DisplayName("无 body 时使用默认标题创建")
         void createWithoutBody() throws Exception {
             String token = generateTestToken(100L);
-            when(jwtUtil.parseUserId(anyString())).thenReturn(100L);
+            when(jwtUtil.getUserId(anyString())).thenReturn(100L);
 
             ChatSessionDocument doc = new ChatSessionDocument();
             doc.setSessionId("def456");
@@ -145,7 +145,7 @@ class ChatControllerTest {
         @DisplayName("有效 Token 返回 SseEmitter（HTTP 200）")
         void withToken() throws Exception {
             String token = generateTestToken(100L);
-            when(jwtUtil.parseUserId(anyString())).thenReturn(100L);
+            when(jwtUtil.getUserId(anyString())).thenReturn(100L);
 
             // 返回一个真实的 SseEmitter（不调用 asyncDispatch，只验证 HTTP 200）
             SseEmitter mockEmitter = new SseEmitter(5000L);
@@ -178,7 +178,7 @@ class ChatControllerTest {
         @DisplayName("消息内容为空时校验失败")
         void emptyContent() throws Exception {
             String token = generateTestToken(100L);
-            lenient().when(jwtUtil.parseUserId(anyString())).thenReturn(100L);
+            lenient().when(jwtUtil.getUserId(anyString())).thenReturn(100L);
 
             SendMessageRequest req = new SendMessageRequest();
             req.setContent("");
@@ -207,7 +207,7 @@ class ChatControllerTest {
         @DisplayName("分页查询返回列表")
         void paginatedList() throws Exception {
             String token = generateTestToken(100L);
-            when(jwtUtil.parseUserId(anyString())).thenReturn(100L);
+            when(jwtUtil.getUserId(anyString())).thenReturn(100L);
 
             ChatSessionDocument doc = new ChatSessionDocument();
             doc.setSessionId("s1");
@@ -237,7 +237,7 @@ class ChatControllerTest {
         @DisplayName("使用默认分页参数")
         void defaultPaging() throws Exception {
             String token = generateTestToken(100L);
-            when(jwtUtil.parseUserId(anyString())).thenReturn(100L);
+            when(jwtUtil.getUserId(anyString())).thenReturn(100L);
             when(chatSessionService.listSessions(100L, 0, 20))
                     .thenReturn(List.of());
             when(chatSessionService.countSessions(100L)).thenReturn(0L);
@@ -265,7 +265,7 @@ class ChatControllerTest {
         @DisplayName("会话不存在返回 40002（SESSION_NOT_FOUND）")
         void notFound() throws Exception {
             String token = generateTestToken(100L);
-            when(jwtUtil.parseUserId(anyString())).thenReturn(100L);
+            when(jwtUtil.getUserId(anyString())).thenReturn(100L);
             when(chatSessionService.getSession("sess1", 100L))
                     .thenReturn(Optional.empty());
 
@@ -279,7 +279,7 @@ class ChatControllerTest {
         @DisplayName("访问他人会话也返回 40002（不泄露资源是否存在）")
         void accessOtherUserSession() throws Exception {
             String token = generateTestToken(100L);
-            when(jwtUtil.parseUserId(anyString())).thenReturn(100L);
+            when(jwtUtil.getUserId(anyString())).thenReturn(100L);
             // getSession 按 sessionId + userId 查询，他人会话查不到 → empty
             when(chatSessionService.getSession("sess1", 100L))
                     .thenReturn(Optional.empty());
@@ -294,7 +294,7 @@ class ChatControllerTest {
         @DisplayName("存在时返回详情含消息列表")
         void found() throws Exception {
             String token = generateTestToken(100L);
-            when(jwtUtil.parseUserId(anyString())).thenReturn(100L);
+            when(jwtUtil.getUserId(anyString())).thenReturn(100L);
 
             ChatSessionDocument doc = new ChatSessionDocument();
             doc.setSessionId("sess1");
@@ -339,7 +339,7 @@ class ChatControllerTest {
         @DisplayName("删除成功返回 code=0")
         void deleteSuccess() throws Exception {
             String token = generateTestToken(100L);
-            when(jwtUtil.parseUserId(anyString())).thenReturn(100L);
+            when(jwtUtil.getUserId(anyString())).thenReturn(100L);
             when(chatSessionService.deleteSession("sess1", 100L)).thenReturn(true);
 
             mockMvc.perform(delete("/api/v1/chat/sessions/sess1")
@@ -352,7 +352,7 @@ class ChatControllerTest {
         @DisplayName("不存在时返回 40002（SESSION_NOT_FOUND）")
         void deleteNotFound() throws Exception {
             String token = generateTestToken(100L);
-            when(jwtUtil.parseUserId(anyString())).thenReturn(100L);
+            when(jwtUtil.getUserId(anyString())).thenReturn(100L);
             when(chatSessionService.deleteSession("sess1", 100L)).thenReturn(false);
 
             mockMvc.perform(delete("/api/v1/chat/sessions/sess1")
@@ -365,7 +365,7 @@ class ChatControllerTest {
         @DisplayName("删除他人会话也返回 40002（不泄露资源是否存在）")
         void deleteOtherUserSession() throws Exception {
             String token = generateTestToken(100L);
-            when(jwtUtil.parseUserId(anyString())).thenReturn(100L);
+            when(jwtUtil.getUserId(anyString())).thenReturn(100L);
             // deleteSession 按 sessionId + userId 删除，他人会话删不到 → false
             when(chatSessionService.deleteSession("sess1", 100L)).thenReturn(false);
 

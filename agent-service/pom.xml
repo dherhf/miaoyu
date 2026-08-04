@@ -18,6 +18,13 @@
     </properties>
 
     <dependencies>
+        <!-- Common 模块 -->
+        <dependency>
+            <groupId>org.dherhf</groupId>
+            <artifactId>common</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-open-ai</artifactId>

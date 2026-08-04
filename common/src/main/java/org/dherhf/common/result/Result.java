@@ -1,4 +1,4 @@
-package org.dherhf.agent.common;
+package org.dherhf.common.result;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
@@ -25,23 +25,9 @@ public class Result<T> {
 
     public static <T> Result<T> success(T data) {
         Result<T> r = new Result<>();
-        r.code = ErrorCodeEnum.SUCCESS.getCode();
-        r.message = ErrorCodeEnum.SUCCESS.getMessage();
+        r.code = 0;
+        r.message = "success";
         r.data = data;
-        return r;
-    }
-
-    public static <T> Result<T> error(ErrorCodeEnum errorCode) {
-        Result<T> r = new Result<>();
-        r.code = errorCode.getCode();
-        r.message = errorCode.getMessage();
-        return r;
-    }
-
-    public static <T> Result<T> error(ErrorCodeEnum errorCode, String message) {
-        Result<T> r = new Result<>();
-        r.code = errorCode.getCode();
-        r.message = message;
         return r;
     }
 

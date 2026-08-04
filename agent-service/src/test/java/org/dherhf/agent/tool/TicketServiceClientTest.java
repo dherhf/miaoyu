@@ -1,7 +1,7 @@
 package org.dherhf.agent.tool;
 
 import org.dherhf.agent.common.ErrorCodeEnum;
-import org.dherhf.agent.common.Result;
+import org.dherhf.common.result.Result;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
