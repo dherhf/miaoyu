@@ -5,7 +5,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dherhf.agent.common.ErrorCodeEnum;
-import org.dherhf.common.util.JwtUtil;
+import org.dherhf.agent.common.JwtUtil;
 import org.dherhf.common.result.Result;
 import org.dherhf.agent.model.dto.CreateSessionRequest;
 import org.dherhf.agent.model.dto.CreateSessionResponse;

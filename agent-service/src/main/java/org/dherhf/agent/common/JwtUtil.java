@@ -1,4 +1,4 @@
-package org.dherhf.common.util;
+package org.dherhf.agent.common;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
@@ -11,10 +11,10 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 
 /**
- * JWT 解析工具（只读），ticket-service 和 agent-service 共用。
+ * JWT 解析工具（只读），复用 ticket-service 的密钥体系，仅做解析（不签发）。
  * <p>
- * 双密钥轮换：先用 current-secret，失败后回退到 old-secret。
- * Token 签发和黑名单管理仅 ticket-service 需要，由其自行扩展。
+ * agent-service 自身不签发 Token，Token 由 ticket-service 签发，
+ * 此处仅做解析校验，拿到 userId 后用于会话归属判定。
  * </p>
  */
 @Component
@@ -74,13 +74,5 @@ public class JwtUtil {
             uid = claims.get("uid");
         }
         return uid == null ? null : Long.valueOf(uid.toString());
-    }
-
-    /**
-     * 从 Token 中提取类型（"user" 或 "admin"）。解析失败返回 null。
-     */
-    public String getType(String token) {
-        Claims claims = parseToken(token);
-        return claims == null ? null : claims.get("type", String.class);
     }
 }

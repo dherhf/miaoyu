@@ -27,7 +27,7 @@ public class InternalScheduleController {
     public Result<PageResult<ScheduleListVO>> list(
             @RequestParam(required = false) Long movieId,
             @RequestParam(required = false) Long cinemaId,
-            @RequestParam(required = false) String date,
+            @RequestParam(required = false) String showDate,
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer size) {
         String movieName = null;
@@ -38,7 +38,7 @@ public class InternalScheduleController {
             } catch (Exception ignored) {
             }
         }
-        return Result.success(scheduleService.userList(movieName, cinemaId, date, page, size));
+        return Result.success(scheduleService.userList(movieName, cinemaId, showDate, page, size));
     }
 
     @Operation(summary = "内部场次详情")

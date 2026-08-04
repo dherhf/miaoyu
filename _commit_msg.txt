@@ -1,9 +1,12 @@
-refactor: common 模块 + 日期格式统一蚂蚁规范
+refactor: common 模块精简 + 参数名统一 + 语雀文档同步
 
-- 新建 common Maven 子模块（JacksonConfig/Result/PageResult/BusinessException/JwtUtil）
-- agent-service 删除 JacksonConfig/Result/JwtUtil 副本，改引用 common
-- ticket-service 删除 JacksonConfig，改引用 common
-- AgentApplication 添加 @ComponentScan(org.dherhf)
-- 清理无效 @JsonFormat 注解
-- 日期格式统一 yyyy-MM-dd HH:mm:ss / yyyy-MM-dd
-- 230 个测试全部通过
+- common 模块精简：只保留 JacksonConfig 和 Result（两个服务完全相同）
+  - 删除 common 中的 BusinessException/PageResult/JwtUtil（各自服务保留自己的）
+  - agent-service JwtUtil 放回 org.dherhf.agent.common
+  - ticket-service 删除 Result 改用 common
+- 参数名统一：InternalScheduleController date → showDate（与 User/Admin Controller 一致）
+  - TicketServiceClient.searchSessions 同步改为 showDate
+- 系分文档同步更新（语雀）：
+  - 后端系分：HH:mm→HH:mm:ss、types 示例改英文、7→10 个 Function、工具名修正
+  - 前端系分：HH:mm→HH:mm:ss、types 示例改英文、类型筛选选项加英文映射
+- 230 个测试全部通过（agent 94 + ticket 136）

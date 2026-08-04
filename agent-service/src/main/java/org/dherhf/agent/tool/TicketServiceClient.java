@@ -75,9 +75,9 @@ public class TicketServiceClient {
     }
 
     /**
-     * GET /internal/sessions?movieId={}&cinemaId={}&date={}
+     * GET /internal/sessions?movieId={}&cinemaId={}&showDate={}
      */
-    public Result<Object> searchSessions(Long movieId, Long cinemaId, String date) {
+    public Result<Object> searchSessions(Long movieId, Long cinemaId, String showDate) {
         try {
             return restClient.get()
                     .uri(builder -> {
@@ -88,15 +88,15 @@ public class TicketServiceClient {
                         if (cinemaId != null) {
                             builder.queryParam("cinemaId", cinemaId);
                         }
-                        if (date != null && !date.isBlank()) {
-                            builder.queryParam("date", date);
+                        if (showDate != null && !showDate.isBlank()) {
+                            builder.queryParam("showDate", showDate);
                         }
                         return builder.build();
                     })
                     .retrieve()
                     .body(Result.class);
         } catch (Exception ex) {
-            log.error("[searchSessions] 调用 ticket-service 失败: movieId={}, cinemaId={}, date={}", movieId, cinemaId, date, ex);
+            log.error("[searchSessions] 调用 ticket-service 失败: movieId={}, cinemaId={}, showDate={}", movieId, cinemaId, showDate, ex);
             return Result.error(ErrorCodeEnum.TOOL_ERROR.getCode(), "场次查询失败：" + ex.getMessage());
         }
     }
