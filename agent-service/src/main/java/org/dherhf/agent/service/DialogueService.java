@@ -115,7 +115,7 @@ public class DialogueService {
         Thread.startVirtualThread(() -> {
             try {
                 TicketTools.setContext(userId, scheduleId, seatIds, ticketCount);
-                processDialogue(emitter, sessionId, userId, content, slotState);
+                processDialogue(emitter, sessionId, content, slotState);
             } catch (Exception ex) {
                 log.error("[handleMessage] 对话处理异常: sessionId={}", sessionId, ex);
                 try {
@@ -133,7 +133,6 @@ public class DialogueService {
     private void processDialogue(
             SseEmitter emitter,
             String sessionId,
-            Long userId,
             String content,
             Map<String, Object> slotState
     ) throws IOException {
@@ -156,7 +155,7 @@ public class DialogueService {
         userMsgMap.put("content", userMsg.getContent());
         // 不添加createdAt，让MongoDB自动处理
 
-        contextService.updateContext(sessionId, slotState, userMsgMap, userMsg.getCreatedAt().toString());
+        contextService.updateContext(sessionId, slotState, userMsgMap, userMsg.getCreatedAt());
 
         String aiResponse;
         try {
@@ -214,7 +213,7 @@ public class DialogueService {
         aiMsgMap.put("slots", aiMsg.getSlots());
         // 不添加createdAt，让MongoDB自动处理
 
-        contextService.updateContext(sessionId, mergedSlots, aiMsgMap, aiMsg.getCreatedAt().toString());
+        contextService.updateContext(sessionId, mergedSlots, aiMsgMap, aiMsg.getCreatedAt());
 
         sendSseEvent(emitter, SseEvent.done(sessionId,
                 parsed.intent != null ? parsed.intent.name() : "",

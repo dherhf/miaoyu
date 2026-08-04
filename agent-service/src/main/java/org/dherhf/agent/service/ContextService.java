@@ -14,6 +14,7 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.*;
 
 /**
@@ -87,7 +88,7 @@ public class ContextService {
             String sessionId,
             Map<String, Object> slotState,
             Object newMessage,
-            java.time.LocalDateTime lastMessageAt
+            LocalDateTime lastMessageAt
     ) {
         // 1. Redis 更新
         saveToRedis(sessionId, slotState);
