@@ -4,17 +4,20 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.dherhf.common.exception.BusinessException;
 import org.dherhf.common.result.PageResult;
 import org.dherhf.notification.entity.Notification;
 import org.dherhf.notification.mapper.NotificationMapper;
 import org.dherhf.notification.vo.NotificationVO;
 import org.springframework.beans.BeanUtils;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class NotificationServiceImpl implements NotificationService {
@@ -46,6 +49,21 @@ public class NotificationServiceImpl implements NotificationService {
         }
         notification.setIsRead(1);
         notificationMapper.updateById(notification);
+    }
+
+    @Async
+    @Override
+    public void sendNotification(Long userId, String type, String title, String content, Long relatedOrderId) {
+        Notification notification = Notification.builder()
+                .userId(userId)
+                .type(type)
+                .title(title)
+                .content(content)
+                .relatedOrderId(relatedOrderId)
+                .isRead(0)
+                .build();
+        notificationMapper.insert(notification);
+        log.info("Notification sent: userId={}, type={}, title={}", userId, type, title);
     }
 
     private NotificationVO toVO(Notification notification) {

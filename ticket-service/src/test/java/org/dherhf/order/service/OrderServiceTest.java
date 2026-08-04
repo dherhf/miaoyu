@@ -74,6 +74,10 @@ class OrderServiceTest {
     @Mock
     private RedissonClient redissonClient;
     @Mock
+    private org.dherhf.notification.service.NotificationService notificationService;
+    @Mock
+    private org.dherhf.schedule.service.SeatBitmapService seatBitmapService;
+    @Mock
     private RLock rLock;
 
     @InjectMocks
@@ -106,6 +110,7 @@ class OrderServiceTest {
         doNothing().when(idempotentService).put(anyString(), any());
         doNothing().when(orderTimeoutService).schedule(any());
         doNothing().when(orderTimeoutService).cancel(any());
+        doNothing().when(notificationService).sendNotification(anyLong(), anyString(), anyString(), anyString(), any());
     }
 
     @Test
@@ -114,8 +119,8 @@ class OrderServiceTest {
         Schedule schedule = Schedule.builder().id(1L).movieId(1L).cinemaId(1L).hallId(1L).status("onsale").price(new BigDecimal("45.00")).showDate(LocalDate.of(2026, 8, 15)).startTime(LocalTime.of(14, 0)).build();
         when(scheduleMapper.selectById(1L)).thenReturn(schedule);
 
-        ScheduleSeat ss1 = ScheduleSeat.builder().id(100L).hallCellId(10L).status("available").build();
-        ScheduleSeat ss2 = ScheduleSeat.builder().id(101L).hallCellId(11L).status("available").build();
+        ScheduleSeat ss1 = ScheduleSeat.builder().id(100L).hallCellId(10L).seatIndex(0).status("available").build();
+        ScheduleSeat ss2 = ScheduleSeat.builder().id(101L).hallCellId(11L).seatIndex(1).status("available").build();
         when(scheduleSeatMapper.selectForUpdate(any(), any())).thenReturn(List.of(ss1, ss2));
 
         Movie movie = Movie.builder().name("流浪地球3").build();
@@ -174,7 +179,7 @@ class OrderServiceTest {
         Order order = Order.builder().id(1L).userId(1L).status("pending").scheduleId(1L).movieName("流浪地球3").build();
         when(orderMapper.selectById(1L)).thenReturn(order);
 
-        ScheduleSeat lockedSeat = ScheduleSeat.builder().id(200L).status("locked").build();
+        ScheduleSeat lockedSeat = ScheduleSeat.builder().id(200L).seatIndex(0).status("locked").build();
         when(scheduleSeatMapper.selectList(any())).thenReturn(List.of(lockedSeat));
         when(scheduleSeatMapper.updateById(any(ScheduleSeat.class))).thenReturn(1);
         when(orderMapper.updateById(any(Order.class))).thenReturn(1);
@@ -222,7 +227,7 @@ class OrderServiceTest {
         Order order = Order.builder().id(1L).userId(1L).status("pending").build();
         when(orderMapper.selectById(1L)).thenReturn(order);
 
-        ScheduleSeat lockedSeat = ScheduleSeat.builder().id(200L).status("locked").build();
+        ScheduleSeat lockedSeat = ScheduleSeat.builder().id(200L).seatIndex(0).status("locked").build();
         when(scheduleSeatMapper.selectList(any())).thenReturn(List.of(lockedSeat));
         when(scheduleSeatMapper.updateById(any(ScheduleSeat.class))).thenReturn(1);
         when(orderMapper.updateById(any(Order.class))).thenReturn(1);
@@ -254,7 +259,7 @@ class OrderServiceTest {
         Schedule schedule = Schedule.builder().showDate(LocalDate.of(2026, 12, 31)).startTime(LocalTime.of(14, 0)).build();
         when(scheduleMapper.selectById(1L)).thenReturn(schedule);
 
-        ScheduleSeat soldSeat = ScheduleSeat.builder().id(300L).status("sold").build();
+        ScheduleSeat soldSeat = ScheduleSeat.builder().id(300L).seatIndex(0).status("sold").build();
         when(scheduleSeatMapper.selectList(any())).thenReturn(List.of(soldSeat));
         when(scheduleSeatMapper.updateById(any(ScheduleSeat.class))).thenReturn(1);
         when(orderMapper.updateById(any(Order.class))).thenReturn(1);

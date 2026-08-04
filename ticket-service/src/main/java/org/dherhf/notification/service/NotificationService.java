@@ -9,5 +9,5 @@ public interface NotificationService {
 
     void markRead(Long id, Long userId);
 
-    // TODO: SSE 实时推送
+    void sendNotification(Long userId, String type, String title, String content, Long relatedOrderId);
 }
