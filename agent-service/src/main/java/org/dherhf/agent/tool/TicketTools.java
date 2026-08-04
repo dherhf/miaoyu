@@ -32,11 +32,11 @@ import java.util.stream.Collectors;
 public class TicketTools {
 
     private final TicketServiceClient ticketClient;
-    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    private final tools.jackson.databind.ObjectMapper objectMapper;
 
     @Autowired
     public TicketTools(TicketServiceClient ticketClient,
-                       com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
+                       tools.jackson.databind.ObjectMapper objectMapper) {
         this.ticketClient = ticketClient;
         this.objectMapper = objectMapper;
     }
@@ -104,7 +104,7 @@ public class TicketTools {
     @Tool("根据影片名称或类型查询影片列表。当用户表达模糊意图（如'想看个喜剧'）或指定片名时调用。返回影片卡片数据。")
     public CardPayload searchMovies(
             @P("影片名称关键词，如'流浪地球3'；用户未指定片名时传空字符串") String keyword,
-            @P("影片类型标签，如'喜剧'、'科幻'；无类型约束时传空字符串") String type
+            @P("影片类型标签(英文)，可选值：scifi(科幻)、action(动作)、comedy(喜剧)、romance(爱情)、suspense(悬疑)、animation(动画)、documentary(纪录片)、other(其他)；无类型约束时传空字符串") String type
     ) {
         log.info("[Tool:searchMovies] keyword={}, type={}", keyword, type);
         Result<Object> result = ticketClient.searchMovies(keyword, type);
@@ -163,10 +163,11 @@ public class TicketTools {
     public CardPayload querySessions(
             @P("影片 ID（由 searchMovies 返回）") Long movieId,
             @P("影院 ID（由 searchCinemas 返回）") Long cinemaId,
-            @P("放映日期，支持'今天'、'明天'、'后天'或具体日期；用户未指定时传空字符串") String date
+            @P("放映日期，支持'今天'、'明天'、'后天'、'大后天'、'周X'或具体日期(YYYY-MM-DD)；仅传日期部分，不包含时段(如传'明天'而非'明天下午')；用户未指定日期时传空字符串") String date
     ) {
-        log.info("[Tool:querySessions] movieId={}, cinemaId={}, date={}", movieId, cinemaId, date);
-        Result<Object> result = ticketClient.searchSessions(movieId, cinemaId, date);
+        String resolvedDate = resolveRelativeDate(date);
+        log.info("[Tool:querySessions] movieId={}, cinemaId={}, date={} -> resolved={}", movieId, cinemaId, date, resolvedDate);
+        Result<Object> result = ticketClient.searchSessions(movieId, cinemaId, resolvedDate);
         if (result.getCode() != 0) {
             log.warn("[Tool:querySessions] 查询失败: {}", result.getMessage());
             return emitCard(CardPayload.builder()
@@ -341,6 +342,59 @@ public class TicketTools {
     }
 
     // ========== 内部工具方法 ==========
+
+    private static String resolveRelativeDate(String date) {
+        if (date == null || date.isBlank()) {
+            return "";
+        }
+        String trimmed = date.trim();
+
+        // 去掉时段后缀：明天下午 → 明天，今天上午 → 今天，明晚 → 明天
+        trimmed = trimmed.replaceAll("(上午|下午|晚上|晚|上午场|下午场|晚场|中午|早上|早晨)$", "");
+
+        java.time.LocalDate today = java.time.LocalDate.now();
+        switch (trimmed) {
+            case "今天", "今日" -> { return today.toString(); }
+            case "明天", "明日" -> { return today.plusDays(1).toString(); }
+            case "后天" -> { return today.plusDays(2).toString(); }
+            case "大后天" -> { return today.plusDays(3).toString(); }
+            default -> {
+                // YYYY-MM-DD 标准格式
+                if (trimmed.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                    return trimmed;
+                }
+                // YYYY-M-D 不带前导零
+                java.util.regex.Matcher md = java.util.regex.Pattern
+                        .compile("^(\\d{4})-(\\d{1,2})-(\\d{1,2})$").matcher(trimmed);
+                if (md.matches()) {
+                    return String.format("%s-%02d-%02d", md.group(1),
+                            Integer.parseInt(md.group(2)), Integer.parseInt(md.group(3)));
+                }
+                // M月D日/D号
+                java.util.regex.Matcher cn = java.util.regex.Pattern
+                        .compile("^(\\d{1,2})月(\\d{1,2})[日号]?$").matcher(trimmed);
+                if (cn.matches()) {
+                    return String.format("%d-%02d-%02d", today.getYear(),
+                            Integer.parseInt(cn.group(1)), Integer.parseInt(cn.group(2)));
+                }
+                // 周X
+                java.util.regex.Matcher m = java.util.regex.Pattern
+                        .compile("^周([一二三四五六日天])$").matcher(trimmed);
+                if (m.matches()) {
+                    int target = switch (m.group(1)) {
+                        case "一" -> 1; case "二" -> 2; case "三" -> 3;
+                        case "四" -> 4; case "五" -> 5; case "六" -> 6;
+                        default -> 7; // 日/天
+                    };
+                    int todayDow = today.getDayOfWeek().getValue();
+                    int diff = target - todayDow;
+                    if (diff <= 0) diff += 7;
+                    return today.plusDays(diff).toString();
+                }
+                return trimmed;
+            }
+        }
+    }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     private <T> List<T> extractRows(Object data, String key, Class<T> clazz) {

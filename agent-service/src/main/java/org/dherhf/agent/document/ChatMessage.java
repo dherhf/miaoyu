@@ -1,6 +1,5 @@
 package org.dherhf.agent.document;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
@@ -46,6 +45,5 @@ public class ChatMessage implements Serializable {
     private Object slots;
 
     /** 消息创建时间 */
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
 }

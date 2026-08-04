@@ -1,7 +1,7 @@
 package org.dherhf.agent.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import org.dherhf.agent.common.TestConstants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -33,7 +33,7 @@ class ContextServiceTest {
     private MongoTemplate mongoTemplate;
     @Mock
     private ValueOperations<String, String> valueOperations;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new JsonMapper();
     private ContextService contextService;
 
     @BeforeEach
@@ -49,7 +49,7 @@ class ContextServiceTest {
     class LoadSlotStateTest {
         @Test
         @DisplayName("Redis命中直接返回，不查Mongo")
-        void redisHitSkipMongo() throws JsonProcessingException {
+        void redisHitSkipMongo() throws Exception {
             Map<String, Object> slot = Map.of("film", Map.of("movieId", 1));
             String json = objectMapper.writeValueAsString(slot);
             when(valueOperations.get(TestConstants.CONTEXT_REDIS_PREFIX + TestConstants.SESSION_ID)).thenReturn(json);
@@ -60,7 +60,7 @@ class ContextServiceTest {
 
         @Test
         @DisplayName("Redis空，查Mongo并回填Redis")
-        void redisMissFallbackMongo() throws JsonProcessingException {
+        void redisMissFallbackMongo() throws Exception {
             when(valueOperations.get(anyString())).thenReturn(null);
             Document mongoDoc = new Document("slotState", Map.of("cinema", Map.of("cinemaId", 2L)));
             when(mongoTemplate.findOne(any(Query.class), eq(Document.class), eq("chat_sessions"))).thenReturn(mongoDoc);
@@ -98,7 +98,7 @@ class ContextServiceTest {
                 "{\"film\":\"A\"}|{\"film\":\"\",\"cinema\":null}|film"
         })
         @DisplayName("多场景槽位合并")
-        void mergeMultiCase(String oldJson, String newJson, String expectKey) throws JsonProcessingException {
+        void mergeMultiCase(String oldJson, String newJson, String expectKey) throws Exception {
             Map<String, Object> old = objectMapper.readValue(oldJson, Map.class);
             Map<String, Object> incoming = objectMapper.readValue(newJson, Map.class);
             Map<String, Object> merged = contextService.mergeSlots(old, incoming);

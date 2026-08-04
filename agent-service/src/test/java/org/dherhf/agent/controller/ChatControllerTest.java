@@ -1,6 +1,7 @@
 package org.dherhf.agent.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.dherhf.agent.common.JwtUtil;
@@ -53,7 +54,7 @@ class ChatControllerTest {
     void setUp() {
         ChatController controller = new ChatController(chatSessionService, dialogueService, jwtUtil);
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
-        objectMapper = new ObjectMapper();
+        objectMapper = new JsonMapper();
     }
 
     /**

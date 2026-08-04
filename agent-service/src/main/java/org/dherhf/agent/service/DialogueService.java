@@ -1,6 +1,6 @@
 package org.dherhf.agent.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import dev.langchain4j.service.AiServices;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;

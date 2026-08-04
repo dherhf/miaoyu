@@ -1,6 +1,7 @@
 package org.dherhf.agent.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import dev.langchain4j.model.chat.ChatModel;
 import org.dherhf.agent.document.ChatSessionDocument;
 import org.dherhf.agent.enums.SessionStatusEnum;
@@ -36,7 +37,7 @@ class DialogueServiceTest {
         contextService = mock(ContextService.class);
         chatSessionService = mock(ChatSessionService.class);
         ticketTools = mock(TicketTools.class);
-        objectMapper = new ObjectMapper();
+        objectMapper = new JsonMapper();
 
         when(promptService.getSystemPrompt()).thenReturn("test prompt");
 
