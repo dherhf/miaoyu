@@ -1,14 +1,11 @@
 package org.dherhf.agent.service;
 
-
-import dev.langchain4j.model.chat.ChatModel;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.service.AiServices;
-import dev.langchain4j.service.UserMessage;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -25,7 +22,7 @@ import org.dherhf.agent.enums.SessionStatusEnum;
 import org.dherhf.agent.model.sse.SseEvent;
 import org.dherhf.agent.tool.TicketTools;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.langchain4j.model.chat.ChatModel;
 
 /**
  * 对话引擎主流程服务（对应系分 §3.9.1 - 对话消息处理全链路）。
@@ -57,7 +54,7 @@ public class DialogueService {
 
     /** LangChain4j AiService 接口，运行时由 AiServices 构建 */
     public interface ChatAssistant {
-        String chat(String userMessage);
+        String chat(@dev.langchain4j.service.UserMessage String userMessage);
     }
 
     private ChatAssistant chatAssistant;
@@ -74,11 +71,12 @@ public class DialogueService {
     /**
      * 处理用户消息，通过 SSE 流式推送响应。
      *
-     * @param sessionId  会话 ID
-     * @param userId     用户 ID
-     * @param content    用户输入文本
-     * @param scheduleId 前端选场次后直接提供（可 null）
-     * @param seatIds    前端选座后直接提供（可 null）
+     * @param sessionId    会话 ID
+     * @param userId       用户 ID
+     * @param content      用户输入文本
+     * @param scheduleId   前端选场次后直接提供（可 null）
+     * @param seatIds      前端选座后直接提供（可 null）
+     * @param ticketCount  购票数量（=座位数，前端选座时提供，可 null）
      * @return SseEmitter
      */
     public SseEmitter handleMessage(
@@ -86,7 +84,8 @@ public class DialogueService {
             Long userId,
             String content,
             Long scheduleId,
-            List<Long> seatIds
+            List<Long> seatIds,
+            Integer ticketCount
     ) {
         SseEmitter emitter = new SseEmitter(sseTimeoutSeconds * 1000L);
 
@@ -110,11 +109,12 @@ public class DialogueService {
             return emitter;
         }
 
-        TicketTools.setContext(userId, scheduleId, seatIds);
         Map<String, Object> slotState = contextService.loadSlotState(sessionId);
 
+        // P0 修复：setContext 必须在虚拟线程内调用，ThreadLocal 不跨线程继承
         Thread.startVirtualThread(() -> {
             try {
+                TicketTools.setContext(userId, scheduleId, seatIds, ticketCount);
                 processDialogue(emitter, sessionId, userId, content, slotState);
             } catch (Exception ex) {
                 log.error("[handleMessage] 对话处理异常: sessionId={}", sessionId, ex);
@@ -140,7 +140,9 @@ public class DialogueService {
         List<Map<String, Object>> recentMessages = contextService.getRecentMessages(sessionId);
         String contextPrompt = buildContextPrompt(content, slotState, recentMessages);
 
-        int nextId = recentMessages.size() + 1;
+        // P2-a 修复：msgId 基于全量消息数，而非 historyWindow 截断后的 recentMessages
+        int totalMsgCount = contextService.getMessageCount(sessionId);
+        int nextId = totalMsgCount + 1;
         ChatMessage userMsg = new ChatMessage();
         userMsg.setMsgId(nextId);
         userMsg.setRole("user");
@@ -166,6 +168,12 @@ public class DialogueService {
         }
 
         ParsedResponse parsed = parseResponse(aiResponse);
+
+        // P1-c 修复：推送工具调用产生的卡片数据
+        List<org.dherhf.agent.model.card.CardPayload> cards = TicketTools.drainCards();
+        for (org.dherhf.agent.model.card.CardPayload card : cards) {
+            sendSseEvent(emitter, SseEvent.card(card.getCardType(), card.getCardData()));
+        }
 
         if (parsed.content != null && !parsed.content.isBlank()) {
             sendSseEvent(emitter, SseEvent.message(parsed.content));

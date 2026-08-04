@@ -100,7 +100,8 @@ public class ChatController {
                 userId,
                 request.getContent(),
                 request.getSessionId(),
-                request.getSeatIds()
+                request.getSeatIds(),
+                request.getTicketCount()
         );
     }
 

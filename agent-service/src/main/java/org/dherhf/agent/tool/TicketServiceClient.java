@@ -117,16 +117,22 @@ public class TicketServiceClient {
     }
 
     /**
-     * GET /internal/orders?userId={}
+     * GET /internal/orders?userId={}&status={}
      */
-    public Result<Object> queryUserOrders(Long userId) {
+    public Result<Object> queryUserOrders(Long userId, String status) {
         try {
             return restClient.get()
-                    .uri(builder -> builder.path("/internal/orders").queryParam("userId", userId).build())
+                    .uri(builder -> {
+                        builder.path("/internal/orders").queryParam("userId", userId);
+                        if (status != null && !status.isBlank()) {
+                            builder.queryParam("status", status);
+                        }
+                        return builder.build();
+                    })
                     .retrieve()
                     .body(Result.class);
         } catch (Exception ex) {
-            log.error("[queryUserOrders] 调用 ticket-service 失败: userId={}", userId, ex);
+            log.error("[queryUserOrders] 调用 ticket-service 失败: userId={}, status={}", userId, status, ex);
             return Result.error(ErrorCodeEnum.TOOL_ERROR, "订单查询失败：" + ex.getMessage());
         }
     }

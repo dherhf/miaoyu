@@ -190,6 +190,23 @@ public class ContextService {
         return new ArrayList<>((List<Map<String, Object>>) (List<?>) list.subList(from, list.size()));
     }
 
+    /**
+     * 获取会话的全量消息数（用于 msgId 分配，不受 historyWindow 截断影响）。
+     *
+     * @param sessionId 会话 ID
+     * @return 消息总数
+     */
+    public int getMessageCount(String sessionId) {
+        Query query = Query.query(Criteria.where("sessionId").is(sessionId));
+        query.fields().include("messages");
+        org.bson.Document doc = mongoTemplate.findOne(query, org.bson.Document.class, COLLECTION_NAME);
+        if (doc == null) {
+            return 0;
+        }
+        Object messages = doc.get("messages");
+        return messages instanceof List<?> list ? list.size() : 0;
+    }
+
     private void saveToRedis(String sessionId, Map<String, Object> slotState) {
         try {
             String json = objectMapper.writeValueAsString(slotState);
