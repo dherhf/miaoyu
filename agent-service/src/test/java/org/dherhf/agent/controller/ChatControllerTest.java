@@ -1,6 +1,6 @@
 package org.dherhf.agent.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.dherhf.agent.common.JwtUtil;
