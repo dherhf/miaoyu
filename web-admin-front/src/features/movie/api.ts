@@ -41,4 +41,13 @@ export const movieApi = {
   /** 批量下架 */
   batchUnpublishMovies: (ids: string[]): Promise<BatchResult> =>
     request.put('/movies/batch-unpublish', { ids }),
+
+  /** 上传海报图片到 OSS */
+  uploadImage: (file: File): Promise<{ objectKey: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return request.post('/upload/image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };

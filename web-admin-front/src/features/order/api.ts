@@ -3,14 +3,12 @@ import type { OrderRecord, OrderDetail, OrderListParams } from './types';
 
 export type { OrderRecord, OrderDetail, OrderListParams, OrderSeatRecord } from './types';
 
-// ===================== API =====================
+export const orderApi = {
+  /** 查询订单明细列表 */
+  getOrderList: (params: OrderListParams): Promise<PageResult<OrderRecord>> =>
+    request.get('/orders', { params }),
 
-/** 查询订单明细列表 */
-export function getOrderList(params: OrderListParams): Promise<PageResult<OrderRecord>> {
-  return request.get('/orders', { params });
-}
-
-/** 查询订单详情 */
-export function getOrderDetail(id: string): Promise<OrderDetail> {
-  return request.get(`/orders/${id}`);
-}
+  /** 查询订单详情 */
+  getOrderDetail: (id: string): Promise<OrderDetail> =>
+    request.get(`/orders/${id}`),
+};

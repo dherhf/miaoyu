@@ -44,6 +44,7 @@ export function MovieManage() {
   const [submitting, setSubmitting] = useState(false);
   const [hasScheduleTip, setHasScheduleTip] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   const [form] = Form.useForm<MovieFormValues>();
 
@@ -53,6 +54,7 @@ export function MovieManage() {
     setHasScheduleTip(false);
     form.resetFields();
     form.setFieldsValue(EMPTY_FORM);
+    setPendingFile(null);
     setModalOpen(true);
   };
 
@@ -146,10 +148,18 @@ export function MovieManage() {
     try {
       const values = await form.validateFields();
       setSubmitting(true);
+
+      // 如果有新选的文件，提交时才上传到 OSS
+      let posterUrl = values.posterUrl;
+      if (pendingFile) {
+        const res = await movieApi.uploadImage(pendingFile);
+        posterUrl = res.objectKey;
+      }
+
       const payload: MovieCreateParams = {
         name: values.name,
         types: values.types,
-        posterUrl: values.posterUrl,
+        posterUrl,
         rating: values.rating ?? 0,
         duration: values.duration,
         releaseDate: dayjs.isDayjs(values.releaseDate)
@@ -173,6 +183,7 @@ export function MovieManage() {
         toast.success('新增影片成功');
       }
       setModalOpen(false);
+      setPendingFile(null);
       actionRef.current?.reload();
     } catch {
       // validateFields 失败时 antd 自动展示校验信息
@@ -372,7 +383,7 @@ export function MovieManage() {
             </div>
           </div>
         )}
-        <MovieForm form={form} />
+        <MovieForm form={form} onFileSelect={setPendingFile} />
       </Modal>
     </div>
   );
