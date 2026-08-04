@@ -32,11 +32,11 @@ import java.util.stream.Collectors;
 public class TicketTools {
 
     private final TicketServiceClient ticketClient;
-    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    private final tools.jackson.databind.ObjectMapper objectMapper;
 
     @Autowired
     public TicketTools(TicketServiceClient ticketClient,
-                       com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
+                       tools.jackson.databind.ObjectMapper objectMapper) {
         this.ticketClient = ticketClient;
         this.objectMapper = objectMapper;
     }
