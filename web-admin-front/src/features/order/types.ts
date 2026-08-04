@@ -82,3 +82,33 @@ export interface OrderItem {
   seats?: OrderSeat[];
   scheduleId?: number;
 }
+
+// ---------- 映射函数 ----------
+
+/** 将 API 返回的 OrderRecord/OrderDetail 映射为 OrderItem */
+export function mapOrderRecord(record: OrderRecord): OrderItem {
+  return {
+    id: record.id,
+    orderNo: record.orderNo,
+    userPhone: record.userPhone,
+    movieName: record.movieName,
+    cinemaName: record.cinemaName,
+    hallName: record.hallName,
+    showDate: record.showDate,
+    startTime: record.startTime,
+    seatInfo: record.seatInfo,
+    ticketCount: record.ticketCount,
+    totalAmount: record.totalAmount,
+    status: record.status,
+    createdAt: record.createdAt,
+    paidAt: record.paidAt,
+    cancelReason: record.cancelReason,
+    cinemaAddress: (record as OrderDetail).cinemaAddress,
+    pickupCode: (record as OrderDetail).pickupCode,
+    cancelledAt: (record as OrderDetail).cancelledAt,
+    seats: (record as OrderDetail).seats?.map((s) => ({
+      seatLabel: s.seatLabel,
+      status: s.status,
+    })),
+  };
+}
