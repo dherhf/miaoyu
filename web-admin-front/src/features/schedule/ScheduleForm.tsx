@@ -31,7 +31,6 @@ export interface ScheduleFormData {
   showTime: string;
   endTime: string;
   price: number;
-  vipPrice?: number;
   languageVersion: string;
 }
 
@@ -69,7 +68,7 @@ export function ScheduleForm({ data, errors, onChange, cinemas, halls, movies }:
     if (data.cinemaId && cinemaHalls.length && !data.hallId) {
       updateField('hallId', cinemaHalls[0].id);
     }
-  }, [data.cinemaId]);
+  }, [data.cinemaId, cinemaHalls, data.hallId]);
 
   // 根据影片时长自动计算结束时间
   useEffect(() => {
@@ -234,18 +233,6 @@ export function ScheduleForm({ data, errors, onChange, cinemas, halls, movies }:
         </Form.Item>
       </div>
 
-      {/* VIP票价 */}
-      <Form.Item label="VIP票价（选填）" className={styles.formItem}>
-        <InputNumber
-          addonBefore="¥"
-          min={0.01}
-          step={0.01}
-          value={data.vipPrice}
-          onChange={(v) => updateField('vipPrice', v)}
-          placeholder="优惠价格，不填同原价"
-          className={styles.fullWidth}
-        />
-      </Form.Item>
     </Form>
   );
 }

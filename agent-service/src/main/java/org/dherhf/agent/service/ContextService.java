@@ -79,14 +79,14 @@ public class ContextService {
      *
      * @param sessionId   会话 ID
      * @param slotState   新的槽位状态
-     * @param newMessage  新追加的消息（可 null）
-     * @param lastMessageAt 最后消息时间戳（ISO 字符串）
+     * @param newMessage  新追加的消息对象（可 null）
+     * @param lastMessageAt 最后消息时间戳
      */
     public void updateContext(
             String sessionId,
             Map<String, Object> slotState,
-            Map<String, Object> newMessage,
-            String lastMessageAt
+            Object newMessage,
+            java.time.LocalDateTime lastMessageAt
     ) {
         // 1. Redis 更新
         saveToRedis(sessionId, slotState);

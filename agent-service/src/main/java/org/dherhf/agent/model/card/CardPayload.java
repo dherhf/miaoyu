@@ -74,7 +74,7 @@ public class CardPayload {
         private Long id;
         private String name;
         private String address;
-        private String distance;
+        private Long distance;
         private String[] facilities;
         private BigDecimal rating;
     }

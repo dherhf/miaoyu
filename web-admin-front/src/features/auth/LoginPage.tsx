@@ -20,7 +20,7 @@ export function LoginPage() {
       const { token, adminInfo } = await authApi.login(values);
       useAuthStore.getState().setToken(token);
       useAuthStore.getState().setProfile(adminInfo);
-      await message.success('登录成功，欢迎使用妙语购票管理后台');
+      message.success('登录成功，欢迎使用妙语购票管理后台');
       navigate('/dashboard');
     } catch {
       // 错误提示已由 request 拦截器处理

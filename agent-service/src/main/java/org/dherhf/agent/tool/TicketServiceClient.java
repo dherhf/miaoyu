@@ -174,4 +174,64 @@ public class TicketServiceClient {
             return Result.error(ErrorCodeEnum.TOOL_ERROR, "锁座下单失败：" + ex.getMessage());
         }
     }
+
+    /**
+     * POST /internal/orders/{id}/pay
+     */
+    public Result<Object> payOrder(Long userId, Long orderId, String requestId) {
+        try {
+            Map<String, Object> body = Map.of(
+                    "userId", userId,
+                    "requestId", requestId
+            );
+            return restClient.post()
+                    .uri("/internal/orders/{id}/pay", orderId)
+                    .body(body)
+                    .retrieve()
+                    .body(Result.class);
+        } catch (Exception ex) {
+            log.error("[payOrder] 调用 ticket-service 失败: userId={}, orderId={}", userId, orderId, ex);
+            return Result.error(ErrorCodeEnum.TOOL_ERROR, "支付订单失败：" + ex.getMessage());
+        }
+    }
+
+    /**
+     * POST /internal/orders/{id}/cancel
+     */
+    public Result<Object> cancelOrder(Long userId, Long orderId, String requestId) {
+        try {
+            Map<String, Object> body = Map.of(
+                    "userId", userId,
+                    "requestId", requestId
+            );
+            return restClient.post()
+                    .uri("/internal/orders/{id}/cancel", orderId)
+                    .body(body)
+                    .retrieve()
+                    .body(Result.class);
+        } catch (Exception ex) {
+            log.error("[cancelOrder] 调用 ticket-service 失败: userId={}, orderId={}", userId, orderId, ex);
+            return Result.error(ErrorCodeEnum.TOOL_ERROR, "取消订单失败：" + ex.getMessage());
+        }
+    }
+
+    /**
+     * POST /internal/orders/{id}/refund
+     */
+    public Result<Object> refundOrder(Long userId, Long orderId, String requestId) {
+        try {
+            Map<String, Object> body = Map.of(
+                    "userId", userId,
+                    "requestId", requestId
+            );
+            return restClient.post()
+                    .uri("/internal/orders/{id}/refund", orderId)
+                    .body(body)
+                    .retrieve()
+                    .body(Result.class);
+        } catch (Exception ex) {
+            log.error("[refundOrder] 调用 ticket-service 失败: userId={}, orderId={}", userId, orderId, ex);
+            return Result.error(ErrorCodeEnum.TOOL_ERROR, "退票失败：" + ex.getMessage());
+        }
+    }
 }

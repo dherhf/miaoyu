@@ -8,7 +8,6 @@ import {
   AppstoreOutlined,
   TeamOutlined,
   ArrowLeftOutlined,
-  EyeOutlined,
 } from '@ant-design/icons';
 import { Table, Modal, Input, Button, Select, Tag, Space, Typography, Card, Form, message } from 'antd';
 import type { TableProps } from 'antd';
@@ -20,10 +19,11 @@ import {
   HALL_STATUS_LABELS,
   generateSeats,
 } from './store';
+import { hallApi } from './api';
 import { useScheduleStore } from '../schedule';
-import type { HallItem, SeatItem, HallFormValues } from './types';
+import type { HallItem, HallFormValues } from './types';
+import { mapHallCell } from './types';
 import { HallForm } from './HallForm';
-import { SeatLayoutViewer } from './SeatLayoutViewer';
 import styles from './HallPage.module.css';
 
 export function HallPage() {
@@ -40,8 +40,6 @@ export function HallPage() {
   const [typeFilter, setTypeFilter] = useState<string>();
   const [, setSelectedIds] = useState<string[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
-  const [layoutModalOpen, setLayoutModalOpen] = useState(false);
-  const [viewingHall, setViewingHall] = useState<HallItem | null>(null);
   const [editingHall, setEditingHall] = useState<HallItem | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -92,7 +90,6 @@ export function HallPage() {
       align: 'center',
       render: (_v, row) => (
         <Space size={8}>
-          <Button size='small' type='link' icon={<EyeOutlined style={{ fontSize: 14 }} />} onClick={() => { setViewingHall(row); setLayoutModalOpen(true); }}>座位</Button>
           <Button size='small' icon={<EditOutlined style={{ fontSize: 14 }} />} onClick={() => openEdit(row)}>编辑</Button>
           <Button size='small' danger icon={<DeleteOutlined style={{ fontSize: 14 }} />} onClick={() => handleDelete(row)}>删除</Button>
         </Space>
@@ -108,23 +105,19 @@ export function HallPage() {
     form.resetFields();
     setModalOpen(true);
   };
-  const openEdit = (hall: HallItem) => {
+  const openEdit = async (hall: HallItem) => {
     setEditingHall(hall);
+    let seats = hall.seats?.length ? hall.seats : generateSeats(hall.rowCount, hall.colCount);
+    try {
+      const detail = await hallApi.getHallDetail(hall.id);
+      if (detail.cells?.length) seats = detail.cells.map(mapHallCell);
+    } catch { /* fallback to generated seats */ }
     form.setFieldsValue({
       name: hall.name,
       type: hall.type,
-      seats: hall.seats?.length ? hall.seats : generateSeats(hall.rowCount, hall.colCount),
+      seats,
     });
     setModalOpen(true);
-  };
-  // 保存座位布局
-  const saveLayout = async (data: { seats: SeatItem[]; totalSeats: number }) => {
-    if (!viewingHall) return;
-    const hasSchedule = schedules.some(s => String(s.hallId) === String(viewingHall.id) && s.status !== 'cancelled' && s.status !== 'ended');
-    if (hasSchedule) return message.error('该影厅存在未结束排期，无法修改座位');
-    await updateHall(viewingHall.id, { seats: data.seats, totalSeats: data.totalSeats });
-    setViewingHall(prev => prev ? { ...prev, ...data } : null);
-    message.success('座位布局已更新');
   };
   // 保存影厅
   const submitForm = async () => {
@@ -241,27 +234,6 @@ export function HallPage() {
       >
         <HallForm form={form} />
       </Modal>
-
-      {/* 座位布局全屏弹窗 */}
-      {layoutModalOpen && viewingHall && (
-        <Modal
-          open={layoutModalOpen}
-          footer={null}
-          width='90%'
-          className={styles.layoutModal}
-          height='85vh'
-          maskClosable={false}
-          onCancel={() => setLayoutModalOpen(false)}
-          title={`${viewingHall.name} - 座位布局`}
-        >
-          <SeatLayoutViewer
-            rowCount={viewingHall.rowCount}
-            colCount={viewingHall.colCount}
-            seats={viewingHall.seats}
-            onSave={saveLayout}
-          />
-        </Modal>
-      )}
     </div>
   );
 }
