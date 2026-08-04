@@ -1,4 +1,4 @@
-export { default as DashboardPage } from './DashboardPage';
+export { DashboardPage } from './DashboardPage';
 export { useDashboardStore } from './store';
 export type {
   DashboardStats,

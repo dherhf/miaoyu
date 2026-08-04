@@ -28,6 +28,10 @@ class DashboardServiceTest {
     private ScheduleMapper scheduleMapper;
     @Mock
     private ScheduleSeatMapper scheduleSeatMapper;
+    @Mock
+    private org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
+    @Mock
+    private tools.jackson.databind.ObjectMapper objectMapper;
 
     @InjectMocks
     private DashboardServiceImpl dashboardService;

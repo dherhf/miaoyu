@@ -1,8 +1,9 @@
 import { create } from 'zustand';
-import type { SeatItem, HallItem } from './types';
-import { mockHalls } from './mock';
+import type { SeatItem, HallItem, HallListParams, HallUpdateParams } from './types';
+import { mapHallRecord, toHallCell, toApiHallStatus } from './types';
+import { hallApi } from './api';
 
-// ===================== 常量 =====================
+// 常量
 export const HALL_TYPES = [
   { value: '2d', label: '2D', color: '#1677ff' },
   { value: '3d', label: '3D', color: '#52c41a' },
@@ -21,7 +22,7 @@ export const SEAT_STATUS = {
 
 export type { SeatItem, HallItem } from './types';
 
-// ===================== 纯工具函数 =====================
+// 纯工具函数
 export function generateSeats(rows: number, cols: number): SeatItem[] {
   const seats: SeatItem[] = [];
   for (let r = 1; r <= rows; r++) {
@@ -80,39 +81,83 @@ export function removeCol(seats: SeatItem[]): SeatItem[] | { error: string } {
   return seats.filter((s) => s.col !== cols);
 }
 
-// ===================== Store =====================
+// Store
 interface HallState {
   halls: HallItem[];
-  getHallsByCinemaId: (cinemaId: string | number) => HallItem[];
+  loading: boolean;
+  fetchHalls: (params?: HallListParams) => Promise<void>;
+  getHallsByCinemaId: (cinemaId: string) => HallItem[];
   addHall: (payload: Omit<HallItem, 'id'>) => Promise<void>;
-  updateHall: (id: string | number, payload: Partial<HallItem>) => Promise<void>;
-  deleteHall: (id: string | number) => void;
+  updateHall: (id: string, payload: Partial<HallItem>) => Promise<void>;
+  deleteHall: (id: string) => Promise<void>;
 }
 
 export const useHallStore = create<HallState>((set, get) => ({
-  halls: mockHalls,
+  halls: [],
+  loading: false,
 
-  getHallsByCinemaId: (cinemaId: string | number): HallItem[] => {
+  fetchHalls: async (params?: HallListParams): Promise<void> => {
+    set({ loading: true });
+    try {
+      const res = await hallApi.getHallList(params ?? { page: 1, size: 100 });
+      set({ halls: res.records.map(mapHallRecord) });
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  getHallsByCinemaId: (cinemaId: string): HallItem[] => {
     return get().halls.filter((h) => String(h.cinemaId) === String(cinemaId));
   },
 
   addHall: async (payload: Omit<HallItem, 'id'>): Promise<void> => {
-    const halls = get().halls;
-    const newId = halls.length > 0
-      ? Math.max(...halls.map((h) => Number(h.id))) + 1
-      : 1;
-    set((s) => ({ halls: [...s.halls, { ...payload, id: newId, status: 'active' }] }));
+    const created = await hallApi.createHall({
+      cinemaId: payload.cinemaId,
+      name: payload.name,
+      screenType: payload.type,
+    });
+    if (payload.seats && payload.seats.length > 0) {
+      await hallApi.saveHallLayout(created.id, {
+        totalRows: payload.rowCount,
+        totalCols: payload.colCount,
+        cells: payload.seats.map(toHallCell),
+      });
+    }
+    await get().fetchHalls({ cinemaId: payload.cinemaId });
   },
 
-  updateHall: async (id: string | number, payload: Partial<HallItem>): Promise<void> => {
-    set((s) => ({
-      halls: s.halls.map((h) =>
-        String(h.id) === String(id) ? { ...h, ...payload } : h,
-      ),
-    }));
+  updateHall: async (id: string, payload: Partial<HallItem>): Promise<void> => {
+    // 基础信息更新
+    const apiPayload: HallUpdateParams = {};
+    if (payload.name !== undefined) apiPayload.name = payload.name;
+    if (payload.type !== undefined) apiPayload.screenType = payload.type;
+    if (payload.status !== undefined) apiPayload.status = toApiHallStatus(payload.status);
+    if (Object.keys(apiPayload).length > 0) {
+      await hallApi.updateHall(id, apiPayload);
+    }
+
+    // 座位布局更新
+    if (payload.seats) {
+      const totalRows = payload.rowCount ?? (payload.seats.length ? Math.max(...payload.seats.map((s) => s.row)) : 0);
+      const totalCols = payload.colCount ?? (payload.seats.length ? Math.max(...payload.seats.map((s) => s.col)) : 0);
+      await hallApi.saveHallLayout(id, {
+        totalRows,
+        totalCols,
+        cells: payload.seats.map(toHallCell),
+      });
+    }
+
+    const hall = get().halls.find((h) => String(h.id) === String(id));
+    if (hall) {
+      await get().fetchHalls({ cinemaId: hall.cinemaId });
+    }
   },
 
-  deleteHall: (id: string | number): void => {
-    set((s) => ({ halls: s.halls.filter((h) => String(h.id) !== String(id)) }));
+  deleteHall: async (id: string): Promise<void> => {
+    const hall = get().halls.find((h) => String(h.id) === String(id));
+    await hallApi.deleteHall(id);
+    if (hall) {
+      await get().fetchHalls({ cinemaId: hall.cinemaId });
+    }
   },
 }));

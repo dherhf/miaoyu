@@ -1,15 +1,13 @@
-// ===================== 排期相关类型 =====================
-
-// ---------- API 层 ----------
+// API 层
 
 /** 排期列表记录 */
 export interface ScheduleRecord {
-  id: number;
-  movieId: number;
+  id: string;
+  movieId: string;
   movieName: string;
-  cinemaId: number;
+  cinemaId: string;
   cinemaName: string;
-  hallId: number;
+  hallId: string;
   hallName: string;
   showDate: string;
   startTime: string;
@@ -36,9 +34,9 @@ export interface ScheduleDetail extends ScheduleRecord {
 
 /** 排期列表查询参数 */
 export interface ScheduleListParams {
-  cinemaId?: number;
+  cinemaId?: string;
   movieName?: string;
-  hallId?: number;
+  hallId?: string;
   showDate?: string;
   status?: string;
   page?: number;
@@ -47,9 +45,9 @@ export interface ScheduleListParams {
 
 /** 新增排期参数 */
 export interface ScheduleCreateParams {
-  movieId: number;
-  cinemaId: number;
-  hallId: number;
+  movieId: string;
+  cinemaId: string;
+  hallId: string;
   showDate: string;
   startTime: string;
   price: number;
@@ -58,7 +56,7 @@ export interface ScheduleCreateParams {
 
 /** 修改排期参数 */
 export interface ScheduleUpdateParams {
-  hallId?: number;
+  hallId?: string;
   showDate?: string;
   startTime?: string;
   endTime?: string;
@@ -66,19 +64,19 @@ export interface ScheduleUpdateParams {
   languageVersion?: string;
 }
 
-// ---------- Store 层 ----------
+// Store 层
 
 /** 排期状态 */
 export type ScheduleStatus = 'available' | 'full' | 'ended' | 'cancelled';
 
 /** 排期条目（Store / 页面展示用） */
 export interface ScheduleItem {
-  id: string | number;
-  cinemaId: string | number;
+  id: string;
+  cinemaId: string;
   cinemaName: string;
-  hallId: string | number;
+  hallId: string;
   hallName: string;
-  movieId: string | number;
+  movieId: string;
   movieName: string;
   showDate: string;
   showTime: string;
@@ -90,4 +88,35 @@ export interface ScheduleItem {
   soldSeats: number;
   availableSeats: number;
   status: ScheduleStatus;
+}
+
+// 映射函数
+
+/** API status ('onsale' | 'cancelled' | 'ended') → ScheduleStatus */
+export function mapScheduleStatus(status: string, availableSeats: number): ScheduleStatus {
+  if (status === 'cancelled') return 'cancelled';
+  if (status === 'ended') return 'ended';
+  return availableSeats === 0 ? 'full' : 'available';
+}
+
+/** ScheduleRecord → ScheduleItem */
+export function mapScheduleRecord(record: ScheduleRecord): ScheduleItem {
+  return {
+    id: record.id,
+    cinemaId: record.cinemaId,
+    cinemaName: record.cinemaName,
+    hallId: record.hallId,
+    hallName: record.hallName,
+    movieId: record.movieId,
+    movieName: record.movieName,
+    showDate: record.showDate,
+    showTime: record.startTime,
+    endTime: record.endTime,
+    price: record.price,
+    languageVersion: record.languageVersion,
+    totalSeats: record.totalSeats,
+    soldSeats: record.soldSeats,
+    availableSeats: record.availableSeats,
+    status: mapScheduleStatus(record.status, record.availableSeats),
+  };
 }

@@ -8,39 +8,28 @@ import type {
 
 export type { CinemaRecord, CinemaDetail, CinemaListParams, CinemaCreateParams } from './types';
 
-// ===================== API =====================
+export const cinemaApi = {
+  /** 查询影院列表 */
+  getList: (params: CinemaListParams): Promise<PageResult<CinemaRecord>> =>
+    request.get('/cinemas', { params }),
 
-/** 查询影院列表 */
-export function getCinemaList(params: CinemaListParams): Promise<PageResult<CinemaRecord>> {
-  return request.get('/cinemas', { params });
-}
+  /** 查询影院详情 */
+  getDetail: (id: string): Promise<CinemaDetail> =>
+    request.get(`/cinemas/${id}`),
 
-/** 查询影院详情 */
-export function getCinemaDetail(id: number): Promise<CinemaDetail> {
-  return request.get(`/cinemas/${id}`);
-}
+  /** 新增影院 */
+  create: (data: CinemaCreateParams): Promise<CinemaDetail> =>
+    request.post('/cinemas', data),
 
-/** 新增影院 */
-export function createCinema(data: CinemaCreateParams): Promise<CinemaDetail> {
-  return request.post('/cinemas', data);
-}
+  /** 编辑影院 */
+  update: (id: string, data: CinemaCreateParams): Promise<CinemaDetail> =>
+    request.put(`/cinemas/${id}`, data),
 
-/** 编辑影院 */
-export function updateCinema(id: number, data: CinemaCreateParams): Promise<CinemaDetail> {
-  return request.put(`/cinemas/${id}`, data);
-}
+  /** 停业 */
+  close: (id: string): Promise<null> =>
+    request.put(`/cinemas/${id}/close`),
 
-/** 停业 */
-export function closeCinema(id: number): Promise<null> {
-  return request.put(`/cinemas/${id}/close`);
-}
-
-/** 营业 */
-export function openCinema(id: number): Promise<null> {
-  return request.put(`/cinemas/${id}/open`);
-}
-
-/** 删除影院 */
-export function deleteCinema(id: number): Promise<null> {
-  return request.delete(`/cinemas/${id}`);
-}
+  /** 营业 */
+  open: (id: string): Promise<null> =>
+    request.put(`/cinemas/${id}/open`),
+};

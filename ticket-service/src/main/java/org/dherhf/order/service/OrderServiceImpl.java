@@ -21,9 +21,12 @@ import org.dherhf.order.dto.InternalLockSeatDTO;
 import org.dherhf.order.dto.LockSeatDTO;
 import org.dherhf.movie.entity.Movie;
 import org.dherhf.order.entity.Order;
+import org.dherhf.order.enums.OrderStatus;
 import org.dherhf.order.vo.*;
 import org.dherhf.schedule.entity.Schedule;
 import org.dherhf.schedule.entity.ScheduleSeat;
+import org.dherhf.schedule.enums.ScheduleSeatStatus;
+import org.dherhf.schedule.enums.ScheduleStatus;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
@@ -60,6 +63,8 @@ public class OrderServiceImpl implements OrderService {
     private final IdempotentService idempotentService;
     private final OrderTimeoutService orderTimeoutService;
     private final RedissonClient redissonClient;
+    private final org.dherhf.notification.service.NotificationService notificationService;
+    private final org.dherhf.schedule.service.SeatBitmapService seatBitmapService;
 
     @Override
     @Transactional
@@ -82,7 +87,7 @@ public class OrderServiceImpl implements OrderService {
             }
 
             Schedule schedule = scheduleMapper.selectById(dto.getScheduleId());
-            if (schedule == null || !"onsale".equals(schedule.getStatus())) {
+            if (schedule == null || !ScheduleStatus.ON_SALE.getCode().equals(schedule.getStatus())) {
                 throw new BusinessException(400, "场次不存在或不可售");
             }
 
@@ -102,6 +107,10 @@ public class OrderServiceImpl implements OrderService {
                 LockSeatResultVO result = doLockSeat(userId, dto, schedule);
                 idempotentService.put(requestId, result);
                 orderTimeoutService.schedule(result.getId());
+                notificationService.sendNotification(
+                        userId, "LOCK_SUCCESS", "座位已锁定",
+                        "座位已锁定，请在15分钟内完成支付。影片：《" + result.getMovieName() + "》，座位：" + result.getSeatInfo(),
+                        result.getId());
                 return result;
             } finally {
                 seatLocks.forEach(l -> {
@@ -126,7 +135,7 @@ public class OrderServiceImpl implements OrderService {
         }
 
         List<Long> conflictSeatIds = seats.stream()
-                .filter(s -> !"available".equals(s.getStatus()))
+                .filter(s -> !ScheduleSeatStatus.AVAILABLE.getCode().equals(s.getStatus()))
                 .map(ScheduleSeat::getHallCellId)
                 .toList();
         if (!conflictSeatIds.isEmpty()) {
@@ -158,18 +167,21 @@ public class OrderServiceImpl implements OrderService {
                 .seatInfo(seatInfo)
                 .ticketCount(dto.getTicketCount())
                 .totalAmount(schedule.getPrice().multiply(BigDecimal.valueOf(dto.getTicketCount())))
-                .status("pending")
+                .status(OrderStatus.PENDING.getCode())
                 .build();
         orderMapper.insert(order);
 
         for (ScheduleSeat seat : seats) {
-            seat.setStatus("locked");
+            seat.setStatus(ScheduleSeatStatus.LOCKED.getCode());
             seat.setLockedAt(LocalDateTime.now());
             seat.setOrderId(order.getId());
             scheduleSeatMapper.updateById(seat);
         }
 
-        // TODO: SETBIT schedule:seat:occupied:{scheduleId} {seat_index} 1
+        // SETBIT schedule:seat:occupied:{scheduleId} {seat_index} 1
+        for (ScheduleSeat seat : seats) {
+            seatBitmapService.setOccupied(dto.getScheduleId(), seat.getSeatIndex());
+        }
 
         LockSeatResultVO vo = new LockSeatResultVO();
         BeanUtils.copyProperties(order, vo);
@@ -190,15 +202,15 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException(404, "订单不存在");
         }
 
-        if ("cancelled".equals(order.getStatus()) || "refunded".equals(order.getStatus())) {
+        if (OrderStatus.CANCELLED.getCode().equals(order.getStatus()) || OrderStatus.REFUNDED.getCode().equals(order.getStatus())) {
             throw new BusinessException(409, "订单已失效，请重新选座");
         }
-        if ("paid".equals(order.getStatus())) {
+        if (OrderStatus.PAID.getCode().equals(order.getStatus())) {
             throw new BusinessException(409, "订单已完成支付");
         }
 
         // 模拟支付：直接更新状态
-        order.setStatus("paid");
+        order.setStatus(OrderStatus.PAID.getCode());
         order.setPaidAt(LocalDateTime.now());
         order.setPickupCode(UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase());
         orderMapper.updateById(order);
@@ -207,20 +219,28 @@ public class OrderServiceImpl implements OrderService {
         List<ScheduleSeat> seats = scheduleSeatMapper.selectList(
                 new LambdaQueryWrapper<ScheduleSeat>()
                         .eq(ScheduleSeat::getOrderId, orderId)
-                        .eq(ScheduleSeat::getStatus, "locked"));
+                        .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.LOCKED.getCode()));
         for (ScheduleSeat seat : seats) {
-            seat.setStatus("sold");
+            seat.setStatus(ScheduleSeatStatus.SOLD.getCode());
             scheduleSeatMapper.updateById(seat);
         }
 
         // 取消延迟队列中的超时取消任务
         orderTimeoutService.cancel(orderId);
 
-        // TODO: SETBIT schedule:seat:sold:{scheduleId} {seat_index} 1
-        // TODO: 异步发送支付成功通知
+        // SETBIT schedule:seat:sold:{scheduleId} {seat_index} 1
+        for (ScheduleSeat seat : seats) {
+            seatBitmapService.setSold(order.getScheduleId(), seat.getSeatIndex());
+        }
 
         Schedule schedule = scheduleMapper.selectById(order.getScheduleId());
         Cinema cinema = cinemaMapper.selectById(schedule != null ? schedule.getCinemaId() : null);
+
+        // 异步发送支付成功通知
+        notificationService.sendNotification(
+                userId, "PAY_SUCCESS", "支付成功",
+                "影院地址：" + (cinema != null ? cinema.getAddress() : "") + "，放映时间：" + order.getShowDate() + " " + order.getStartTime() + "，取票码：" + order.getPickupCode(),
+                orderId);
 
         PayResultVO vo = PayResultVO.builder()
                 .id(order.getId())
@@ -255,7 +275,7 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException(404, "订单不存在");
         }
 
-        if (!"pending".equals(order.getStatus())) {
+        if (!OrderStatus.PENDING.getCode().equals(order.getStatus())) {
             throw new BusinessException(409, "仅待支付订单可取消");
         }
 
@@ -263,15 +283,15 @@ public class OrderServiceImpl implements OrderService {
         List<ScheduleSeat> seats = scheduleSeatMapper.selectList(
                 new LambdaQueryWrapper<ScheduleSeat>()
                         .eq(ScheduleSeat::getOrderId, orderId)
-                        .eq(ScheduleSeat::getStatus, "locked"));
+                        .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.LOCKED.getCode()));
         for (ScheduleSeat seat : seats) {
-            seat.setStatus("available");
+            seat.setStatus(ScheduleSeatStatus.AVAILABLE.getCode());
             seat.setLockedAt(null);
             seat.setOrderId(null);
             scheduleSeatMapper.updateById(seat);
         }
 
-        order.setStatus("cancelled");
+        order.setStatus(OrderStatus.CANCELLED.getCode());
         order.setCancelledAt(LocalDateTime.now());
         order.setCancelReason("用户主动取消");
         orderMapper.updateById(order);
@@ -279,7 +299,10 @@ public class OrderServiceImpl implements OrderService {
         // 取消延迟队列中的超时取消任务
         orderTimeoutService.cancel(orderId);
 
-        // TODO: SETBIT schedule:seat:occupied:{scheduleId} {seat_index} 0
+        // SETBIT schedule:seat:occupied:{scheduleId} {seat_index} 0
+        for (ScheduleSeat seat : seats) {
+            seatBitmapService.clearOccupiedIfNotSold(order.getScheduleId(), seat.getSeatIndex());
+        }
 
         idempotentService.put(requestId, "ok");
     }
@@ -298,7 +321,7 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException(404, "订单不存在");
         }
 
-        if (!"paid".equals(order.getStatus())) {
+        if (!OrderStatus.PAID.getCode().equals(order.getStatus())) {
             throw new BusinessException(409, "仅已出票订单可退票");
         }
 
@@ -315,21 +338,29 @@ public class OrderServiceImpl implements OrderService {
         List<ScheduleSeat> seats = scheduleSeatMapper.selectList(
                 new LambdaQueryWrapper<ScheduleSeat>()
                         .eq(ScheduleSeat::getOrderId, orderId)
-                        .eq(ScheduleSeat::getStatus, "sold"));
+                        .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.SOLD.getCode()));
         for (ScheduleSeat seat : seats) {
-            seat.setStatus("available");
+            seat.setStatus(ScheduleSeatStatus.AVAILABLE.getCode());
             seat.setOrderId(null);
             scheduleSeatMapper.updateById(seat);
         }
 
-        order.setStatus("refunded");
+        order.setStatus(OrderStatus.REFUNDED.getCode());
         order.setCancelledAt(LocalDateTime.now());
         order.setCancelReason("用户退票");
         orderMapper.updateById(order);
 
-        // TODO: SETBIT schedule:seat:sold:{scheduleId} {seat_index} 0
-        // TODO: SETBIT schedule:seat:occupied:{scheduleId} {seat_index} 0
-        // TODO: 异步发送退票成功通知
+        // SETBIT schedule:seat:sold:{scheduleId} {seat_index} 0
+        // SETBIT schedule:seat:occupied:{scheduleId} {seat_index} 0
+        for (ScheduleSeat seat : seats) {
+            seatBitmapService.clearSoldAndOccupied(order.getScheduleId(), seat.getSeatIndex());
+        }
+
+        // 异步发送退票成功通知
+        notificationService.sendNotification(
+                userId, "REFUND_SUCCESS", "退票成功",
+                "退票成功，订单已取消，座位已释放。影片：《" + order.getMovieName() + "》，退款金额：¥" + order.getTotalAmount(),
+                orderId);
 
         idempotentService.put(requestId, "ok");
     }
@@ -361,7 +392,7 @@ public class OrderServiceImpl implements OrderService {
         }
         OrderDetailVO vo = new OrderDetailVO();
         BeanUtils.copyProperties(order, vo);
-        if (!"paid".equals(order.getStatus())) {
+        if (!OrderStatus.PAID.getCode().equals(order.getStatus())) {
             vo.setPickupCode(null);
         }
         return vo;
@@ -372,7 +403,7 @@ public class OrderServiceImpl implements OrderService {
         Order order = orderMapper.selectOne(
                 new LambdaQueryWrapper<Order>()
                         .eq(Order::getUserId, userId)
-                        .eq(Order::getStatus, "pending")
+                        .eq(Order::getStatus, OrderStatus.PENDING.getCode())
                         .orderByDesc(Order::getCreatedAt)
                         .last("LIMIT 1"));
 
@@ -411,7 +442,7 @@ public class OrderServiceImpl implements OrderService {
         }
 
         RemainingTimeVO vo;
-        if (!"pending".equals(order.getStatus())) {
+        if (!OrderStatus.PENDING.getCode().equals(order.getStatus())) {
             vo = RemainingTimeVO.builder()
                     .remainingTime(0)
                     .expired(true)
@@ -469,33 +500,39 @@ public class OrderServiceImpl implements OrderService {
     public void timeoutCancel(Long orderId) {
         Order order = orderMapper.selectById(orderId);
         if (order == null) {
-            return;
+            throw new BusinessException(404, "订单不存在");
         }
         // 幂等：已支付或已取消则跳过
-        if (!"pending".equals(order.getStatus())) {
+        if (!OrderStatus.PENDING.getCode().equals(order.getStatus())) {
             log.info("Order {} already {}, skipping timeout cancel", orderId, order.getStatus());
-            return;
+            throw new BusinessException(409, "订单状态非待支付，无法超时取消");
         }
 
         // 释放座位
         List<ScheduleSeat> seats = scheduleSeatMapper.selectList(
                 new LambdaQueryWrapper<ScheduleSeat>()
                         .eq(ScheduleSeat::getOrderId, orderId)
-                        .eq(ScheduleSeat::getStatus, "locked"));
+                        .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.LOCKED.getCode()));
         for (ScheduleSeat seat : seats) {
-            seat.setStatus("available");
+            seat.setStatus(ScheduleSeatStatus.AVAILABLE.getCode());
             seat.setLockedAt(null);
             seat.setOrderId(null);
             scheduleSeatMapper.updateById(seat);
         }
 
-        order.setStatus("cancelled");
+        order.setStatus(OrderStatus.CANCELLED.getCode());
         order.setCancelledAt(LocalDateTime.now());
         order.setCancelReason("超时取消");
         orderMapper.updateById(order);
 
-        // TODO: SETBIT schedule:seat:occupied:{scheduleId} {seat_index} 0
-        // TODO: 异步发送超时取消通知
+        // SETBIT schedule:seat:occupied:{scheduleId} {seat_index} 0
+        for (ScheduleSeat seat : seats) {
+            seatBitmapService.clearOccupiedIfNotSold(order.getScheduleId(), seat.getSeatIndex());
+        }
+        notificationService.sendNotification(
+                order.getUserId(), "TIMEOUT_CANCEL", "订单超时取消",
+                "您的订单已超时取消，座位已释放，如需购票请重新选座。影片：《" + order.getMovieName() + "》",
+                orderId);
 
         log.info("Order {} timeout cancelled", orderId);
     }
@@ -505,7 +542,7 @@ public class OrderServiceImpl implements OrderService {
     public void cancelTimeoutOrders(LocalDateTime deadline) {
         List<Order> timeoutOrders = orderMapper.selectList(
                 new LambdaQueryWrapper<Order>()
-                        .eq(Order::getStatus, "pending")
+                        .eq(Order::getStatus, OrderStatus.PENDING.getCode())
                         .lt(Order::getCreatedAt, deadline));
         for (Order order : timeoutOrders) {
             try {

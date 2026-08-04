@@ -1,10 +1,9 @@
-import { Form, Input, InputNumber, Radio, Tag, Space } from 'antd';
-import { MapPin, Phone } from 'lucide-react';
+import { Form, Input, InputNumber, Tag, Space } from 'antd';
+import { EnvironmentOutlined, PhoneOutlined } from '@ant-design/icons';
 import { LocationPicker } from '../amap';
-import type { CinemaStatus } from './types';
 import styles from './CinemaPage.module.css';
 
-// ====================== 类型定义 ======================
+// 类型定义
 const CINEMA_STATUS = {
   ACTIVE: 'active',
   CLOSED: 'closed',
@@ -18,7 +17,6 @@ interface CinemaFormValues {
   facilities: string[];
   rating: number | null;
   phone: string | null;
-  status: CinemaStatus;
 }
 
 const CINEMA_STATUS_LABELS = {
@@ -33,11 +31,10 @@ const FACILITY_TAGS = [
   '巨幕厅',
   'Dolby Atmos',
   'Reald 3D',
-  '儿童厅',
   'VIP厅',
 ];
 
-// ====================== 表单子组件 ======================
+// 表单子组件
 interface CinemaFormProps {
   data: CinemaFormValues;
   isEdit: boolean;
@@ -60,7 +57,7 @@ export function CinemaForm({ data, isEdit, onChange }: CinemaFormProps) {
   return (
     <Form layout="vertical" className={styles.form}>
       {/* 影院名称 */}
-      <Form.Item label="影院名称" name="name" rules={[{ required: true, max: 50, message: '名称1-50字符' }]}>
+      <Form.Item label="影院名称" required>
         <Input
           value={data.name}
           onChange={(e) => handleFieldChange('name', e.target.value)}
@@ -73,21 +70,19 @@ export function CinemaForm({ data, isEdit, onChange }: CinemaFormProps) {
         <LocationPicker
           value={{ address: data.address, longitude: data.longitude, latitude: data.latitude }}
           onChange={(loc) => {
-            handleFieldChange('address', loc.address);
-            handleFieldChange('longitude', loc.longitude);
-            handleFieldChange('latitude', loc.latitude);
+            onChange({ ...data, address: loc.address, longitude: loc.longitude, latitude: loc.latitude });
           }}
         />
       </Form.Item>
 
       {/* 详细地址：地图选点后自动回填，也可手动修改 */}
-      <Form.Item label="详细地址" name="address" rules={[{ required: true, message: '请选择地址' }]}>
+      <Form.Item label="详细地址" required>
         <Input
           value={data.address}
           onChange={(e) => handleFieldChange('address', e.target.value)}
           placeholder="地图选点后自动回填"
           maxLength={200}
-          prefix={<MapPin size={14} />}
+          prefix={<EnvironmentOutlined />}
         />
       </Form.Item>
 
@@ -108,7 +103,7 @@ export function CinemaForm({ data, isEdit, onChange }: CinemaFormProps) {
       </Form.Item>
 
       {/* 评分 & 电话 */}
-      <Space size={16} className={styles.ratingPhoneRow}>
+      <div className={styles.ratingPhoneRow}>
         <Form.Item label="评分" className={styles.formCol}>
           <InputNumber
             min={0}
@@ -125,25 +120,10 @@ export function CinemaForm({ data, isEdit, onChange }: CinemaFormProps) {
             value={data.phone ?? ''}
             onChange={(e) => handleFieldChange('phone', e.target.value)}
             placeholder="010-xxxxxxx"
-            prefix={<Phone size={14} />}
+            prefix={<PhoneOutlined />}
           />
         </Form.Item>
-      </Space>
-
-      {/* 营业状态 */}
-      <Form.Item label="营业状态">
-        {isEdit ? (
-          <Radio.Group
-            value={data.status}
-            onChange={(e) => handleFieldChange('status', e.target.value)}
-          >
-            <Radio value={CINEMA_STATUS.ACTIVE}>营业中</Radio>
-            <Radio value={CINEMA_STATUS.CLOSED}>停业</Radio>
-          </Radio.Group>
-        ) : (
-          <Tag color="green">营业中（新建默认）</Tag>
-        )}
-      </Form.Item>
+      </div>
     </Form>
   );
 }

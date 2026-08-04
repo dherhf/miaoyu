@@ -86,8 +86,6 @@ public class AdminOrderServiceImpl implements AdminOrderService {
             }
         }
         vo.setSeats(seats);
-
-        // TODO: 超级管理员可查看完整手机号
         return vo;
     }
 

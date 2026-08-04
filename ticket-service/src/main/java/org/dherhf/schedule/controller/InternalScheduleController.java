@@ -1,0 +1,44 @@
+package org.dherhf.schedule.controller;
+
+import lombok.RequiredArgsConstructor;
+import org.dherhf.common.result.PageResult;
+import org.dherhf.common.result.Result;
+import org.dherhf.schedule.service.ScheduleService;
+import org.dherhf.schedule.vo.ScheduleDetailVO;
+import org.dherhf.schedule.vo.ScheduleListVO;
+import org.dherhf.schedule.vo.SeatMapVO;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.web.bind.annotation.*;
+
+@Tag(name = "场次内部接口", description = "Agent调用的场次接口")
+@RestController
+@RequestMapping("/internal")
+@RequiredArgsConstructor
+public class InternalScheduleController {
+
+    private final ScheduleService scheduleService;
+
+    @Operation(summary = "内部场次列表")
+    @GetMapping("/sessions")
+    public Result<PageResult<ScheduleListVO>> list(
+            @RequestParam(required = false) String movieName,
+            @RequestParam(required = false) Long cinemaId,
+            @RequestParam(required = false) String showDate,
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "20") Integer size) {
+        return Result.success(scheduleService.userList(movieName, cinemaId, showDate, page, size));
+    }
+
+    @Operation(summary = "内部场次详情")
+    @GetMapping("/sessions/{id}")
+    public Result<ScheduleDetailVO> detail(@PathVariable Long id) {
+        return Result.success(scheduleService.userDetail(id));
+    }
+
+    @Operation(summary = "内部座位图")
+    @GetMapping("/sessions/{id}/seats")
+    public Result<SeatMapVO> seats(@PathVariable Long id) {
+        return Result.success(scheduleService.getSeatMap(id));
+    }
+}

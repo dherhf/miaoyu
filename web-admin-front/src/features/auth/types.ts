@@ -8,7 +8,7 @@ export interface LoginParams {
 
 /** 管理员信息 */
 export interface AdminInfo {
-  id: number;
+  id: string;
   name: string;
   status: number;
 }

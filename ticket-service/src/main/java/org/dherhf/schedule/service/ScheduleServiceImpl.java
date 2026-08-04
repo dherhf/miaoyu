@@ -4,9 +4,12 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.dherhf.cinema.entity.Cinema;
 import org.dherhf.cinema.entity.Hall;
 import org.dherhf.cinema.entity.HallCell;
+import org.dherhf.cinema.enums.CinemaStatus;
+import org.dherhf.cinema.enums.HallStatus;
 import org.dherhf.cinema.vo.SeatVO;
 import org.dherhf.common.exception.BusinessException;
 import org.dherhf.common.result.PageResult;
@@ -14,11 +17,14 @@ import org.dherhf.cinema.mapper.CinemaMapper;
 import org.dherhf.cinema.mapper.HallCellMapper;
 import org.dherhf.cinema.mapper.HallMapper;
 import org.dherhf.movie.mapper.MovieMapper;
+import org.dherhf.schedule.enums.ScheduleSeatStatus;
+import org.dherhf.schedule.enums.ScheduleStatus;
 import org.dherhf.schedule.mapper.ScheduleMapper;
 import org.dherhf.schedule.mapper.ScheduleSeatMapper;
 import org.dherhf.schedule.dto.ScheduleCreateDTO;
 import org.dherhf.schedule.dto.ScheduleUpdateDTO;
 import org.dherhf.movie.entity.Movie;
+import org.dherhf.movie.enums.MovieStatus;
 import org.dherhf.schedule.entity.Schedule;
 import org.dherhf.schedule.entity.ScheduleSeat;
 import org.dherhf.schedule.vo.ScheduleDetailVO;
@@ -26,6 +32,7 @@ import org.dherhf.schedule.vo.ScheduleListVO;
 import org.dherhf.schedule.vo.ScheduleVO;
 import org.dherhf.schedule.vo.SeatMapVO;
 import org.springframework.beans.BeanUtils;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +42,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ScheduleServiceImpl implements ScheduleService {
@@ -45,22 +53,25 @@ public class ScheduleServiceImpl implements ScheduleService {
     private final CinemaMapper cinemaMapper;
     private final HallMapper hallMapper;
     private final HallCellMapper hallCellMapper;
+    private final org.dherhf.notification.service.NotificationService notificationService;
+    private final org.dherhf.order.mapper.OrderMapper orderMapper;
+    private final SeatBitmapService seatBitmapService;
 
     @Override
     @Transactional
     public ScheduleVO createSchedule(ScheduleCreateDTO dto) {
         Movie movie = movieMapper.selectById(dto.getMovieId());
-        if (movie == null || movie.getStatus() != 1) {
+        if (movie == null || movie.getStatus() != MovieStatus.ONLINE.getCode()) {
             throw new BusinessException(400, "影片不存在或未上架");
         }
 
         Cinema cinema = cinemaMapper.selectById(dto.getCinemaId());
-        if (cinema == null || cinema.getStatus() != 1) {
+        if (cinema == null || cinema.getStatus() != CinemaStatus.OPEN.getCode()) {
             throw new BusinessException(400, "影院不存在或已停业");
         }
 
         Hall hall = hallMapper.selectById(dto.getHallId());
-        if (hall == null || hall.getStatus() != 1 || !hall.getCinemaId().equals(dto.getCinemaId())) {
+        if (hall == null || hall.getStatus() != HallStatus.ACTIVE.getCode() || !hall.getCinemaId().equals(dto.getCinemaId())) {
             throw new BusinessException(400, "影厅不存在或未启用");
         }
 
@@ -88,7 +99,7 @@ public class ScheduleServiceImpl implements ScheduleService {
         BeanUtils.copyProperties(dto, schedule);
         schedule.setEndTime(endTime);
         schedule.setTotalSeats(seatCells.size());
-        schedule.setStatus("onsale");
+        schedule.setStatus(ScheduleStatus.ON_SALE.getCode());
         scheduleMapper.insert(schedule);
 
         // 批量生成场次座位
@@ -98,12 +109,13 @@ public class ScheduleServiceImpl implements ScheduleService {
                     .scheduleId(schedule.getId())
                     .hallCellId(cell.getId())
                     .seatIndex(seatIndex++)
-                    .status("available")
+                    .status(ScheduleSeatStatus.AVAILABLE.getCode())
                     .build();
             scheduleSeatMapper.insert(ss);
         }
 
-        // TODO: 初始化 Redis Bitmap (schedule:seat:occupied:{scheduleId}, schedule:seat:sold:{scheduleId})
+        // 初始化 Redis Bitmap (全 0)
+        seatBitmapService.initBitmap(schedule.getId(), seatCells.size());
 
         ScheduleVO vo = new ScheduleVO();
         BeanUtils.copyProperties(schedule, vo);
@@ -117,7 +129,7 @@ public class ScheduleServiceImpl implements ScheduleService {
         if (schedule == null) {
             throw new BusinessException(404, "场次不存在");
         }
-        if (!"onsale".equals(schedule.getStatus())) {
+        if (!ScheduleStatus.ON_SALE.getCode().equals(schedule.getStatus())) {
             throw new BusinessException(409, "仅可售场次可修改");
         }
 
@@ -125,7 +137,7 @@ public class ScheduleServiceImpl implements ScheduleService {
         Long soldCount = scheduleSeatMapper.selectCount(
                 new LambdaQueryWrapper<ScheduleSeat>()
                         .eq(ScheduleSeat::getScheduleId, id)
-                        .eq(ScheduleSeat::getStatus, "sold"));
+                        .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.SOLD.getCode()));
 
         boolean coreFieldChanged = isCoreFieldChanged(schedule, dto);
 
@@ -167,12 +179,15 @@ public class ScheduleServiceImpl implements ScheduleService {
                         .scheduleId(id)
                         .hallCellId(cell.getId())
                         .seatIndex(seatIndex++)
-                        .status("available")
+                        .status(ScheduleSeatStatus.AVAILABLE.getCode())
                         .build();
                 scheduleSeatMapper.insert(ss);
             }
 
-            // TODO: 重建 Redis Bitmap
+            // 重建 Redis Bitmap
+            List<ScheduleSeat> newSeats = scheduleSeatMapper.selectList(
+                    new LambdaQueryWrapper<ScheduleSeat>().eq(ScheduleSeat::getScheduleId, id));
+            seatBitmapService.rebuildBitmap(id, newSeats);
         }
 
         if (dto.getShowDate() != null) schedule.setShowDate(dto.getShowDate());
@@ -196,35 +211,51 @@ public class ScheduleServiceImpl implements ScheduleService {
         if (schedule == null) {
             throw new BusinessException(404, "场次不存在");
         }
-        if (!"onsale".equals(schedule.getStatus())) {
+        if (!ScheduleStatus.ON_SALE.getCode().equals(schedule.getStatus())) {
             throw new BusinessException(409, "仅可取消在售场次");
         }
 
         Long soldCount = scheduleSeatMapper.selectCount(
                 new LambdaQueryWrapper<ScheduleSeat>()
                         .eq(ScheduleSeat::getScheduleId, id)
-                        .eq(ScheduleSeat::getStatus, "sold"));
+                        .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.SOLD.getCode()));
         if (soldCount > 0) {
             throw new BusinessException(409, "已有售票，不可取消");
         }
 
-        schedule.setStatus("cancelled");
+        schedule.setStatus(ScheduleStatus.CANCELLED.getCode());
         scheduleMapper.updateById(schedule);
 
         // 释放所有锁定座位
         List<ScheduleSeat> lockedSeats = scheduleSeatMapper.selectList(
                 new LambdaQueryWrapper<ScheduleSeat>()
                         .eq(ScheduleSeat::getScheduleId, id)
-                        .eq(ScheduleSeat::getStatus, "locked"));
+                        .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.LOCKED.getCode()));
         for (ScheduleSeat ss : lockedSeats) {
-            ss.setStatus("available");
+            ss.setStatus(ScheduleSeatStatus.AVAILABLE.getCode());
             ss.setLockedAt(null);
             ss.setOrderId(null);
             scheduleSeatMapper.updateById(ss);
         }
 
-        // TODO: 通知取消关联的未支付订单（异步/事件）
-        // TODO: 删除 Redis Bitmap 缓存
+        // 通知取消关联的未支付订单
+        List<org.dherhf.order.entity.Order> pendingOrders = orderMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<org.dherhf.order.entity.Order>()
+                        .eq(org.dherhf.order.entity.Order::getScheduleId, id)
+                        .eq(org.dherhf.order.entity.Order::getStatus, org.dherhf.order.enums.OrderStatus.PENDING.getCode()));
+        for (org.dherhf.order.entity.Order order : pendingOrders) {
+            order.setStatus(org.dherhf.order.enums.OrderStatus.CANCELLED.getCode());
+            order.setCancelledAt(java.time.LocalDateTime.now());
+            order.setCancelReason("场次已取消");
+            orderMapper.updateById(order);
+            notificationService.sendNotification(
+                    order.getUserId(), "SCHEDULE_CHANGE", "场次已取消",
+                    "您预订的《" + order.getMovieName() + "》场次已取消，座位已释放。",
+                    order.getId());
+        }
+
+        // 删除 Redis Bitmap 缓存
+        seatBitmapService.deleteBitmap(id);
     }
 
     @Override
@@ -234,29 +265,30 @@ public class ScheduleServiceImpl implements ScheduleService {
         if (schedule == null) {
             throw new BusinessException(404, "场次不存在");
         }
-        if ("ended".equals(schedule.getStatus())) {
+        if (ScheduleStatus.ENDED.getCode().equals(schedule.getStatus())) {
             return;
         }
-        if (!"onsale".equals(schedule.getStatus())) {
+        if (!ScheduleStatus.ON_SALE.getCode().equals(schedule.getStatus())) {
             throw new BusinessException(409, "仅可结束在售场次");
         }
 
-        schedule.setStatus("ended");
+        schedule.setStatus(ScheduleStatus.ENDED.getCode());
         scheduleMapper.updateById(schedule);
 
         // 释放锁定座位
         List<ScheduleSeat> lockedSeats = scheduleSeatMapper.selectList(
                 new LambdaQueryWrapper<ScheduleSeat>()
                         .eq(ScheduleSeat::getScheduleId, id)
-                        .eq(ScheduleSeat::getStatus, "locked"));
+                        .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.LOCKED.getCode()));
         for (ScheduleSeat ss : lockedSeats) {
-            ss.setStatus("available");
+            ss.setStatus(ScheduleSeatStatus.AVAILABLE.getCode());
             ss.setLockedAt(null);
             ss.setOrderId(null);
             scheduleSeatMapper.updateById(ss);
         }
 
-        // TODO: 删除 Redis Bitmap 缓存
+        // 删除 Redis Bitmap 缓存
+        seatBitmapService.deleteBitmap(id);
     }
 
     @Override
@@ -291,7 +323,7 @@ public class ScheduleServiceImpl implements ScheduleService {
     public PageResult<ScheduleListVO> userList(String movieName, Long cinemaId, String showDate, Integer page, Integer size) {
         Page<Schedule> pageParam = new Page<>(page, size);
         LambdaQueryWrapper<Schedule> wrapper = new LambdaQueryWrapper<Schedule>()
-                .eq(Schedule::getStatus, "onsale")
+                .eq(Schedule::getStatus, ScheduleStatus.ON_SALE.getCode())
                 .eq(cinemaId != null, Schedule::getCinemaId, cinemaId)
                 .eq(showDate != null && !showDate.isBlank(), Schedule::getShowDate, showDate != null ? LocalDate.parse(showDate) : null)
                 .ge(Schedule::getShowDate, LocalDate.now())
@@ -318,7 +350,7 @@ public class ScheduleServiceImpl implements ScheduleService {
     @Override
     public ScheduleDetailVO userDetail(Long id) {
         Schedule schedule = scheduleMapper.selectById(id);
-        if (schedule == null || !"onsale".equals(schedule.getStatus())) {
+        if (schedule == null || !ScheduleStatus.ON_SALE.getCode().equals(schedule.getStatus())) {
             throw new BusinessException(404, "场次不存在");
         }
         return toDetailVO(schedule);
@@ -327,7 +359,7 @@ public class ScheduleServiceImpl implements ScheduleService {
     @Override
     public SeatMapVO getSeatMap(Long id) {
         Schedule schedule = scheduleMapper.selectById(id);
-        if (schedule == null || !"onsale".equals(schedule.getStatus())) {
+        if (schedule == null || !ScheduleStatus.ON_SALE.getCode().equals(schedule.getStatus())) {
             throw new BusinessException(404, "场次不存在");
         }
 
@@ -368,13 +400,32 @@ public class ScheduleServiceImpl implements ScheduleService {
                     .seatLabel(seatLabel)
                     .seatCategory(seatCategory)
                     .build();
-            if ("available".equals(ss.getStatus())) {
+            if (ScheduleSeatStatus.AVAILABLE.getCode().equals(ss.getStatus())) {
                 availableCount++;
             }
             seats.add(seatVO);
         }
 
-        // TODO: 座位状态优先从 Redis Bitmap 获取，缓存未命中时从 MySQL 重建并回写
+        // 座位状态优先从 Redis Bitmap 获取，缓存未命中时从 MySQL 重建并回写
+        if (seatBitmapService.bitmapExists(id)) {
+            availableCount = 0;
+            for (SeatVO seatVO : seats) {
+                String status = seatBitmapService.getSeatStatus(id, seatVO.getSeatIndex());
+                if (status != null) {
+                    seatVO.setStatus(status);
+                    if (ScheduleSeatStatus.AVAILABLE.getCode().equals(status)) {
+                        availableCount++;
+                    }
+                } else {
+                    if (ScheduleSeatStatus.AVAILABLE.getCode().equals(seatVO.getStatus())) {
+                        availableCount++;
+                    }
+                }
+            }
+        } else {
+            // 缓存未命中，从 MySQL 重建并回写
+            seatBitmapService.rebuildBitmap(id, scheduleSeats);
+        }
 
         return SeatMapVO.builder()
                 .scheduleId(id)
@@ -387,12 +438,72 @@ public class ScheduleServiceImpl implements ScheduleService {
                 .build();
     }
 
+    @Override
+    @Transactional
+    public void autoEndExpiredSchedules() {
+        LocalDate today = LocalDate.now();
+        LocalTime now = LocalTime.now();
+
+        List<Schedule> expired = scheduleMapper.selectList(
+                new LambdaQueryWrapper<Schedule>()
+                        .eq(Schedule::getStatus, ScheduleStatus.ON_SALE.getCode())
+                        .and(w -> w
+                                .lt(Schedule::getShowDate, today)
+                                .or(o -> o
+                                        .eq(Schedule::getShowDate, today)
+                                        .le(Schedule::getEndTime, now))));
+
+        for (Schedule schedule : expired) {
+            try {
+                schedule.setStatus(ScheduleStatus.ENDED.getCode());
+                scheduleMapper.updateById(schedule);
+
+                List<ScheduleSeat> lockedSeats = scheduleSeatMapper.selectList(
+                        new LambdaQueryWrapper<ScheduleSeat>()
+                                .eq(ScheduleSeat::getScheduleId, schedule.getId())
+                                .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.LOCKED.getCode()));
+                for (ScheduleSeat ss : lockedSeats) {
+                    ss.setStatus(ScheduleSeatStatus.AVAILABLE.getCode());
+                    ss.setLockedAt(null);
+                    ss.setOrderId(null);
+                    scheduleSeatMapper.updateById(ss);
+                }
+
+                List<org.dherhf.order.entity.Order> pendingOrders = orderMapper.selectList(
+                        new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<org.dherhf.order.entity.Order>()
+                                .eq(org.dherhf.order.entity.Order::getScheduleId, schedule.getId())
+                                .eq(org.dherhf.order.entity.Order::getStatus, org.dherhf.order.enums.OrderStatus.PENDING.getCode()));
+                for (org.dherhf.order.entity.Order order : pendingOrders) {
+                    order.setStatus(org.dherhf.order.enums.OrderStatus.CANCELLED.getCode());
+                    order.setCancelledAt(java.time.LocalDateTime.now());
+                    order.setCancelReason("场次已结束");
+                    orderMapper.updateById(order);
+                    notificationService.sendNotification(
+                            order.getUserId(), "TIMEOUT_CANCEL", "场次已结束",
+                            "您预订的《" + order.getMovieName() + "》场次已结束，待支付订单已自动取消。",
+                            order.getId());
+                }
+            } catch (Exception e) {
+                log.error("Error auto-ending schedule {}", schedule.getId(), e);
+            }
+        }
+
+        if (!expired.isEmpty()) {
+            log.info("Auto-ended {} expired schedules", expired.size());
+        }
+    }
+
+    @Scheduled(fixedRate = 60000)
+    public void scanExpiredSchedules() {
+        autoEndExpiredSchedules();
+    }
+
     private void checkConflict(Long hallId, LocalDate showDate, LocalTime startTime, LocalTime endTime, Long excludeId) {
         List<Schedule> conflicts = scheduleMapper.selectList(
                 new LambdaQueryWrapper<Schedule>()
                         .eq(Schedule::getHallId, hallId)
                         .eq(Schedule::getShowDate, showDate)
-                        .eq(Schedule::getStatus, "onsale")
+                        .eq(Schedule::getStatus, ScheduleStatus.ON_SALE.getCode())
                         .ne(excludeId != null, Schedule::getId, excludeId)
                         .lt(Schedule::getStartTime, endTime)
                         .gt(Schedule::getEndTime, startTime));
@@ -423,20 +534,26 @@ public class ScheduleServiceImpl implements ScheduleService {
         Hall hall = hallMapper.selectById(schedule.getHallId());
         if (hall != null) vo.setHallName(hall.getName());
 
-        // 统计座位
-        // TODO: 优先从 Redis Bitmap BITCOUNT 获取
-        Long lockedCount = scheduleSeatMapper.selectCount(
-                new LambdaQueryWrapper<ScheduleSeat>()
-                        .eq(ScheduleSeat::getScheduleId, schedule.getId())
-                        .eq(ScheduleSeat::getStatus, "locked"));
-        Long soldCount = scheduleSeatMapper.selectCount(
-                new LambdaQueryWrapper<ScheduleSeat>()
-                        .eq(ScheduleSeat::getScheduleId, schedule.getId())
-                        .eq(ScheduleSeat::getStatus, "sold"));
+        // 优先从 Redis Bitmap BITCOUNT 获取
+        long occupiedCount = seatBitmapService.getOccupiedCount(schedule.getId());
+        long soldCount = seatBitmapService.getSoldCount(schedule.getId());
+        if (occupiedCount < 0 || soldCount < 0) {
+            // 缓存未命中，降级查 MySQL
+            Long lockedCount = scheduleSeatMapper.selectCount(
+                    new LambdaQueryWrapper<ScheduleSeat>()
+                            .eq(ScheduleSeat::getScheduleId, schedule.getId())
+                            .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.LOCKED.getCode()));
+            Long soldCountDb = scheduleSeatMapper.selectCount(
+                    new LambdaQueryWrapper<ScheduleSeat>()
+                            .eq(ScheduleSeat::getScheduleId, schedule.getId())
+                            .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.SOLD.getCode()));
+            occupiedCount = lockedCount + soldCountDb;
+            soldCount = soldCountDb;
+        }
 
-        int occupied = lockedCount.intValue() + soldCount.intValue();
+        int occupied = (int) occupiedCount;
         vo.setAvailableSeats(schedule.getTotalSeats() - occupied);
-        vo.setSoldSeats(soldCount.intValue());
+        vo.setSoldSeats((int) soldCount);
         if (schedule.getTotalSeats() > 0) {
             vo.setOccupancyRate((double) soldCount / schedule.getTotalSeats());
         }
@@ -467,19 +584,30 @@ public class ScheduleServiceImpl implements ScheduleService {
             vo.setHallScreenType(hall.getScreenType());
         }
 
-        // TODO: 优先从 Redis Bitmap 获取
-        Long lockedCount = scheduleSeatMapper.selectCount(
-                new LambdaQueryWrapper<ScheduleSeat>()
-                        .eq(ScheduleSeat::getScheduleId, schedule.getId())
-                        .eq(ScheduleSeat::getStatus, "locked"));
-        Long soldCount = scheduleSeatMapper.selectCount(
-                new LambdaQueryWrapper<ScheduleSeat>()
-                        .eq(ScheduleSeat::getScheduleId, schedule.getId())
-                        .eq(ScheduleSeat::getStatus, "sold"));
+        // 优先从 Redis Bitmap 获取
+        long occupiedCount = seatBitmapService.getOccupiedCount(schedule.getId());
+        long soldCount = seatBitmapService.getSoldCount(schedule.getId());
+        if (occupiedCount < 0 || soldCount < 0) {
+            // 缓存未命中，降级查 MySQL
+            Long lockedCount = scheduleSeatMapper.selectCount(
+                    new LambdaQueryWrapper<ScheduleSeat>()
+                            .eq(ScheduleSeat::getScheduleId, schedule.getId())
+                            .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.LOCKED.getCode()));
+            Long soldCountDb = scheduleSeatMapper.selectCount(
+                    new LambdaQueryWrapper<ScheduleSeat>()
+                            .eq(ScheduleSeat::getScheduleId, schedule.getId())
+                            .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.SOLD.getCode()));
+            occupiedCount = lockedCount + soldCountDb;
+            soldCount = soldCountDb;
+            long lockedCountLong = lockedCount;
+            vo.setLockedSeats((int) lockedCountLong);
+        } else {
+            long soldCountFromBitmap = soldCount;
+            vo.setLockedSeats((int) (occupiedCount - soldCountFromBitmap));
+        }
 
-        vo.setLockedSeats(lockedCount.intValue());
-        vo.setSoldSeats(soldCount.intValue());
-        vo.setAvailableSeats(schedule.getTotalSeats() - lockedCount.intValue() - soldCount.intValue());
+        vo.setSoldSeats((int) soldCount);
+        vo.setAvailableSeats(schedule.getTotalSeats() - (int) occupiedCount);
         if (schedule.getTotalSeats() > 0) {
             vo.setOccupancyRate((double) soldCount / schedule.getTotalSeats());
         }

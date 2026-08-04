@@ -1,4 +1,4 @@
-export { default as HallPage } from './HallPage';
+export { HallPage } from './HallPage';
 export {
   useHallStore,
   HALL_TYPES,
@@ -11,4 +11,4 @@ export {
   addCol,
   removeCol,
 } from './store';
-export type { SeatItem, HallItem } from './types';
+export type { SeatItem, HallItem, HallFormValues } from './types';

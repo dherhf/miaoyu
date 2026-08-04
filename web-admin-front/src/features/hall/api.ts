@@ -20,29 +20,28 @@ export type {
   LayoutSaveResult,
 } from './types';
 
-// ===================== API =====================
+export const hallApi = {
+  /** 查询影厅列表 */
+  getHallList: (params: HallListParams): Promise<PageResult<HallRecord>> =>
+    request.get('/halls', { params }),
 
-/** 查询影厅列表 */
-export function getHallList(params: HallListParams): Promise<PageResult<HallRecord>> {
-  return request.get('/halls', { params });
-}
+  /** 查询影厅详情（含座位布局） */
+  getHallDetail: (id: string): Promise<HallDetail> =>
+    request.get(`/halls/${id}`),
 
-/** 查询影厅详情（含座位布局） */
-export function getHallDetail(id: number): Promise<HallDetail> {
-  return request.get(`/halls/${id}`);
-}
+  /** 新增影厅 */
+  createHall: (data: HallCreateParams): Promise<HallRecord> =>
+    request.post('/halls', data),
 
-/** 新增影厅 */
-export function createHall(data: HallCreateParams): Promise<HallRecord> {
-  return request.post('/halls', data);
-}
+  /** 修改影厅基础信息 */
+  updateHall: (id: number, data: HallUpdateParams): Promise<HallRecord> =>
+    request.put(`/halls/${id}`, data),
 
-/** 修改影厅基础信息 */
-export function updateHall(id: number, data: HallUpdateParams): Promise<HallRecord> {
-  return request.put(`/halls/${id}`, data);
-}
+  /** 保存/更新影厅座位布局 */
+  saveHallLayout: (id: number, data: LayoutSaveParams): Promise<LayoutSaveResult> =>
+    request.put(`/halls/${id}/layout`, data),
 
-/** 保存/更新影厅座位布局 */
-export function saveHallLayout(id: number, data: LayoutSaveParams): Promise<LayoutSaveResult> {
-  return request.put(`/halls/${id}/layout`, data);
-}
+  /** 删除影厅 */
+  deleteHall: (id: string): Promise<null> =>
+    request.delete(`/halls/${id}`),
+};

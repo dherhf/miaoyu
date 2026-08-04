@@ -1,6 +1,6 @@
 /** 影院列表记录 */
 export interface CinemaRecord {
-  id: number;
+  id: string;
   name: string;
   address: string;
   longitude: number;
@@ -42,7 +42,7 @@ export type CinemaStatus = 'active' | 'closed';
 
 /** 影院条目（Store / 页面展示用） */
 export interface CinemaItem {
-  id: number;
+  id: string;
   name: string;
   address: string;
   longitude: number;

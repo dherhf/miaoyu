@@ -47,6 +47,12 @@ class ScheduleServiceTest {
     private HallMapper hallMapper;
     @Mock
     private HallCellMapper hallCellMapper;
+    @Mock
+    private org.dherhf.notification.service.NotificationService notificationService;
+    @Mock
+    private org.dherhf.order.mapper.OrderMapper orderMapper;
+    @Mock
+    private SeatBitmapService seatBitmapService;
 
     @InjectMocks
     private ScheduleServiceImpl scheduleService;

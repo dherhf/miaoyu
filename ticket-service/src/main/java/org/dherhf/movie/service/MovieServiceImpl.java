@@ -8,7 +8,9 @@ import org.dherhf.common.exception.BusinessException;
 import org.dherhf.common.result.PageResult;
 import org.dherhf.common.util.OssUtil;
 import org.dherhf.movie.entity.Movie;
+import org.dherhf.movie.enums.MovieStatus;
 import org.dherhf.schedule.entity.Schedule;
+import org.dherhf.schedule.enums.ScheduleStatus;
 import org.dherhf.movie.mapper.MovieMapper;
 import org.dherhf.schedule.mapper.ScheduleMapper;
 import org.dherhf.order.dto.BatchIdsDTO;
@@ -42,7 +44,7 @@ public class MovieServiceImpl implements MovieService {
 
         Movie movie = new Movie();
         BeanUtils.copyProperties(dto, movie);
-        movie.setStatus(0);
+        movie.setStatus(MovieStatus.OFFLINE.getCode());
         movieMapper.insert(movie);
 
         return toVO(movie);
@@ -82,10 +84,10 @@ public class MovieServiceImpl implements MovieService {
         if (movie == null) {
             throw new BusinessException(404, "影片不存在");
         }
-        if (movie.getStatus() == 1) {
+        if (movie.getStatus() == MovieStatus.ONLINE.getCode()) {
             return;
         }
-        movie.setStatus(1);
+        movie.setStatus(MovieStatus.ONLINE.getCode());
         movieMapper.updateById(movie);
     }
 
@@ -95,20 +97,20 @@ public class MovieServiceImpl implements MovieService {
         if (movie == null) {
             throw new BusinessException(404, "影片不存在");
         }
-        if (movie.getStatus() == 0) {
-            return;
+        if (movie.getStatus() == MovieStatus.OFFLINE.getCode()) {
+            throw new BusinessException(409, "影片已下架");
         }
 
         Long activeScheduleCount = scheduleMapper.selectCount(
                 new LambdaQueryWrapper<Schedule>()
                         .eq(Schedule::getMovieId, id)
-                        .eq(Schedule::getStatus, "onsale")
+                        .eq(Schedule::getStatus, ScheduleStatus.ON_SALE.getCode())
                         .ge(Schedule::getShowDate, LocalDate.now()));
         if (activeScheduleCount > 0) {
             throw new BusinessException(409, "影片存在未放映场次，无法下架");
         }
 
-        movie.setStatus(0);
+        movie.setStatus(MovieStatus.OFFLINE.getCode());
         movieMapper.updateById(movie);
     }
 
@@ -144,24 +146,11 @@ public class MovieServiceImpl implements MovieService {
 
     @Override
     public PageResult<MovieListVO> adminList(String keyword, String type, Integer status, Integer page, Integer size, String sort) {
-        Page<Movie> pageParam = new Page<>(page, size);
         LambdaQueryWrapper<Movie> wrapper = new LambdaQueryWrapper<Movie>()
                 .and(keyword != null && !keyword.isBlank(), w -> w.like(Movie::getName, keyword))
                 .eq(status != null, Movie::getStatus, status);
 
-        if ("rating_desc".equals(sort)) {
-            wrapper.orderByDesc(Movie::getRating);
-        } else {
-            wrapper.orderByDesc(Movie::getReleaseDate);
-        }
-
-        IPage<Movie> result = movieMapper.selectPage(pageParam, wrapper);
-        List<MovieListVO> records = result.getRecords().stream()
-                .filter(m -> type == null || type.isBlank() || (m.getTypes() != null && m.getTypes().contains(type)))
-                .map(this::toListVO)
-                .collect(Collectors.toList());
-
-        return new PageResult<>(result.getTotal(), page, size, records);
+        return queryAndPaged(wrapper, type, page, size, sort);
     }
 
     @Override
@@ -175,30 +164,17 @@ public class MovieServiceImpl implements MovieService {
 
     @Override
     public PageResult<MovieListVO> userList(String keyword, String type, Integer page, Integer size, String sort) {
-        Page<Movie> pageParam = new Page<>(page, size);
         LambdaQueryWrapper<Movie> wrapper = new LambdaQueryWrapper<Movie>()
-                .eq(Movie::getStatus, 1)
+                .eq(Movie::getStatus, MovieStatus.ONLINE.getCode())
                 .and(keyword != null && !keyword.isBlank(), w -> w.like(Movie::getName, keyword));
 
-        if ("rating_desc".equals(sort)) {
-            wrapper.orderByDesc(Movie::getRating);
-        } else {
-            wrapper.orderByDesc(Movie::getReleaseDate);
-        }
-
-        IPage<Movie> result = movieMapper.selectPage(pageParam, wrapper);
-        List<MovieListVO> records = result.getRecords().stream()
-                .filter(m -> type == null || type.isBlank() || (m.getTypes() != null && m.getTypes().contains(type)))
-                .map(this::toListVO)
-                .collect(Collectors.toList());
-
-        return new PageResult<>(result.getTotal(), page, size, records);
+        return queryAndPaged(wrapper, type, page, size, sort);
     }
 
     @Override
     public MovieVO userDetail(Long id) {
         Movie movie = movieMapper.selectById(id);
-        if (movie == null || movie.getStatus() != 1) {
+        if (movie == null || movie.getStatus() != MovieStatus.ONLINE.getCode()) {
             throw new BusinessException(404, "影片不存在");
         }
         return toVO(movie);
@@ -216,5 +192,21 @@ public class MovieServiceImpl implements MovieService {
         BeanUtils.copyProperties(movie, vo);
         vo.setPosterUrl(ossUtil.generateSignedUrl(movie.getPosterUrl(), 3600));
         return vo;
+    }
+
+    private PageResult<MovieListVO> queryAndPaged(LambdaQueryWrapper<Movie> wrapper, String type, Integer page, Integer size, String sort) {
+        if ("rating_desc".equals(sort)) {
+            wrapper.orderByDesc(Movie::getRating);
+        } else {
+            wrapper.orderByDesc(Movie::getReleaseDate);
+        }
+
+        IPage<Movie> result = movieMapper.selectPage(new Page<>(page, size), wrapper);
+        List<MovieListVO> records = result.getRecords().stream()
+                .filter(m -> type == null || type.isBlank() || (m.getTypes() != null && m.getTypes().contains(type)))
+                .map(this::toListVO)
+                .collect(Collectors.toList());
+
+        return new PageResult<>(result.getTotal(), page, size, records);
     }
 }
