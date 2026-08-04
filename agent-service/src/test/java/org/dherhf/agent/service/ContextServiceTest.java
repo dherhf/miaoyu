@@ -9,17 +9,16 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
-import org.springframework.data.redis.core.types.Expiration;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.bson.Document;
+import java.time.Duration;
 import java.util.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
@@ -35,12 +34,14 @@ class ContextServiceTest {
     @Mock
     private ValueOperations<String, String> valueOperations;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    @InjectMocks
     private ContextService contextService;
 
     @BeforeEach
     void setUp() {
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        contextService = new ContextService(redisTemplate, mongoTemplate, objectMapper);
+        ReflectionTestUtils.setField(contextService, "ttlSeconds", 86400L);
+        ReflectionTestUtils.setField(contextService, "historyWindow", TestConstants.HISTORY_MSG_WINDOW);
     }
 
     @Nested
@@ -49,7 +50,7 @@ class ContextServiceTest {
         @Test
         @DisplayName("Redis命中直接返回，不查Mongo")
         void redisHitSkipMongo() throws JsonProcessingException {
-            Map<String, Object> slot = Map.of("film", Map.of("movieId", 1L));
+            Map<String, Object> slot = Map.of("film", Map.of("movieId", 1));
             String json = objectMapper.writeValueAsString(slot);
             when(valueOperations.get(TestConstants.CONTEXT_REDIS_PREFIX + TestConstants.SESSION_ID)).thenReturn(json);
             Map<String, Object> res = contextService.loadSlotState(TestConstants.SESSION_ID);
@@ -65,7 +66,7 @@ class ContextServiceTest {
             when(mongoTemplate.findOne(any(Query.class), eq(Document.class), eq("chat_sessions"))).thenReturn(mongoDoc);
             Map<String, Object> res = contextService.loadSlotState(TestConstants.SESSION_ID);
             assertThat(res).containsKey("cinema");
-            verify(valueOperations).set(anyString(), anyString(), any(Expiration.class));
+            verify(valueOperations).set(anyString(), anyString(), any(Duration.class));
         }
 
         @Test
@@ -101,7 +102,9 @@ class ContextServiceTest {
             Map<String, Object> old = objectMapper.readValue(oldJson, Map.class);
             Map<String, Object> incoming = objectMapper.readValue(newJson, Map.class);
             Map<String, Object> merged = contextService.mergeSlots(old, incoming);
-            assertThat(merged).containsKey(expectKey.split("（")[0]);
+            for (String key : expectKey.split("（")[0].split(",")) {
+                assertThat(merged).containsKey(key.trim());
+            }
         }
 
         @Test

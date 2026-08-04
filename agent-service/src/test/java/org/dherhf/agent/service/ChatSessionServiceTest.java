@@ -11,10 +11,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.bson.Document;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -83,7 +82,7 @@ class ChatSessionServiceTest {
             List<ChatSessionDocument> list = chatSessionService.listSessions(TestConstants.USER_ID, 0, 20);
             assertThat(list).containsExactly(newDoc, old);
             verify(mongoTemplate).find(argThat(q ->
-                    ((Criteria) q.getQueryObject().get("userId")).equals(TestConstants.USER_ID)
+                    q.getQueryObject().get("userId").equals(TestConstants.USER_ID)
             ), eq(ChatSessionDocument.class));
         }
 
@@ -157,7 +156,7 @@ class ChatSessionServiceTest {
             chatSessionService.markCompleted(TestConstants.SESSION_ID);
             verify(mongoTemplate).updateFirst(
                     argThat(q -> q.getQueryObject().get("sessionId").equals(TestConstants.SESSION_ID)),
-                    argThat(u -> u.getUpdateObject().get("status").equals("COMPLETED")),
+                    argThat(u -> ((Document) u.getUpdateObject().get("$set")).get("status").equals("completed")),
                     eq(ChatSessionDocument.class)
             );
         }
