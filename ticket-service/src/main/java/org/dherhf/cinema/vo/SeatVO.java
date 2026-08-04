@@ -11,6 +11,7 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 public class SeatVO {
 
+    private Long hallCellId;
     private Integer seatIndex;
     private Integer rowIndex;
     private Integer colIndex;

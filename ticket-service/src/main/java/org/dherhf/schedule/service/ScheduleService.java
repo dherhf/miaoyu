@@ -22,7 +22,7 @@ public interface ScheduleService {
 
     ScheduleDetailVO adminDetail(Long id);
 
-    PageResult<ScheduleListVO> userList(String movieName, Long cinemaId, String showDate, Integer page, Integer size);
+    PageResult<ScheduleListVO> userList(Long movieId, String movieName, Long cinemaId, String showDate, Integer page, Integer size);
 
     ScheduleDetailVO userDetail(Long id);
 
