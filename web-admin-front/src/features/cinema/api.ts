@@ -22,7 +22,7 @@ export const cinemaApi = {
     request.post('/cinemas', data),
 
   /** 编辑影院 */
-  update: (id: number, data: CinemaCreateParams): Promise<CinemaDetail> =>
+  update: (id: string, data: CinemaCreateParams): Promise<CinemaDetail> =>
     request.put(`/cinemas/${id}`, data),
 
   /** 停业 */
@@ -32,8 +32,4 @@ export const cinemaApi = {
   /** 营业 */
   open: (id: string): Promise<null> =>
     request.put(`/cinemas/${id}/open`),
-
-  /** 删除影院 */
-  delete: (id: string): Promise<null> =>
-    request.delete(`/cinemas/${id}`),
 };
