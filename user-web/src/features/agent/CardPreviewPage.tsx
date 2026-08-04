@@ -7,6 +7,7 @@ import OrderConfirmCard from './components/Cards/OrderConfirmCard'
 import OrderSuccessCard from './components/Cards/OrderSuccessCard'
 import RecommendTipCard from './components/Cards/RecommendTipCard'
 import PendingOrderCard from './components/Cards/PendingOrderCard'
+import OrderListCard from './components/Cards/OrderListCard'
 import FallbackCard from './components/Cards/FallbackCard'
 import ErrorCardBoundary from './components/Cards/ErrorCardBoundary'
 import type { CardActionCallback } from './types'
@@ -19,6 +20,7 @@ import type {
   OrderSuccessCardData,
   RecommendTipCardData,
   PendingOrderCardData,
+  OrderListCardData,
 } from './types'
 
 // ---------- mock 数据 ----------
@@ -142,6 +144,40 @@ const mockPendingOrder: PendingOrderCardData = {
   remainingSeconds: 422,
 }
 
+const mockOrderList: OrderListCardData = {
+  total: 4,
+  orders: [
+    {
+      id: 501, orderNo: 'MY202408051430001', status: 'pending',
+      movieName: '流浪地球3', cinemaName: '万达影城（天河店）',
+      showDate: '2026-08-05', startTime: '14:30', seatInfo: '5排3座, 5排4座',
+      ticketCount: 2, totalAmount: 158,
+      createdAt: '2026-08-05T12:00:00Z',
+    },
+    {
+      id: 502, orderNo: 'MY202408031930001', status: 'paid',
+      movieName: '哪吒之魔童闹海', cinemaName: 'CGV影城（珠江新城店）',
+      showDate: '2026-08-03', startTime: '19:30', seatInfo: '8排10座, 8排11座',
+      ticketCount: 2, totalAmount: 178,
+      createdAt: '2026-08-03T18:45:00Z',
+    },
+    {
+      id: 503, orderNo: 'MY202408021500001', status: 'cancelled',
+      movieName: '封神第二部', cinemaName: '金逸影城（北京路店）',
+      showDate: '2026-08-02', startTime: '15:00', seatInfo: '3排7座',
+      ticketCount: 1, totalAmount: 69,
+      createdAt: '2026-08-02T10:30:00Z',
+    },
+    {
+      id: 504, orderNo: 'MY202407301800001', status: 'refunded',
+      movieName: '飞驰人生2', cinemaName: '万达影城（天河店）',
+      showDate: '2026-07-30', startTime: '18:00', seatInfo: '10排12座, 10排13座',
+      ticketCount: 2, totalAmount: 118,
+      createdAt: '2026-07-30T12:00:00Z',
+    },
+  ],
+}
+
 // ---------- noop callback ----------
 
 const noop: CardActionCallback = (text) => {
@@ -171,7 +207,7 @@ export default function CardPreviewPage() {
     <div style={{ maxWidth: 480, margin: '0 auto', padding: '24px 16px' }}>
       <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 8px' }}>🎨 卡片预览 Mock 页</h1>
       <p style={{ fontSize: 14, color: '#9ca3af', margin: '0 0 24px' }}>
-        展示全部 8 种卡片组件，无需登录、无需后端
+        展示全部 9 种卡片组件，无需登录、无需后端
       </p>
 
       <CardSection title="MovieListCard — 影片列表" anchor="movieList">
@@ -208,6 +244,10 @@ export default function CardPreviewPage() {
 
       <CardSection title="PendingOrderCard — 待支付浮层" anchor="pendingOrder">
         <PendingOrderCard data={mockPendingOrder} onAction={noop} />
+      </CardSection>
+
+      <CardSection title="OrderListCard — 订单查询列表" anchor="orderList">
+        <OrderListCard data={mockOrderList} onAction={noop} />
       </CardSection>
 
       <CardSection title="FallbackCard — 未知卡片类型兜底" anchor="fallback">

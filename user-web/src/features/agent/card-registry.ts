@@ -14,6 +14,7 @@ const OrderConfirmCard = lazy(() => import('./components/Cards/OrderConfirmCard'
 const OrderSuccessCard = lazy(() => import('./components/Cards/OrderSuccessCard'))
 const RecommendTipCard = lazy(() => import('./components/Cards/RecommendTipCard'))
 const PendingOrderCard = lazy(() => import('./components/Cards/PendingOrderCard'))
+const OrderListCard = lazy(() => import('./components/Cards/OrderListCard'))
 const FallbackCard = lazy(() => import('./components/Cards/FallbackCard'))
 
 registry.set('movieList', MovieListCard)
@@ -24,6 +25,7 @@ registry.set('orderConfirm', OrderConfirmCard)
 registry.set('orderSuccess', OrderSuccessCard)
 registry.set('recommendTip', RecommendTipCard)
 registry.set('pendingOrder', PendingOrderCard)
+registry.set('orderList', OrderListCard)
 
 /** 根据 cardType 获取对应组件，未注册则返回 FallbackCard */
 export function getCardComponent(type: CardType): CardComponent {

@@ -7,7 +7,8 @@ export type CardType =
   | "orderConfirm"
   | "orderSuccess"
   | "recommendTip"
-  | "pendingOrder";
+  | "pendingOrder"
+  | "orderList";
 
 // 影片卡片数据
 export interface MovieItem {
@@ -94,6 +95,25 @@ export type OrderSuccessCardData = {
   orderNo: string;
 };
 
+// 订单查询列表
+export interface OrderItem {
+  id: number;
+  orderNo: string;
+  status: "pending" | "paid" | "cancelled" | "refunded";
+  movieName: string;
+  cinemaName: string;
+  showDate: string;
+  startTime: string;
+  seatInfo: string;
+  ticketCount: number;
+  totalAmount: number;
+  createdAt: string;
+}
+export type OrderListCardData = {
+  orders: OrderItem[];
+  total: number;
+};
+
 // 推荐/异常卡片
 export interface RecommendItem {
   seatLabel?: string;
@@ -126,7 +146,8 @@ export type CardPayload =
   | { type: "orderConfirm"; data: OrderConfirmCardData }
   | { type: "orderSuccess"; data: OrderSuccessCardData }
   | { type: "recommendTip"; data: RecommendTipCardData }
-  | { type: "pendingOrder"; data: PendingOrderCardData };
+  | { type: "pendingOrder"; data: PendingOrderCardData }
+  | { type: "orderList"; data: OrderListCardData };
 
 // 单条消息结构
 export interface ChatMessage {
