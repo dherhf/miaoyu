@@ -32,28 +32,63 @@ import java.util.stream.Collectors;
 public class TicketTools {
 
     private final TicketServiceClient ticketClient;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     @Autowired
-    public TicketTools(TicketServiceClient ticketClient) {
+    public TicketTools(TicketServiceClient ticketClient,
+                       com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
         this.ticketClient = ticketClient;
+        this.objectMapper = objectMapper;
     }
 
-    // ========== ThreadLocal 上下文：当前会话的 userId ==========
+    // ========== ThreadLocal 上下文：当前会话的 userId / scheduleId / seatIds / ticketCount ==========
 
     private static final ThreadLocal<Long> CURRENT_USER_ID = new ThreadLocal<>();
     private static final ThreadLocal<Long> CURRENT_SCHEDULE_ID = new ThreadLocal<>();
     private static final ThreadLocal<List<Long>> CURRENT_SEAT_IDS = new ThreadLocal<>();
+    private static final ThreadLocal<Integer> CURRENT_TICKET_COUNT = new ThreadLocal<>();
 
-    public static void setContext(Long userId, Long scheduleId, List<Long> seatIds) {
+    // P1-c 修复：卡片缓冲区，工具方法返回的 CardPayload 自动入缓冲，
+    // 由 DialogueService 在 chat() 结束后 drainCards() 取出推送 SSE card 事件
+    private static final ThreadLocal<List<CardPayload>> CARD_BUFFER = new ThreadLocal<>();
+
+    public static void setContext(Long userId, Long scheduleId, List<Long> seatIds, Integer ticketCount) {
         CURRENT_USER_ID.set(userId);
         CURRENT_SCHEDULE_ID.set(scheduleId);
         CURRENT_SEAT_IDS.set(seatIds);
+        CURRENT_TICKET_COUNT.set(ticketCount);
+        CARD_BUFFER.set(new ArrayList<>());
     }
 
     public static void clearContext() {
         CURRENT_USER_ID.remove();
         CURRENT_SCHEDULE_ID.remove();
         CURRENT_SEAT_IDS.remove();
+        CURRENT_TICKET_COUNT.remove();
+        CARD_BUFFER.remove();
+    }
+
+    /**
+     * 取出并清空卡片缓冲区（由 DialogueService 在 LLM 回复后调用）。
+     */
+    public static List<CardPayload> drainCards() {
+        List<CardPayload> buffer = CARD_BUFFER.get();
+        if (buffer == null) {
+            return List.of();
+        }
+        CARD_BUFFER.set(new ArrayList<>());
+        return buffer;
+    }
+
+    /**
+     * 将工具产生的卡片加入缓冲区，同时返回该卡片。
+     */
+    private CardPayload emitCard(CardPayload card) {
+        List<CardPayload> buffer = CARD_BUFFER.get();
+        if (buffer != null) {
+            buffer.add(card);
+        }
+        return card;
     }
 
     private Long requireUserId() {
@@ -75,10 +110,10 @@ public class TicketTools {
         Result<Object> result = ticketClient.searchMovies(keyword, type);
         if (result.getCode() != 0) {
             log.warn("[Tool:searchMovies] 查询失败: {}", result.getMessage());
-            return CardPayload.builder()
+            return emitCard(CardPayload.builder()
                     .cardType("movie_list")
                     .cardData(Map.of("movies", List.of(), "error", result.getMessage()))
-                    .build();
+                    .build());
         }
         List<MovieRow> movies = extractRows(result.getData(), "movies", MovieRow.class);
         List<CardPayload.MovieCard> cards = movies.stream()
@@ -91,7 +126,7 @@ public class TicketTools {
                         .duration(m.getDuration())
                         .build())
                 .collect(Collectors.toList());
-        return CardPayload.movieList(cards);
+        return emitCard(CardPayload.movieList(cards));
     }
 
     @Tool("根据名称或设施查询影院列表。用户选定影片后或主动询问影院时调用。返回影院卡片数据。")
@@ -103,10 +138,10 @@ public class TicketTools {
         Result<Object> result = ticketClient.searchCinemas(keyword, facilities);
         if (result.getCode() != 0) {
             log.warn("[Tool:searchCinemas] 查询失败: {}", result.getMessage());
-            return CardPayload.builder()
+            return emitCard(CardPayload.builder()
                     .cardType("cinema_list")
                     .cardData(Map.of("cinemas", List.of(), "error", result.getMessage()))
-                    .build();
+                    .build());
         }
         List<CinemaRow> cinemas = extractRows(result.getData(), "cinemas", CinemaRow.class);
         List<CardPayload.CinemaCard> cards = cinemas.stream()
@@ -119,7 +154,7 @@ public class TicketTools {
                         .rating(c.getRating())
                         .build())
                 .collect(Collectors.toList());
-        return CardPayload.cinemaList(cards);
+        return emitCard(CardPayload.cinemaList(cards));
     }
 
     @Tool("查询场次列表。用户选定影片和影院后调用，根据 movieId+cinemaId+date 获取可售场次。返回场次卡片数据。")
@@ -132,10 +167,10 @@ public class TicketTools {
         Result<Object> result = ticketClient.searchSessions(movieId, cinemaId, date);
         if (result.getCode() != 0) {
             log.warn("[Tool:querySessions] 查询失败: {}", result.getMessage());
-            return CardPayload.builder()
+            return emitCard(CardPayload.builder()
                     .cardType("session_list")
                     .cardData(Map.of("sessions", List.of(), "error", result.getMessage()))
-                    .build();
+                    .build());
         }
         List<SessionRow> sessions = extractRows(result.getData(), "sessions", SessionRow.class);
         List<CardPayload.SessionCard> cards = sessions.stream()
@@ -150,7 +185,7 @@ public class TicketTools {
                         .availableSeats(s.getAvailableSeats())
                         .build())
                 .collect(Collectors.toList());
-        return CardPayload.sessionList(cards);
+        return emitCard(CardPayload.sessionList(cards));
     }
 
     @Tool("获取座位图。用户选定场次后调用，返回全部座位状态（available/locked/sold）。")
@@ -161,15 +196,15 @@ public class TicketTools {
         Result<Object> result = ticketClient.getSeatMap(scheduleId);
         if (result.getCode() != 0) {
             log.warn("[Tool:getSeatMap] 查询失败: {}", result.getMessage());
-            return CardPayload.builder()
+            return emitCard(CardPayload.builder()
                     .cardType("seat_map")
                     .cardData(Map.of("error", result.getMessage()))
-                    .build();
+                    .build());
         }
-        return CardPayload.builder()
+        return emitCard(CardPayload.builder()
                 .cardType("seat_map")
                 .cardData(result.getData())
-                .build();
+                .build());
     }
 
     @Tool("查询当前用户的订单列表。用户表达查询/修改/退票意图时调用。")
@@ -178,18 +213,19 @@ public class TicketTools {
     ) {
         Long userId = requireUserId();
         log.info("[Tool:queryOrders] userId={}, status={}", userId, status);
-        Result<Object> result = ticketClient.queryUserOrders(userId);
+        // P1-b 修复：将 status 传给 ticketClient
+        Result<Object> result = ticketClient.queryUserOrders(userId, status);
         if (result.getCode() != 0) {
             log.warn("[Tool:queryOrders] 查询失败: {}", result.getMessage());
-            return CardPayload.builder()
+            return emitCard(CardPayload.builder()
                     .cardType("pending_order")
                     .cardData(Map.of("orders", List.of(), "error", result.getMessage()))
-                    .build();
+                    .build());
         }
-        return CardPayload.builder()
+        return emitCard(CardPayload.builder()
                 .cardType("pending_order")
                 .cardData(result.getData())
-                .build();
+                .build());
     }
 
     @Tool("锁座并创建订单。前端选座后由 Agent 调用，传入 userId+scheduleId+seatIds+ticketCount+requestId。返回订单确认卡片。")
@@ -200,21 +236,23 @@ public class TicketTools {
             @P("幂等请求ID，UUID 格式，前端生成") String requestId
     ) {
         Long userId = requireUserId();
+        // P1-a 修复：优先使用前端传入的 ticketCount，LLM 未提供时回退到上下文中的值
+        Integer effectiveTicketCount = ticketCount != null ? ticketCount : CURRENT_TICKET_COUNT.get();
         log.info("[Tool:lockAndCreateOrder] userId={}, scheduleId={}, seatIds={}, count={}, requestId={}",
-                userId, scheduleId, seatIds, ticketCount, requestId);
-        Result<Object> result = ticketClient.lockSeat(userId, scheduleId, seatIds, ticketCount, requestId);
+                userId, scheduleId, seatIds, effectiveTicketCount, requestId);
+        Result<Object> result = ticketClient.lockSeat(userId, scheduleId, seatIds, effectiveTicketCount, requestId);
         if (result.getCode() != 0) {
             log.warn("[Tool:lockAndCreateOrder] 锁座失败: {}", result.getMessage());
-            return CardPayload.builder()
+            return emitCard(CardPayload.builder()
                     .cardType("order_confirm")
                     .cardData(Map.of("error", result.getMessage()))
-                    .build();
+                    .build());
         }
         Map<String, Object> data = toMap(result.getData());
-        return CardPayload.builder()
+        return emitCard(CardPayload.builder()
                 .cardType("order_confirm")
                 .cardData(data)
-                .build();
+                .build());
     }
 
     @Tool("查询订单详情。用户询问订单状态或发起退票前调用。")
@@ -226,15 +264,15 @@ public class TicketTools {
         Result<Object> result = ticketClient.queryOrderDetail(orderId, userId);
         if (result.getCode() != 0) {
             log.warn("[Tool:queryOrderDetail] 查询失败: {}", result.getMessage());
-            return CardPayload.builder()
+            return emitCard(CardPayload.builder()
                     .cardType("order_success")
                     .cardData(Map.of("error", result.getMessage()))
-                    .build();
+                    .build());
         }
-        return CardPayload.builder()
+        return emitCard(CardPayload.builder()
                 .cardType("order_success")
                 .cardData(result.getData())
-                .build();
+                .build());
     }
 
     // ========== 内部工具方法 ==========
@@ -284,8 +322,7 @@ public class TicketTools {
         }
         if (item instanceof Map map) {
             try {
-                return new com.fasterxml.jackson.databind.ObjectMapper()
-                        .convertValue(map, clazz);
+                return objectMapper.convertValue(map, clazz);
             } catch (Exception ex) {
                 log.warn("[convert] 转换失败: {}", ex.getMessage());
                 return null;
