@@ -19,7 +19,7 @@ import type { CinemaFormValues } from './CinemaForm';
 import styles from './CinemaPage.module.css';
 
 export function CinemaManage() {
-  const actionRef = useRef<ActionType>();
+  const actionRef = useRef<ActionType>(null);
   const { fetchCinemas, addCinema, updateCinema, toggleCinemaStatus } = useCinemaStore();
   const { schedules } = useScheduleStore();
 
@@ -229,25 +229,20 @@ export function CinemaManage() {
         rowKey="id"
         columns={columns}
         request={async (params) => {
-          await fetchCinemas();
+          await fetchCinemas({
+            keyword: params.name || undefined,
+            status: params.status === 'active' ? 1 : params.status === 'closed' ? 0 : undefined,
+            page: params.current ?? 1,
+            size: params.pageSize ?? 10,
+          });
           const all = useCinemaStore.getState().cinemas;
-          let list: CinemaItem[] = [...all];
-          if (params.name) {
-            const kw = (params.name as string).toLowerCase();
-            list = list.filter(
-              (item) => item.name.toLowerCase().includes(kw) || item.address.toLowerCase().includes(kw),
-            );
-          }
-          if (params.status) {
-            list = list.filter((item) => item.status === params.status);
-          }
           return {
-            data: list,
+            data: all,
             success: true,
-            total: list.length,
+            total: useCinemaStore.getState().total ?? all.length,
           };
         }}
-        search={{ labelWidth: 'auto' }}
+        search={{ labelWidth: 'auto', span: 6, defaultCollapsed: false }}
         pagination={{ pageSize: 10 }}
         bordered
         scroll={{ x: 'max-content' }}
