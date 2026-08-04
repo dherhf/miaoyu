@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="400" height="400">
+  <!-- 带圆角的红色方形背景 -->
+  <rect x="10" y="10" width="180" height="180" rx="30" ry="30" fill="#D32F2F" />
+  
+  <!-- 居中的白色“妙”字，字体为微软雅黑，加粗显示 -->
+  <text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" font-family="'Microsoft YaHei', '微软雅黑', sans-serif" font-size="120" font-weight="bold" fill="#FFFFFF">妙</text>
+</svg>

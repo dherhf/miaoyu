@@ -1,0 +1,146 @@
+@import "tailwindcss";
+
+@theme {
+  --color-muted: #6b6375;
+  --color-heading: #08060d;
+  --color-surface: #ffffff;
+  --color-border: #e5e4e7;
+  --color-code-bg: #f4f3ec;
+  --color-accent: #aa3bff;
+  --color-accent-soft: rgba(170, 59, 255, 0.1);
+  --color-accent-line: rgba(170, 59, 255, 0.5);
+  --color-surface-alt: rgba(244, 243, 236, 0.5);
+  --color-rating: #f5a623;
+  --color-danger: #e8553a;
+
+  --shadow-card: rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+
+  --font-sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-muted: #9ca3af;
+    --color-heading: #f3f4f6;
+    --color-surface: #16171d;
+    --color-border: #2e303a;
+    --color-code-bg: #1f2028;
+    --color-accent: #c084fc;
+    --color-accent-soft: rgba(192, 132, 252, 0.15);
+    --color-accent-line: rgba(192, 132, 252, 0.5);
+    --color-surface-alt: rgba(47, 48, 58, 0.5);
+    --shadow-card: rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+  }
+}
+
+/* ---- Base styles ---- */
+
+@layer base {
+  :root {
+    color-scheme: light dark;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.45;
+    letter-spacing: 0.18px;
+    color: var(--color-muted);
+    background: var(--color-surface);
+  }
+
+  #root {
+    width: 100%;
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  h1,
+  h2 {
+    font-weight: 500;
+    color: var(--color-heading);
+  }
+
+  h1 {
+    font-size: 32px;
+    letter-spacing: -1px;
+    margin: 24px 0;
+  }
+
+  h2 {
+    font-size: 20px;
+    line-height: 1.18;
+    letter-spacing: -0.2px;
+    margin: 0 0 8px;
+  }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 1.35;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: var(--color-code-bg);
+    color: var(--color-heading);
+  }
+}
+
+/* ---- Animations ---- */
+
+@keyframes chat-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes typing-bounce {
+  0%, 60%, 100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.chat-bubble-enter {
+  animation: chat-bubble-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.typing-dot {
+  animation: typing-bounce 1.2s infinite ease-in-out;
+}
+
+.skeleton-pulse {
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-bubble-enter,
+  .typing-dot,
+  .skeleton-pulse {
+    animation: none !important;
+  }
+}
