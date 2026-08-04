@@ -40,6 +40,17 @@ export default function HomePage() {
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <NavBar>妙语购票</NavBar>
       <div style={{ flex: 1, padding: '16px' }}>
+        {/* AI 购票入口 */}
+        <div style={{ marginBottom: 16 }}>
+          <Button
+            block
+            color="primary"
+            size="large"
+            onClick={() => navigate('/chat')}
+          >
+            🤖 AI 对话购票
+          </Button>
+        </div>
         <List header="用户信息">
           <List.Item extra={userInfo?.nickname ?? ''}>昵称</List.Item>
           <List.Item extra={userInfo?.phone ?? ''}>手机号</List.Item>
