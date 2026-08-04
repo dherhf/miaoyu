@@ -1,23 +1,35 @@
 import { create } from 'zustand';
-import type { OrderItem } from './types';
-import { mockOrders } from './mock';
+import type { OrderItem, OrderListParams } from './types';
+import { mapOrderRecord } from './types';
+import { getOrderList, getOrderDetail } from './api';
 
 export type { OrderStatus, OrderSeat, OrderItem } from './types';
 
 interface OrderState {
   orders: OrderItem[];
-  getOrderById: (id: number) => OrderItem | undefined;
-  getOrdersBySchedule: (scheduleId: number) => OrderItem[];
+  total: number;
+  loading: boolean;
+  fetchOrders: (params: OrderListParams) => Promise<void>;
+  fetchOrderDetail: (id: number) => Promise<OrderItem | undefined>;
 }
 
-export const useOrderStore = create<OrderState>((_, get) => ({
-  orders: mockOrders,
+export const useOrderStore = create<OrderState>((set) => ({
+  orders: [],
+  total: 0,
+  loading: false,
 
-  getOrderById: (id: number): OrderItem | undefined => {
-    return get().orders.find((o) => o.id === id);
+  fetchOrders: async (params: OrderListParams): Promise<void> => {
+    set({ loading: true });
+    try {
+      const res = await getOrderList(params);
+      set({ orders: res.records.map(mapOrderRecord), total: res.total });
+    } finally {
+      set({ loading: false });
+    }
   },
 
-  getOrdersBySchedule: (scheduleId: number): OrderItem[] => {
-    return get().orders.filter((o) => o.scheduleId === scheduleId);
+  fetchOrderDetail: async (id: number): Promise<OrderItem | undefined> => {
+    const res = await getOrderDetail(id);
+    return mapOrderRecord(res);
   },
 }));

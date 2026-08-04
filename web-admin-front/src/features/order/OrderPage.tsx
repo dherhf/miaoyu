@@ -1,10 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import {
   Search,
   Eye,
-  Clock,
-  Ticket,
   Receipt,
   QrCode,
 } from 'lucide-react';
@@ -21,6 +19,7 @@ import {
   Typography,
   Divider,
   Card,
+  Spin,
 } from 'antd';
 import type { TableProps } from 'antd';
 import dayjs from 'dayjs';
@@ -41,14 +40,11 @@ const PAGE_SIZE_OPTIONS = [10, 20, 50];
 interface OrderDetailModalProps {
   open: boolean;
   order: OrderItem | null;
+  loading: boolean;
   onClose: () => void;
 }
 
-const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ open, order, onClose }) => {
-  if (!order) return null;
-
-  const statusCfg = ORDER_STATUS_MAP[order.status];
-
+const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ open, order, loading, onClose }) => {
   return (
     <Modal
       title="订单详情"
@@ -57,7 +53,22 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ open, order, onClos
       footer={<Button onClick={onClose}>关闭</Button>}
       width={640}
     >
-      {/* 订单状态标题 */}
+      <Spin spinning={loading}>
+        {order ? (
+          <OrderDetailContent order={order} />
+        ) : (
+          <div style={{ textAlign: 'center', padding: '40px 0' }}>加载中...</div>
+        )}
+      </Spin>
+    </Modal>
+  );
+};
+
+const OrderDetailContent: React.FC<{ order: OrderItem }> = ({ order }) => {
+  const statusCfg = ORDER_STATUS_MAP[order.status];
+
+  return (
+    <>
       <div className={styles.statusTitleContainer}>
         <Tag color={statusCfg.color} className={styles.statusTag}>
           {statusCfg.label}
@@ -109,7 +120,6 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ open, order, onClos
         )}
       </Descriptions>
 
-      {/* 座位明细 */}
       {order.seats && order.seats.length > 0 && (
         <>
           <Divider orientation="left" className={styles.sectionDivider}>座位明细</Divider>
@@ -122,13 +132,13 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ open, order, onClos
           </div>
         </>
       )}
-    </Modal>
+    </>
   );
 };
 
 // ===================== 主页面 =====================
 const OrderManage: React.FC = () => {
-  const { orders } = useOrderStore();
+  const { orders, total, loading, fetchOrders, fetchOrderDetail } = useOrderStore();
 
   // 筛选状态
   const [orderNo, setOrderNo] = useState('');
@@ -143,54 +153,59 @@ const OrderManage: React.FC = () => {
   // 详情弹窗状态
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailOrder, setDetailOrder] = useState<OrderItem | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
-  // 筛选后的数据
-  const filteredOrders = useMemo(() => {
-    let list = [...orders];
+  // 加载订单列表
+  const loadOrders = useCallback(() => {
+    fetchOrders({
+      orderNo: orderNo.trim() || undefined,
+      movieName: movieName.trim() || undefined,
+      cinemaName: cinemaName.trim() || undefined,
+      status: statusFilter,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+      page,
+      size: pageSize,
+    });
+  }, [fetchOrders, orderNo, movieName, cinemaName, statusFilter, dateFrom, dateTo, page, pageSize]);
 
-    if (orderNo.trim()) {
-      list = list.filter((o) => o.orderNo.includes(orderNo.trim()));
-    }
-    if (movieName.trim()) {
-      const kw = movieName.toLowerCase();
-      list = list.filter((o) => o.movieName.toLowerCase().includes(kw));
-    }
-    if (cinemaName.trim()) {
-      const kw = cinemaName.toLowerCase();
-      list = list.filter((o) => o.cinemaName.toLowerCase().includes(kw));
-    }
-    if (statusFilter) {
-      list = list.filter((o) => o.status === statusFilter);
-    }
-    if (dateFrom) {
-      list = list.filter((o) => o.showDate >= dateFrom);
-    }
-    if (dateTo) {
-      list = list.filter((o) => o.showDate <= dateTo);
-    }
-
-    // 按下单时间倒序
-    list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    return list;
-  }, [orders, orderNo, movieName, cinemaName, statusFilter, dateFrom, dateTo]);
-
-  const total = filteredOrders.length;
-  const paginatedOrders = useMemo(
-    () => filteredOrders.slice((page - 1) * pageSize, page * pageSize),
-    [filteredOrders, page, pageSize],
-  );
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
 
   // 筛选变更时重置页码
-  const handleFilterChange = (setter: (v: string) => void, value: string) => {
+  const handleFilterChange = <T,>(setter: (v: T) => void, value: T) => {
     setter(value);
     setPage(1);
   };
 
   // 查看详情
-  const openDetail = (order: OrderItem) => {
-    setDetailOrder(order);
+  const openDetail = async (order: OrderItem) => {
     setDetailOpen(true);
+    setDetailOrder(null);
+    setDetailLoading(true);
+    try {
+      const detail = await fetchOrderDetail(order.id);
+      setDetailOrder(detail ?? order);
+    } catch {
+      setDetailOrder(order);
+    } finally {
+      setDetailLoading(false);
+    }
   };
+
+  // 重置筛选
+  const resetFilters = () => {
+    setOrderNo('');
+    setMovieName('');
+    setCinemaName('');
+    setStatusFilter(undefined);
+    setDateFrom('');
+    setDateTo('');
+    setPage(1);
+  };
+
+  const hasFilters = orderNo || movieName || cinemaName || statusFilter || dateFrom || dateTo;
 
   // 表格列配置
   const columns: TableProps<OrderItem>['columns'] = [
@@ -383,18 +398,8 @@ const OrderManage: React.FC = () => {
             value={dateTo ? dayjs(dateTo) : undefined}
             onChange={(d) => handleFilterChange(setDateTo, d?.format('YYYY-MM-DD') || '')}
           />
-          {(orderNo || movieName || cinemaName || statusFilter || dateFrom || dateTo) && (
-            <Button
-              onClick={() => {
-                setOrderNo('');
-                setMovieName('');
-                setCinemaName('');
-                setStatusFilter('');
-                setDateFrom('');
-                setDateTo('');
-                setPage(1);
-              }}
-            >
+          {hasFilters && (
+            <Button onClick={resetFilters}>
               重置
             </Button>
           )}
@@ -404,38 +409,40 @@ const OrderManage: React.FC = () => {
       {/* 表格 */}
       <Card styles={{ body: { padding: 0 } }}>
         <Table<OrderItem>
-        rowKey="id"
-        columns={columns}
-        dataSource={paginatedOrders}
-        bordered
-        scroll={{ x: 'max-content' }}
-        pagination={{
-          current: page,
-          pageSize,
-          pageSizeOptions: PAGE_SIZE_OPTIONS,
-          total,
-          showSizeChanger: true,
-          showTotal: (t) => `共 ${t} 条订单`,
-          onChange: (p, ps) => {
-            setPage(p);
-            setPageSize(ps);
-          },
-        }}
-        locale={{
-          emptyText: (
-            <div className={styles.emptyState}>
-              <Receipt size={48} color="#ccc" />
-              <div className={styles.emptyText}>暂无订单数据</div>
-            </div>
-          ),
-        }}
-      />
+          rowKey="id"
+          columns={columns}
+          dataSource={orders}
+          loading={loading}
+          bordered
+          scroll={{ x: 'max-content' }}
+          pagination={{
+            current: page,
+            pageSize,
+            pageSizeOptions: PAGE_SIZE_OPTIONS,
+            total,
+            showSizeChanger: true,
+            showTotal: (t) => `共 ${t} 条订单`,
+            onChange: (p, ps) => {
+              setPage(p);
+              setPageSize(ps);
+            },
+          }}
+          locale={{
+            emptyText: (
+              <div className={styles.emptyState}>
+                <Receipt size={48} color="#ccc" />
+                <div className={styles.emptyText}>暂无订单数据</div>
+              </div>
+            ),
+          }}
+        />
       </Card>
 
       {/* 详情弹窗 */}
       <OrderDetailModal
         open={detailOpen}
         order={detailOrder}
+        loading={detailLoading}
         onClose={() => setDetailOpen(false)}
       />
     </div>
