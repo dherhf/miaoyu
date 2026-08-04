@@ -1,8 +1,15 @@
 import { create } from 'zustand';
-import type { ScheduleStatus, ScheduleItem } from './types';
-import { mockSchedules } from './mock';
+import type {
+  ScheduleStatus,
+  ScheduleItem,
+  ScheduleListParams,
+  ScheduleCreateParams,
+  ScheduleUpdateParams,
+} from './types';
+import { mapScheduleRecord } from './types';
+import { scheduleApi } from './api';
 
-// ===================== 常量 =====================
+// 常量
 export const SCHEDULE_STATUS = {
   AVAILABLE: 'available',
   FULL: 'full',
@@ -21,15 +28,28 @@ export const SCHEDULE_STATUS_LABELS: Record<ScheduleStatus, { label: string; col
 
 interface ScheduleState {
   schedules: ScheduleItem[];
+  loading: boolean;
+  fetchSchedules: (params?: ScheduleListParams) => Promise<void>;
   hasMovieSchedule: (movieId: number | string) => boolean;
-  addSchedule: (payload: Omit<ScheduleItem, 'id'>) => void;
-  updateSchedule: (id: string | number, payload: Partial<ScheduleItem>) => void;
-  cancelSchedule: (id: string | number) => void;
-  deleteSchedule: (id: string | number) => void;
+  addSchedule: (payload: ScheduleCreateParams) => Promise<void>;
+  updateSchedule: (id: number, payload: ScheduleUpdateParams) => Promise<void>;
+  cancelSchedule: (id: number) => Promise<void>;
+  deleteSchedule: (id: number) => Promise<void>;
 }
 
 export const useScheduleStore = create<ScheduleState>((set, get) => ({
-  schedules: mockSchedules,
+  schedules: [],
+  loading: false,
+
+  fetchSchedules: async (params?: ScheduleListParams): Promise<void> => {
+    set({ loading: true });
+    try {
+      const res = await scheduleApi.getList(params ?? { page: 1, size: 100 });
+      set({ schedules: res.records.map(mapScheduleRecord) });
+    } finally {
+      set({ loading: false });
+    }
+  },
 
   hasMovieSchedule: (movieId: number | string): boolean => {
     return get().schedules.some(
@@ -37,33 +57,23 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
     );
   },
 
-  addSchedule: (payload: Omit<ScheduleItem, 'id'>): void => {
-    const genId = (): string | number => {
-      const schedules = get().schedules;
-      return schedules.length > 0
-        ? Math.max(...schedules.map((s) => Number(s.id))) + 1
-        : 1;
-    };
-    set((s) => ({ schedules: [...s.schedules, { ...payload, id: genId() }] }));
+  addSchedule: async (payload: ScheduleCreateParams): Promise<void> => {
+    await scheduleApi.create(payload);
+    await get().fetchSchedules();
   },
 
-  updateSchedule: (id: string | number, payload: Partial<ScheduleItem>): void => {
-    set((s) => ({
-      schedules: s.schedules.map((sc) =>
-        String(sc.id) === String(id) ? { ...sc, ...payload } : sc,
-      ),
-    }));
+  updateSchedule: async (id: number, payload: ScheduleUpdateParams): Promise<void> => {
+    await scheduleApi.update(id, payload);
+    await get().fetchSchedules();
   },
 
-  cancelSchedule: (id: string | number): void => {
-    set((s) => ({
-      schedules: s.schedules.map((sc) =>
-        String(sc.id) === String(id) ? { ...sc, status: 'cancelled' as ScheduleStatus } : sc,
-      ),
-    }));
+  cancelSchedule: async (id: number): Promise<void> => {
+    await scheduleApi.cancel(id);
+    await get().fetchSchedules();
   },
 
-  deleteSchedule: (id: string | number): void => {
-    set((s) => ({ schedules: s.schedules.filter((sc) => String(sc.id) !== String(id)) }));
+  deleteSchedule: async (id: number): Promise<void> => {
+    await scheduleApi.delete(id);
+    await get().fetchSchedules();
   },
 }));
