@@ -22,12 +22,13 @@ public class UserScheduleController {
     @Operation(summary = "场次列表(用户端)")
     @GetMapping
     public Result<PageResult<ScheduleListVO>> list(
+            @RequestParam(required = false) Long movieId,
             @RequestParam(required = false) String movieName,
             @RequestParam(required = false) Long cinemaId,
             @RequestParam(required = false) String showDate,
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer size) {
-        return Result.success(scheduleService.userList(movieName, cinemaId, showDate, page, size));
+        return Result.success(scheduleService.userList(movieId, movieName, cinemaId, showDate, page, size));
     }
 
     @Operation(summary = "场次详情(用户端)")
