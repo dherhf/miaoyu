@@ -9,9 +9,13 @@ import org.dherhf.common.result.PageResult;
 import org.dherhf.cinema.entity.Cinema;
 import org.dherhf.cinema.entity.Hall;
 import org.dherhf.cinema.entity.HallCell;
+import org.dherhf.cinema.enums.CinemaStatus;
+import org.dherhf.cinema.enums.HallStatus;
 import org.dherhf.cinema.mapper.CinemaMapper;
 import org.dherhf.cinema.mapper.HallCellMapper;
 import org.dherhf.cinema.mapper.HallMapper;
+import org.dherhf.schedule.enums.ScheduleSeatStatus;
+import org.dherhf.schedule.enums.ScheduleStatus;
 import org.dherhf.schedule.mapper.ScheduleMapper;
 import org.dherhf.schedule.mapper.ScheduleSeatMapper;
 import org.dherhf.schedule.entity.Schedule;
@@ -51,7 +55,7 @@ public class HallServiceImpl implements HallService {
         if (cinema == null) {
             throw new BusinessException(404, "影院不存在");
         }
-        if (cinema.getStatus() != 1) {
+        if (cinema.getStatus() != CinemaStatus.OPEN.getCode()) {
             throw new BusinessException(400, "影院已禁用");
         }
 
@@ -65,7 +69,7 @@ public class HallServiceImpl implements HallService {
 
         Hall hall = new Hall();
         BeanUtils.copyProperties(dto, hall);
-        hall.setStatus(1);
+        hall.setStatus(HallStatus.ACTIVE.getCode());
         hall.setTotalRows(0);
         hall.setTotalCols(0);
         hallMapper.insert(hall);
@@ -170,13 +174,13 @@ public class HallServiceImpl implements HallService {
         List<Schedule> futureSchedules = scheduleMapper.selectList(
                 new LambdaQueryWrapper<Schedule>()
                         .eq(Schedule::getHallId, id)
-                        .eq(Schedule::getStatus, "onsale")
+                        .eq(Schedule::getStatus, ScheduleStatus.ON_SALE.getCode())
                         .ge(Schedule::getShowDate, LocalDate.now()));
         for (Schedule sch : futureSchedules) {
             Long soldCount = scheduleSeatMapper.selectCount(
                     new LambdaQueryWrapper<ScheduleSeat>()
                             .eq(ScheduleSeat::getScheduleId, sch.getId())
-                            .eq(ScheduleSeat::getStatus, "sold"));
+                            .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.SOLD.getCode()));
             if (soldCount > 0) {
                 throw new BusinessException(409, "影厅已有未来排片且存在已售座位，不可修改布局");
             }

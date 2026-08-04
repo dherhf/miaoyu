@@ -1,16 +1,20 @@
 package org.dherhf.dashboard.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.dherhf.cinema.vo.CinemaAnalysisVO;
 import org.dherhf.dashboard.vo.DashboardTransactionVO;
 import org.dherhf.movie.vo.MovieRankingVO;
 import org.dherhf.order.entity.Order;
 import org.dherhf.order.mapper.OrderMapper;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -19,11 +23,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class DashboardServiceImpl implements DashboardService {
 
+    private static final Duration CACHE_TTL = Duration.ofMinutes(5);
+    private static final String CACHE_TRANSACTIONS = "dashboard:transactions:";
+    private static final String CACHE_MOVIES_RANKING = "dashboard:movies-ranking:";
+    private static final String CACHE_CINEMAS = "dashboard:cinemas:analysis";
+
     private final OrderMapper orderMapper;
+    private final StringRedisTemplate redisTemplate;
+    private final ObjectMapper objectMapper;
 
     @Override
     public DashboardTransactionVO transactions(String period) {
@@ -71,16 +83,30 @@ public class DashboardServiceImpl implements DashboardService {
             trend.add(item);
         }
 
-        // TODO: Redis 看板缓存 (5min TTL)
-        return DashboardTransactionVO.builder()
+        String cacheKey = CACHE_TRANSACTIONS + period;
+        DashboardTransactionVO cached = getFromCache(cacheKey, DashboardTransactionVO.class);
+        if (cached != null) {
+            return cached;
+        }
+
+        DashboardTransactionVO result = DashboardTransactionVO.builder()
                 .today(todayStats)
                 .yesterdayCompare(compare)
                 .trend(trend)
                 .build();
+
+        putToCache(cacheKey, result);
+        return result;
     }
 
     @Override
     public List<MovieRankingVO> moviesRanking(String sortBy) {
+        String cacheKey = CACHE_MOVIES_RANKING + sortBy;
+        List<MovieRankingVO> cached = getFromCacheList(cacheKey, MovieRankingVO.class);
+        if (cached != null) {
+            return cached;
+        }
+
         List<Order> paidOrders = getAllPaidOrders();
         Map<String, List<Order>> byMovie = paidOrders.stream()
                 .collect(Collectors.groupingBy(Order::getMovieName));
@@ -101,6 +127,7 @@ public class DashboardServiceImpl implements DashboardService {
             ranking.sort((a, b) -> Long.compare(b.getOrderCount(), a.getOrderCount()));
         }
 
+        putToCache(cacheKey, ranking);
         return ranking;
     }
 
@@ -112,8 +139,13 @@ public class DashboardServiceImpl implements DashboardService {
 
         BigDecimal totalBoxOffice = sum(paidOrders);
 
-        // TODO: Redis 看板缓存 (5min TTL)
-        return byCinema.entrySet().stream().map(entry -> {
+        // Redis 看板缓存 (5min TTL)
+        List<CinemaAnalysisVO> cached = getFromCacheList(CACHE_CINEMAS, CinemaAnalysisVO.class);
+        if (cached != null) {
+            return cached;
+        }
+
+        List<CinemaAnalysisVO> result = byCinema.entrySet().stream().map(entry -> {
             BigDecimal boxOffice = sum(entry.getValue());
             return CinemaAnalysisVO.builder()
                     .cinemaName(entry.getKey())
@@ -127,6 +159,9 @@ public class DashboardServiceImpl implements DashboardService {
                             : BigDecimal.ZERO)
                     .build();
         }).collect(Collectors.toList());
+
+        putToCache(CACHE_CINEMAS, result);
+        return result;
     }
 
     private List<Order> getPaidOrdersByDateRange(LocalDateTime start, LocalDateTime end) {
@@ -208,5 +243,38 @@ public class DashboardServiceImpl implements DashboardService {
         if (y.compareTo(BigDecimal.ZERO) == 0) return BigDecimal.ZERO;
         return t.subtract(y)
                 .divide(y, 4, RoundingMode.HALF_UP);
+    }
+
+    private <T> T getFromCache(String key, Class<T> clazz) {
+        try {
+            String json = redisTemplate.opsForValue().get(key);
+            if (json != null) {
+                return objectMapper.readValue(json, clazz);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to read cache {}: {}", key, e.getMessage());
+        }
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> List<T> getFromCacheList(String key, Class<T> clazz) {
+        try {
+            String json = redisTemplate.opsForValue().get(key);
+            if (json != null) {
+                return objectMapper.readValue(json, objectMapper.getTypeFactory().constructCollectionType(List.class, clazz));
+            }
+        } catch (Exception e) {
+            log.warn("Failed to read cache list {}: {}", key, e.getMessage());
+        }
+        return null;
+    }
+
+    private void putToCache(String key, Object value) {
+        try {
+            redisTemplate.opsForValue().set(key, objectMapper.writeValueAsString(value), CACHE_TTL);
+        } catch (Exception e) {
+            log.warn("Failed to write cache {}: {}", key, e.getMessage());
+        }
     }
 }

@@ -27,4 +27,6 @@ public interface ScheduleService {
     ScheduleDetailVO userDetail(Long id);
 
     SeatMapVO getSeatMap(Long id);
+
+    void autoEndExpiredSchedules();
 }

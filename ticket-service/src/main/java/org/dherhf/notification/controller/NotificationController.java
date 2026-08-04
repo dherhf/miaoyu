@@ -37,8 +37,9 @@ public class NotificationController {
 
     @Operation(summary = "通知实时推送")
     @GetMapping("/stream")
-    public Result<Void> stream(@RequestAttribute Long userId) {
-        // TODO: SSE 实时推送实现
-        return Result.success();
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter stream(@RequestAttribute Long userId) {
+        org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter = new org.springframework.web.servlet.mvc.method.annotation.SseEmitter(0L);
+        // SSE 连接保持，通知通过 sendNotification 异步写入 DB，前端轮询/后续迭代实现 SSE 推送
+        return emitter;
     }
 }
