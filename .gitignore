@@ -38,3 +38,8 @@ build/
 ### codely ###
 .codely-cli/
 mem-log/
+
+### temp credentials ###
+cred_input.txt
+cred_output.txt
+pr_payload.json
