@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import type { MovieStatus, MovieItem, MovieFilters } from './types';
-import { mockMovies } from './mock';
+import type { MovieStatus, MovieItem, MovieListParams, MovieCreateParams, MovieDetail, BatchResult } from './types';
+import { mapMovieRecord } from './types';
+import { movieApi } from './api';
 
 // ===================== 常量 =====================
 export const MOVIE_TYPES = [
@@ -14,91 +15,70 @@ export const MOVIE_TYPES = [
   { value: 'other', label: '其他' },
 ];
 
-export type { MovieStatus, MovieItem, MovieFilters } from './types';
+export type { MovieStatus, MovieItem, MovieListParams, MovieCreateParams, BatchResult } from './types';
 
 // ===================== Store =====================
 interface MovieState {
   movies: MovieItem[];
-  filters: MovieFilters;
-  sortConfig: string;
-  pagination: { page: number; pageSize: number };
-  setFilters: (partial: Partial<MovieFilters>) => void;
-  setSortConfig: (field: string) => void;
-  setPagination: (p: { page: number; pageSize: number }) => void;
-  getPaginatedMovies: () => { list: MovieItem[]; total: number };
-  addMovie: (payload: Omit<MovieItem, 'id'>) => Promise<void>;
-  updateMovie: (id: number | string, payload: Partial<MovieItem>) => Promise<void>;
-  batchUpdateStatus: (ids: string[], status: MovieStatus) => void;
+  loading: boolean;
+  total: number;
+  /** 当前查询参数（供 re-fetch 时复用） */
+  lastParams: MovieListParams | undefined;
+  fetchMovies: (params?: MovieListParams) => Promise<void>;
+  addMovie: (payload: MovieCreateParams) => Promise<MovieDetail>;
+  editMovie: (id: number, payload: MovieCreateParams) => Promise<void>;
+  toggleStatus: (ids: number[], target: MovieStatus) => Promise<BatchResult>;
 }
 
 export const useMovieStore = create<MovieState>((set, get) => ({
-  movies: mockMovies,
-  filters: { keyword: '', type: undefined as string | undefined, status: undefined as string | undefined },
-  sortConfig: 'release_date',
-  pagination: { page: 1, pageSize: 10 },
+  movies: [],
+  loading: false,
+  total: 0,
+  lastParams: undefined,
 
-  setFilters: (partial: Partial<MovieFilters>) => {
-    set((s) => ({
-      filters: { ...s.filters, ...partial },
-      pagination: { ...s.pagination, page: 1 },
-    }));
-  },
-
-  setSortConfig: (field: string) => {
-    set({ sortConfig: field });
-  },
-
-  setPagination: (p: { page: number; pageSize: number }) => {
-    set({ pagination: p });
-  },
-
-  getPaginatedMovies: (): { list: MovieItem[]; total: number } => {
-    const { movies, filters, sortConfig, pagination } = get();
-    let list = [...movies];
-    const { keyword, type, status } = filters;
-    if (keyword) {
-      const kw = keyword.toLowerCase();
-      list = list.filter((m) =>
-        m.name.toLowerCase().includes(kw) ||
-        m.director.toLowerCase().includes(kw) ||
-        m.actors.toLowerCase().includes(kw),
-      );
+  fetchMovies: async (params?: MovieListParams): Promise<void> => {
+    const query = params ?? get().lastParams ?? { page: 1, size: 10 };
+    set({ loading: true, lastParams: query });
+    try {
+      const res = await movieApi.getMovieList(query);
+      set({
+        movies: res.records.map(mapMovieRecord),
+        total: res.total,
+      });
+    } finally {
+      set({ loading: false });
     }
-    if (type) list = list.filter((m) => m.types.includes(type));
-    if (status) list = list.filter((m) => m.status === status);
+  },
 
-    // sort
-    if (sortConfig === 'release_date') {
-      list.sort((a, b) => b.release_date.localeCompare(a.release_date));
-    } else if (sortConfig === 'rating') {
-      list.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-    } else if (sortConfig === 'duration') {
-      list.sort((a, b) => b.duration - a.duration);
+  addMovie: async (payload: MovieCreateParams): Promise<MovieDetail> => {
+    const detail = await movieApi.createMovie(payload);
+    await get().fetchMovies();
+    return detail;
+  },
+
+  editMovie: async (id: number, payload: MovieCreateParams): Promise<void> => {
+    await movieApi.updateMovie(id, payload);
+    await get().fetchMovies();
+  },
+
+  toggleStatus: async (ids: number[], target: MovieStatus): Promise<BatchResult> => {
+    let result: BatchResult;
+    if (target === 'showing') {
+      if (ids.length === 1) {
+        await movieApi.publishMovie(ids[0]);
+        result = { successIds: ids, failIds: [], failReasons: {} };
+      } else {
+        result = await movieApi.batchPublishMovies(ids);
+      }
+    } else {
+      if (ids.length === 1) {
+        await movieApi.unpublishMovie(ids[0]);
+        result = { successIds: ids, failIds: [], failReasons: {} };
+      } else {
+        result = await movieApi.batchUnpublishMovies(ids);
+      }
     }
-
-    const total = list.length;
-    const { page, pageSize } = pagination;
-    const start = (page - 1) * pageSize;
-    return { list: list.slice(start, start + pageSize), total };
-  },
-
-  addMovie: async (payload: Omit<MovieItem, 'id'>): Promise<void> => {
-    const movies = get().movies;
-    const newId = movies.length > 0 ? Math.max(...movies.map((m) => Number(m.id))) + 1 : 1;
-    set((s) => ({ movies: [...s.movies, { ...payload, id: newId }] }));
-  },
-
-  updateMovie: async (id: number | string, payload: Partial<MovieItem>): Promise<void> => {
-    set((s) => ({
-      movies: s.movies.map((m) => (String(m.id) === String(id) ? { ...m, ...payload } : m)),
-    }));
-  },
-
-  batchUpdateStatus: (ids: string[], status: MovieStatus): void => {
-    set((s) => ({
-      movies: s.movies.map((m) =>
-        ids.includes(String(m.id)) ? { ...m, status } : m,
-      ),
-    }));
+    await get().fetchMovies();
+    return result;
   },
 }));

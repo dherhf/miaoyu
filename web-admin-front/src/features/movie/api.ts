@@ -9,44 +9,36 @@ import type {
 
 export type { MovieRecord, MovieDetail, MovieListParams, MovieCreateParams, BatchResult } from './types';
 
-// ===================== API =====================
+export const movieApi = {
+  /** 查询影片列表 */
+  getMovieList: (params: MovieListParams): Promise<PageResult<MovieRecord>> =>
+    request.get('/movies', { params }),
 
-/** 查询影片列表 */
-export function getMovieList(params: MovieListParams): Promise<PageResult<MovieRecord>> {
-  return request.get('/movies', { params });
-}
+  /** 查询影片详情 */
+  getMovieDetail: (id: number): Promise<MovieDetail> =>
+    request.get(`/movies/${id}`),
 
-/** 查询影片详情 */
-export function getMovieDetail(id: number): Promise<MovieDetail> {
-  return request.get(`/movies/${id}`);
-}
+  /** 新增影片 */
+  createMovie: (data: MovieCreateParams): Promise<MovieDetail> =>
+    request.post('/movies', data),
 
-/** 新增影片 */
-export function createMovie(data: MovieCreateParams): Promise<MovieDetail> {
-  return request.post('/movies', data);
-}
+  /** 编辑影片 */
+  updateMovie: (id: number, data: MovieCreateParams): Promise<MovieDetail> =>
+    request.put(`/movies/${id}`, data),
 
-/** 编辑影片 */
-export function updateMovie(id: number, data: MovieCreateParams): Promise<MovieDetail> {
-  return request.put(`/movies/${id}`, data);
-}
+  /** 上架影片 */
+  publishMovie: (id: number): Promise<void> =>
+    request.put(`/movies/${id}/publish`),
 
-/** 上架影片 */
-export function publishMovie(id: number): Promise<null> {
-  return request.put(`/movies/${id}/publish`);
-}
+  /** 批量上架 */
+  batchPublishMovies: (ids: number[]): Promise<BatchResult> =>
+    request.put('/movies/batch-publish', { ids }),
 
-/** 批量上架 */
-export function batchPublishMovies(ids: number[]): Promise<BatchResult> {
-  return request.put('/movies/batch-publish', { ids });
-}
+  /** 下架影片 */
+  unpublishMovie: (id: number): Promise<void> =>
+    request.put(`/movies/${id}/unpublish`),
 
-/** 下架影片 */
-export function unpublishMovie(id: number): Promise<null> {
-  return request.put(`/movies/${id}/unpublish`);
-}
-
-/** 批量下架 */
-export function batchUnpublishMovies(ids: number[]): Promise<BatchResult> {
-  return request.put('/movies/batch-unpublish', { ids });
-}
+  /** 批量下架 */
+  batchUnpublishMovies: (ids: number[]): Promise<BatchResult> =>
+    request.put('/movies/batch-unpublish', { ids }),
+};
