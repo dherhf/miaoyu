@@ -23,7 +23,7 @@ export const movieApi = {
     request.post('/movies', data),
 
   /** 编辑影片 */
-  updateMovie: (id: number, data: MovieCreateParams): Promise<MovieDetail> =>
+  updateMovie: (id: string, data: MovieCreateParams): Promise<MovieDetail> =>
     request.put(`/movies/${id}`, data),
 
   /** 上架影片 */
@@ -41,4 +41,13 @@ export const movieApi = {
   /** 批量下架 */
   batchUnpublishMovies: (ids: string[]): Promise<BatchResult> =>
     request.put('/movies/batch-unpublish', { ids }),
+
+  /** 上传海报图片到 OSS */
+  uploadImage: (file: File): Promise<{ objectKey: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return request.post('/upload/image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };

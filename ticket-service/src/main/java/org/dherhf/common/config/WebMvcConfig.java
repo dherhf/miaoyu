@@ -8,8 +8,6 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
  * Web MVC 配置,注册 {@link AuthInterceptor} 并配置拦截与排除路径。
- * <p>
- * 拦截 {@code /api/v1/**} 下所有请求,排除注册和登录接口（无需鉴权）。
  */
 @Configuration
 @RequiredArgsConstructor

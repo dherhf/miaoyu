@@ -1,6 +1,7 @@
 package org.dherhf.movie.service;
 
 import org.dherhf.common.exception.BusinessException;
+import org.dherhf.common.util.OssUtil;
 import org.dherhf.movie.entity.Movie;
 import org.dherhf.movie.mapper.MovieMapper;
 import org.dherhf.schedule.mapper.ScheduleMapper;
@@ -29,6 +30,8 @@ class MovieServiceTest {
     private MovieMapper movieMapper;
     @Mock
     private ScheduleMapper scheduleMapper;
+    @Mock
+    private OssUtil ossUtil;
 
     @InjectMocks
     private MovieServiceImpl movieService;

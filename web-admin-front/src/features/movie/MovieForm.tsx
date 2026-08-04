@@ -2,32 +2,46 @@ import { Form, Input, InputNumber, DatePicker, Radio, Checkbox, Upload, Space, m
 import type { FormInstance, UploadProps } from 'antd';
 import { Film } from 'lucide-react';
 import dayjs from 'dayjs';
+import { useState } from 'react';
 import { MOVIE_TYPES } from './store';
 import styles from './MoviePage.module.css';
 
 interface MovieFormProps {
   form: FormInstance;
+  /** 暂存的待上传文件，提交时由父组件上传到 OSS */
+  onFileSelect?: (file: File | null) => void;
 }
 
-export function MovieForm({ form }: MovieFormProps) {
+export function MovieForm({ form, onFileSelect }: MovieFormProps) {
+  const [selectedFileName, setSelectedFileName] = useState<string>('');
+
   const uploadConfig: UploadProps = {
     maxCount: 1,
     listType: 'picture-card',
     showUploadList: false,
+    accept: 'image/*',
     beforeUpload: (file) => {
       const isImg = file.type.startsWith('image/');
       if (!isImg) {
         message.error('仅支持图片文件');
-        return false;
+        return Upload.LIST_IGNORE;
       }
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        form.setFieldValue('posterUrl', e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-      return false;
+      if (file.size > 10 * 1024 * 1024) {
+        message.error('图片大小不能超过 10MB');
+        return Upload.LIST_IGNORE;
+      }
+      // 只做本地校验，暂存文件，不立即上传
+      onFileSelect?.(file);
+      setSelectedFileName(file.name);
+      // 清空 posterUrl（新文件待提交时上传）
+      form.setFieldValue('posterUrl', '');
+      return false; // 阻止自动上传
     },
   };
+
+  // 获取海报预览 URL（编辑时后端已返回签名 URL）
+  const posterUrl: string = form.getFieldValue('posterUrl') || '';
+  const previewUrl = typeof posterUrl === 'string' && posterUrl.startsWith('http') ? posterUrl : undefined;
 
   return (
     <Form form={form} layout="vertical" className={styles.form}>
@@ -93,7 +107,7 @@ export function MovieForm({ form }: MovieFormProps) {
         >
           <DatePicker
             className={styles.fullWidth}
-            disabledDate={(d) => d.isAfter(dayjs())}
+            disabledDate={(d) => d.isBefore(dayjs().subtract(1, 'year'))}
           />
         </Form.Item>
       </div>
@@ -136,8 +150,13 @@ export function MovieForm({ form }: MovieFormProps) {
         rules={[{ required: true, message: '请上传海报图片' }]}
       >
         <Upload {...uploadConfig}>
-          {form.getFieldValue('posterUrl') ? (
-            <img src={form.getFieldValue('posterUrl')} alt="海报" className={styles.uploadImage} />
+          {previewUrl ? (
+            <img src={previewUrl} alt="海报" className={styles.uploadImage} />
+          ) : selectedFileName ? (
+            <div className={styles.uploadPlaceholder}>
+              <Film size={20} />
+              <div className={styles.uploadPlaceholderText}>已选择: {selectedFileName}</div>
+            </div>
           ) : (
             <div className={styles.uploadPlaceholder}>
               <Film size={20} />
