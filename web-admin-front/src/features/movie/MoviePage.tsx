@@ -15,7 +15,6 @@ import dayjs from 'dayjs';
 import { useMovieStore, MOVIE_TYPES } from './store';
 import { useScheduleStore } from '../schedule';
 import { movieApi } from './api';
-import request from '../../shared/utils/request';
 import type { MovieStatus, MovieItem, MovieCreateParams, MovieFormValues } from './types';
 import { mapMovieStatus, toApiStatus } from './types';
 import { MovieForm } from './MovieForm';
@@ -153,11 +152,7 @@ export function MovieManage() {
       // 如果有新选的文件，提交时才上传到 OSS
       let posterUrl = values.posterUrl;
       if (pendingFile) {
-        const formData = new FormData();
-        formData.append('file', pendingFile);
-        const res = await request.post<{ objectKey: string }>('/upload/image', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        const res = await movieApi.uploadImage(pendingFile);
         posterUrl = res.objectKey;
       }
 

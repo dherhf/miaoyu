@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { OrderItem, OrderListParams } from './types';
 import { mapOrderRecord } from './types';
-import { getOrderList, getOrderDetail } from './api';
+import { orderApi } from './api';
 
 export type { OrderStatus, OrderSeat, OrderItem } from './types';
 
@@ -21,7 +21,7 @@ export const useOrderStore = create<OrderState>((set) => ({
   fetchOrders: async (params: OrderListParams): Promise<void> => {
     set({ loading: true });
     try {
-      const res = await getOrderList(params);
+      const res = await orderApi.getOrderList(params);
       set({ orders: res.records.map(mapOrderRecord), total: res.total });
     } finally {
       set({ loading: false });
@@ -29,7 +29,7 @@ export const useOrderStore = create<OrderState>((set) => ({
   },
 
   fetchOrderDetail: async (id: string): Promise<OrderItem | undefined> => {
-    const res = await getOrderDetail(id);
+    const res = await orderApi.getOrderDetail(id);
     return mapOrderRecord(res);
   },
 }));
