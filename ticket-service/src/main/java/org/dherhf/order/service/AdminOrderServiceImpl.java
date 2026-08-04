@@ -114,6 +114,9 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     }
 
     private LocalDateTime parseDateTime(String dateStr) {
+        if (dateStr == null || dateStr.isBlank()) {
+            return null;
+        }
         return LocalDateTime.parse(dateStr + " 00:00:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
     }
 }

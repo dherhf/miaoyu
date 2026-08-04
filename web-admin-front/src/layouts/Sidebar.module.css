@@ -1,0 +1,109 @@
+.sider {
+  background: #1e293b !important;
+  height: 100vh;
+  flex-shrink: 0;
+}
+
+.sider :global(.ant-layout-sider-children) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.logo {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #334155;
+  padding: 0 16px;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.sider:global(.ant-layout-sider-collapsed) .logo {
+  padding: 0 8px;
+}
+
+.logoIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #1677ff;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logoText {
+  font-weight: 700;
+  font-size: 18px;
+  white-space: nowrap;
+}
+
+.nav {
+  flex: 1;
+  overflow-y: auto;
+  margin-top: 16px;
+  padding: 0 8px;
+}
+
+.menuLink {
+  text-decoration: none;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-top: 4px;
+  background: transparent;
+  color: #cbd5e1;
+  transition: background 0.2s;
+}
+
+.menuItem.active {
+  background: #2563eb;
+  color: #fff;
+}
+
+.menuItem:not(.active):hover {
+  background: #334155;
+}
+
+.menuIcon {
+  flex-shrink: 0;
+}
+
+.menuText {
+  white-space: nowrap;
+}
+
+.footer {
+  padding: 16px;
+  border-top: 1px solid #334155;
+  flex-shrink: 0;
+}
+
+.logoutBtn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #cbd5e1;
+  justify-content: flex-start;
+  transition: background 0.2s;
+}
+
+.sider:global(.ant-layout-sider-collapsed) .logoutBtn {
+  justify-content: center;
+}
+
+.logoutBtn:hover {
+  background: #334155;
+}

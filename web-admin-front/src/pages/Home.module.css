@@ -1,0 +1,38 @@
+.pageWrap {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: calc(100vh - 120px);
+  background: #ffffff;
+  text-align: center;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.bgCircle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 60%);
+  filter: blur(60px);
+  pointer-events: none;
+}
+
+.title {
+  z-index: 1;
+  margin: 0 0 16px;
+  font-weight: 800;
+  position: relative;
+}
+
+.subtitle {
+  font-size: 22px;
+  z-index: 1;
+  position: relative;
+}

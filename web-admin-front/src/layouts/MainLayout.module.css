@@ -1,0 +1,28 @@
+.container {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  min-height: 0;
+}
+
+.footer {
+  text-align: center;
+  padding: 12px 0;
+  color: #666;
+  flex-shrink: 0;
+  border-top: 1px solid #eee;
+}
