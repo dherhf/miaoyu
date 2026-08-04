@@ -1,5 +1,5 @@
 import { Form, Input, InputNumber, Radio, Tag, Space } from 'antd';
-import { MapPin, Phone } from 'lucide-react';
+import { EnvironmentOutlined, PhoneOutlined } from '@ant-design/icons';
 import { LocationPicker } from '../amap';
 import type { CinemaStatus } from './types';
 import styles from './CinemaPage.module.css';
@@ -87,7 +87,7 @@ export function CinemaForm({ data, isEdit, onChange }: CinemaFormProps) {
           onChange={(e) => handleFieldChange('address', e.target.value)}
           placeholder="地图选点后自动回填"
           maxLength={200}
-          prefix={<MapPin size={14} />}
+          prefix={<EnvironmentOutlined />}
         />
       </Form.Item>
 
@@ -125,7 +125,7 @@ export function CinemaForm({ data, isEdit, onChange }: CinemaFormProps) {
             value={data.phone ?? ''}
             onChange={(e) => handleFieldChange('phone', e.target.value)}
             placeholder="010-xxxxxxx"
-            prefix={<Phone size={14} />}
+            prefix={<PhoneOutlined />}
           />
         </Form.Item>
       </Space>
