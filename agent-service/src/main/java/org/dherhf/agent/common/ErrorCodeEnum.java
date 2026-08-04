@@ -1,8 +1,11 @@
 package org.dherhf.agent.common;
 
+import lombok.Getter;
+
 /**
  * 全局错误码枚举。
  */
+@Getter
 public enum ErrorCodeEnum {
 
     SUCCESS(0, "success"),
@@ -32,11 +35,4 @@ public enum ErrorCodeEnum {
         this.message = message;
     }
 
-    public int getCode() {
-        return code;
-    }
-
-    public String getMessage() {
-        return message;
-    }
 }
