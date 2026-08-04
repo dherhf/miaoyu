@@ -1,5 +1,3 @@
-// ===================== 仪表盘相关类型 =====================
-
 // ---------- API 层 ----------
 
 /** 今日核心指标 */
@@ -90,7 +88,7 @@ export interface TrendRecord {
 export interface MovieRankItem {
   rank: number;
   name: string;
-  type: string;
+  type?: string;
   boxOffice: number;
   occupancy: number;
 }
@@ -98,7 +96,7 @@ export interface MovieRankItem {
 /** 影院运营行（Store / 页面展示用） */
 export interface CinemaRow {
   name: string;
-  branch: string;
+  branch?: string;
   dailyRevenue: number;
   occupancy: number;
 }
@@ -108,4 +106,48 @@ export interface CinemaDistItem {
   name: string;
   value: number;
   count: number;
+}
+
+// ---------- 映射函数 ----------
+
+/** TransactionsResult → DashboardStats */
+export function mapDashboardStats(res: TransactionsResult): DashboardStats {
+  return {
+    todayOrders: res.today.orderCount,
+    todayRevenue: res.today.transactionAmount,
+    todayTickets: res.today.ticketCount,
+    todayRefunds: res.today.refundCount,
+    conversionRate: res.today.conversionRate,
+    avgOrderValue: res.today.avgTicketPrice,
+    pendingOrders: res.today.pendingCount,
+    timeoutRate: res.today.timeoutCancelRate,
+  };
+}
+
+/** TransactionsResult.trend → TrendRecord[] */
+export function mapTrendData(res: TransactionsResult): TrendRecord[] {
+  return res.trend.map((t) => ({
+    date: t.date,
+    orders: t.orderCount,
+    revenue: t.transactionAmount,
+  }));
+}
+
+/** MoviesRankingResult → MovieRankItem[] */
+export function mapMovieRanking(res: MoviesRankingResult): MovieRankItem[] {
+  return res.ranking.map((item, idx) => ({
+    rank: idx + 1,
+    name: item.movieName,
+    boxOffice: item.boxOffice,
+    occupancy: item.occupancyRate,
+  }));
+}
+
+/** CinemasAnalysisResult → CinemaRow[] */
+export function mapCinemasAnalysis(res: CinemasAnalysisResult): CinemaRow[] {
+  return res.cinemas.map((c) => ({
+    name: c.cinemaName,
+    dailyRevenue: c.boxOffice,
+    occupancy: c.occupancyRate,
+  }));
 }
