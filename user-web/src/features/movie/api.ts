@@ -1,5 +1,14 @@
 import request from '@/shared/request'
-import type { MovieListVO, MovieVO, PageResult, MovieListParams } from './types'
+import type {
+  MovieListVO,
+  MovieVO,
+  PageResult,
+  MovieListParams,
+  ScheduleListVO,
+  SeatMapVO,
+  LockSeatResultVO,
+  PayResultVO,
+} from './types'
 
 export async function getMovieList(
   params: MovieListParams,
@@ -10,5 +19,38 @@ export async function getMovieList(
 
 export async function getMovieDetail(id: string): Promise<MovieVO> {
   const res = await request.get<MovieVO>(`/movies/${id}`)
+  return res.data
+}
+
+export async function getScheduleList(
+  movieId: string,
+): Promise<PageResult<ScheduleListVO>> {
+  const res = await request.get<PageResult<ScheduleListVO>>('/schedules', {
+    params: { movieId },
+  })
+  return res.data
+}
+
+export async function getSeatMap(scheduleId: number): Promise<SeatMapVO> {
+  const res = await request.get<SeatMapVO>(`/schedules/${scheduleId}/seats`)
+  return res.data
+}
+
+export async function lockSeat(
+  scheduleId: number,
+  seatIds: number[],
+): Promise<LockSeatResultVO> {
+  const res = await request.post<LockSeatResultVO>(
+    '/orders/lock-seat',
+    { scheduleId, seatIds, ticketCount: seatIds.length },
+    { headers: { 'X-Request-Id': crypto.randomUUID() } },
+  )
+  return res.data
+}
+
+export async function payOrder(orderId: number): Promise<PayResultVO> {
+  const res = await request.post<PayResultVO>(`/orders/${orderId}/pay`, {}, {
+    headers: { 'X-Request-Id': crypto.randomUUID() },
+  })
   return res.data
 }
