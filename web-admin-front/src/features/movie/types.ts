@@ -4,7 +4,7 @@
 
 /** 影片列表记录 */
 export interface MovieRecord {
-  id: number;
+  id: string;
   name: string;
   types: string[];
   posterUrl: string;
@@ -48,8 +48,8 @@ export interface MovieCreateParams {
 
 /** 批量操作结果 */
 export interface BatchResult {
-  successIds: number[];
-  failIds: number[];
+  successIds: string[];
+  failIds: string[];
   failReasons: Record<string, string>;
 }
 
@@ -60,7 +60,7 @@ export type MovieStatus = 'showing' | 'offline';
 
 /** 影片条目（Store / 页面展示用） */
 export interface MovieItem {
-  id: number;
+  id: string;
   name: string;
   types: string[];
   posterUrl: string;

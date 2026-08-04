@@ -26,6 +26,7 @@ import dayjs from 'dayjs';
 import { useMovieStore, MOVIE_TYPES } from './store';
 import { useScheduleStore } from '../schedule';
 import { movieApi } from './api';
+import request from '../../shared/utils/request';
 import type { MovieStatus, MovieItem, MovieCreateParams, MovieFormValues } from './types';
 import { mapMovieStatus, toApiStatus } from './types';
 import { MovieForm } from './MovieForm';
@@ -64,6 +65,7 @@ export function MovieManage() {
   const [editingMovie, setEditingMovie] = useState<MovieItem | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [hasScheduleTip, setHasScheduleTip] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   // antd Form 实例
   const [form] = Form.useForm<MovieFormValues>();
@@ -197,6 +199,7 @@ export function MovieManage() {
     setHasScheduleTip(false);
     form.resetFields();
     form.setFieldsValue(EMPTY_FORM);
+    setPendingFile(null);
     setModalOpen(true);
   };
 
@@ -288,10 +291,22 @@ export function MovieManage() {
     try {
       const values = await form.validateFields();
       setSubmitting(true);
+
+      // 如果有新选的文件，提交时才上传到 OSS
+      let posterUrl = values.posterUrl;
+      if (pendingFile) {
+        const formData = new FormData();
+        formData.append('file', pendingFile);
+        const res = await request.post<{ objectKey: string }>('/upload/image', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        posterUrl = res.objectKey;
+      }
+
       const payload: MovieCreateParams = {
         name: values.name,
         types: values.types,
-        posterUrl: values.posterUrl,
+        posterUrl,
         rating: values.rating ?? 0,
         duration: values.duration,
         releaseDate: dayjs.isDayjs(values.releaseDate)
@@ -315,6 +330,7 @@ export function MovieManage() {
         toast.success('新增影片成功');
       }
       setModalOpen(false);
+      setPendingFile(null);
     } catch {
       // validateFields 失败时 antd 自动展示校验信息
     } finally {
@@ -429,7 +445,7 @@ export function MovieManage() {
             </div>
           </div>
         )}
-        <MovieForm form={form} />
+        <MovieForm form={form} onFileSelect={setPendingFile} />
       </Modal>
     </div>
   );
