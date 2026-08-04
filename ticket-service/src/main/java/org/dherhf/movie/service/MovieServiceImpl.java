@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import org.dherhf.common.exception.BusinessException;
 import org.dherhf.common.result.PageResult;
+import org.dherhf.common.util.OssUtil;
 import org.dherhf.movie.entity.Movie;
 import org.dherhf.schedule.entity.Schedule;
 import org.dherhf.movie.mapper.MovieMapper;
@@ -29,6 +30,7 @@ public class MovieServiceImpl implements MovieService {
 
     private final MovieMapper movieMapper;
     private final ScheduleMapper scheduleMapper;
+    private final OssUtil ossUtil;
 
     @Override
     public MovieVO createMovie(MovieCreateDTO dto) {
@@ -63,7 +65,11 @@ public class MovieServiceImpl implements MovieService {
             }
         }
 
-        BeanUtils.copyProperties(dto, movie);
+        BeanUtils.copyProperties(dto, movie, "posterUrl");
+        // 如果前端传的 posterUrl 是新的 objectKey（非 http 开头），才更新
+        if (dto.getPosterUrl() != null && !dto.getPosterUrl().startsWith("http")) {
+            movie.setPosterUrl(dto.getPosterUrl());
+        }
         movieMapper.updateById(movie);
 
         Movie updated = movieMapper.selectById(id);
@@ -201,12 +207,14 @@ public class MovieServiceImpl implements MovieService {
     private MovieVO toVO(Movie movie) {
         MovieVO vo = new MovieVO();
         BeanUtils.copyProperties(movie, vo);
+        vo.setPosterUrl(ossUtil.generateSignedUrl(movie.getPosterUrl(), 3600));
         return vo;
     }
 
     private MovieListVO toListVO(Movie movie) {
         MovieListVO vo = new MovieListVO();
         BeanUtils.copyProperties(movie, vo);
+        vo.setPosterUrl(ossUtil.generateSignedUrl(movie.getPosterUrl(), 3600));
         return vo;
     }
 }

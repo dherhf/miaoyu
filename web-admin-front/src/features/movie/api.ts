@@ -15,7 +15,7 @@ export const movieApi = {
     request.get('/movies', { params }),
 
   /** 查询影片详情 */
-  getMovieDetail: (id: number): Promise<MovieDetail> =>
+  getMovieDetail: (id: string): Promise<MovieDetail> =>
     request.get(`/movies/${id}`),
 
   /** 新增影片 */
@@ -23,22 +23,22 @@ export const movieApi = {
     request.post('/movies', data),
 
   /** 编辑影片 */
-  updateMovie: (id: number, data: MovieCreateParams): Promise<MovieDetail> =>
+  updateMovie: (id: string, data: MovieCreateParams): Promise<MovieDetail> =>
     request.put(`/movies/${id}`, data),
 
   /** 上架影片 */
-  publishMovie: (id: number): Promise<void> =>
+  publishMovie: (id: string): Promise<void> =>
     request.put(`/movies/${id}/publish`),
 
   /** 批量上架 */
-  batchPublishMovies: (ids: number[]): Promise<BatchResult> =>
+  batchPublishMovies: (ids: string[]): Promise<BatchResult> =>
     request.put('/movies/batch-publish', { ids }),
 
   /** 下架影片 */
-  unpublishMovie: (id: number): Promise<void> =>
+  unpublishMovie: (id: string): Promise<void> =>
     request.put(`/movies/${id}/unpublish`),
 
   /** 批量下架 */
-  batchUnpublishMovies: (ids: number[]): Promise<BatchResult> =>
+  batchUnpublishMovies: (ids: string[]): Promise<BatchResult> =>
     request.put('/movies/batch-unpublish', { ids }),
 };
