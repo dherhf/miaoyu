@@ -10,8 +10,8 @@ interface CinemaState {
   loading: boolean;
   fetchCinemas: (params?: CinemaListParams) => Promise<void>;
   addCinema: (payload: CinemaCreateParams) => Promise<void>;
-  updateCinema: (id: number, payload: CinemaCreateParams) => Promise<void>;
-  toggleCinemaStatus: (id: number, target: CinemaStatus) => Promise<void>;
+  updateCinema: (id: string, payload: CinemaCreateParams) => Promise<void>;
+  toggleCinemaStatus: (id: string, target: CinemaStatus) => Promise<void>;
   deleteCinema: (id: string) => Promise<void>;
 }
 
@@ -34,12 +34,12 @@ export const useCinemaStore = create<CinemaState>((set, get) => ({
     await get().fetchCinemas();
   },
 
-  updateCinema: async (id: number, payload: CinemaCreateParams): Promise<void> => {
+  updateCinema: async (id: string, payload: CinemaCreateParams): Promise<void> => {
     await cinemaApi.update(id, payload);
     await get().fetchCinemas();
   },
 
-  toggleCinemaStatus: async (id: number, target: CinemaStatus): Promise<void> => {
+  toggleCinemaStatus: async (id: string, target: CinemaStatus): Promise<void> => {
     if (target === 'active') {
       await cinemaApi.open(id);
     } else {

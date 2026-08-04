@@ -1,7 +1,6 @@
-import { Form, Input, InputNumber, Radio, Tag, Space } from 'antd';
+import { Form, Input, InputNumber, Tag, Space } from 'antd';
 import { EnvironmentOutlined, PhoneOutlined } from '@ant-design/icons';
 import { LocationPicker } from '../amap';
-import type { CinemaStatus } from './types';
 import styles from './CinemaPage.module.css';
 
 // 类型定义
@@ -18,7 +17,6 @@ interface CinemaFormValues {
   facilities: string[];
   rating: number | null;
   phone: string | null;
-  status: CinemaStatus;
 }
 
 const CINEMA_STATUS_LABELS = {
@@ -105,7 +103,7 @@ export function CinemaForm({ data, isEdit, onChange }: CinemaFormProps) {
       </Form.Item>
 
       {/* 评分 & 电话 */}
-      <Space size={16} className={styles.ratingPhoneRow}>
+      <div className={styles.ratingPhoneRow}>
         <Form.Item label="评分" className={styles.formCol}>
           <InputNumber
             min={0}
@@ -125,22 +123,7 @@ export function CinemaForm({ data, isEdit, onChange }: CinemaFormProps) {
             prefix={<PhoneOutlined />}
           />
         </Form.Item>
-      </Space>
-
-      {/* 营业状态 */}
-      <Form.Item label="营业状态">
-        {isEdit ? (
-          <Radio.Group
-            value={data.status}
-            onChange={(e) => handleFieldChange('status', e.target.value)}
-          >
-            <Radio value={CINEMA_STATUS.ACTIVE}>营业中</Radio>
-            <Radio value={CINEMA_STATUS.CLOSED}>停业</Radio>
-          </Radio.Group>
-        ) : (
-          <Tag color="green">营业中（新建默认）</Tag>
-        )}
-      </Form.Item>
+      </div>
     </Form>
   );
 }
