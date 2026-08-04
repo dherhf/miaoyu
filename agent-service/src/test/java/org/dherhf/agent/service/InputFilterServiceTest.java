@@ -33,7 +33,7 @@ class InputFilterServiceTest {
 
     @BeforeEach
     void setUp() {
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         // 手动创建实例，避免 @InjectMocks 的构造问题
         inputFilterService = new InputFilterService(redisTemplate, 86400L);
     }
