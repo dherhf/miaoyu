@@ -1,27 +1,26 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
-  Plus,
-  Minus,
-  Search,
-  Edit2,
-  Trash2,
-  MapPin,
-  LayoutGrid,
-  Armchair,
-  ArrowLeft,
-  Columns,
-  RectangleHorizontal,
-  Eye,
-  Pencil,
-  Check,
-  X,
-  Save,
-  Square,
-  CheckSquare,
-} from 'lucide-react';
-import { toast } from 'sonner';
+  PlusOutlined,
+  MinusOutlined,
+  SearchOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  EnvironmentOutlined,
+  AppstoreOutlined,
+  TeamOutlined,
+  ArrowLeftOutlined,
+  ColumnWidthOutlined,
+  DashOutlined,
+  EyeOutlined,
+  CheckOutlined,
+  CloseOutlined,
+  SaveOutlined,
+  BorderOutlined,
+  CheckSquareOutlined,
+} from '@ant-design/icons';
 import {
   Layout,
+  App as AntApp,
   Table,
   Modal,
   Form,
@@ -215,14 +214,14 @@ const SeatLayoutViewer: React.FC<SeatLayoutViewerProps> = ({
     const next = tempSeats.map(s => selectedSeats.has(`${s.row}-${s.col}`) ? { ...s, status: SEAT_STATUS.AISLE } : s);
     setTempSeats(next);
     clearSelection();
-    toast.success(`已将 ${selectedCount} 个座位设为过道`);
+    message.success(`已将 ${selectedCount} 个座位设为过道`);
   };
   const resetAllAisles = () => {
     if (!isEditMode) return;
     const next = tempSeats.map(s => ({ ...s, status: SEAT_STATUS.AVAILABLE }));
     setTempSeats(next);
     clearSelection();
-    toast.success('已重置所有座位为可用');
+    message.success('已重置所有座位为可用');
   };
 
   const enterEditMode = () => {
@@ -261,29 +260,29 @@ const SeatLayoutViewer: React.FC<SeatLayoutViewerProps> = ({
       <div className={styles.viewerToolbar}>
         <div className={styles.toolbarLeft}>
           <Space size={8}>
-            <Armchair size={16} color="#1677ff" />
+            <TeamOutlined style={{ fontSize: 16, color: '#1677ff' }} />
             <Typography.Text className={styles.statLabel}>可用座位：</Typography.Text>
             <Typography.Text strong className={styles.statValueBlue}>{availableSeats}</Typography.Text>
           </Space>
           <Space size={8}>
-            <RectangleHorizontal size={16} color='#999' />
+            <DashOutlined style={{ fontSize: 16, color: '#999' }} />
             <Typography.Text className={styles.statLabel}>过道：</Typography.Text>
             <Typography.Text strong className={styles.statValueGray}>{currentSeats.length - availableSeats}</Typography.Text>
           </Space>
           {isEditMode && selectedCount > 0 && (
             <div className={styles.selectedInfo}>
-              <CheckSquare size={16} color='#f59e0b' />
+              <CheckSquareOutlined style={{ fontSize: 16, color: '#f59e0b' }} />
               <Typography.Text className={styles.selectedInfoText}>已选择 {selectedCount} 个座位</Typography.Text>
             </div>
           )}
         </div>
         <Space size={8}>
           {!isEditMode ? (
-            <Button type='primary' size='small' icon={<Pencil size={16} />} onClick={enterEditMode}>编辑布局</Button>
+            <Button type='primary' size='small' icon={<EditOutlined style={{ fontSize: 16 }} />} onClick={enterEditMode}>编辑布局</Button>
           ) : (
             <>
               <Typography.Text className={styles.hintText}>Ctrl/Cmd+点击多选，拖拽框选</Typography.Text>
-              <Button size='small' icon={<Square size={14} />} onClick={selectAllSeats}>全选</Button>
+              <Button size='small' icon={<BorderOutlined style={{ fontSize: 14 }} />} onClick={selectAllSeats}>全选</Button>
               {selectedCount > 0 && (
                 <>
                   <Button size='small' onClick={clearSelection}>清空</Button>
@@ -344,8 +343,8 @@ const SeatLayoutViewer: React.FC<SeatLayoutViewerProps> = ({
         <SeatLegend />
         {isEditMode ? (
           <Space size={12}>
-            <Button onClick={cancelEdit} icon={<X size={16} />}>取消</Button>
-            <Button type='primary' onClick={saveEdit} icon={<Save size={16} />}>保存布局</Button>
+            <Button onClick={cancelEdit} icon={<CloseOutlined style={{ fontSize: 16 }} />}>取消</Button>
+            <Button type='primary' onClick={saveEdit} icon={<SaveOutlined style={{ fontSize: 16 }} />}>保存布局</Button>
           </Space>
         ) : (
           <Typography.Text className={styles.hintText}>{rowCount}行 × {colCount}列</Typography.Text>
@@ -388,24 +387,24 @@ const SeatLayoutEditor: React.FC<SeatLayoutEditorProps> = ({ seats, onChange }) 
   };
   const onAddRow = () => {
     const res = addRow(currentSeats);
-    if (res.error) toast.error(res.error);
+    if (res.error) message.error(res.error);
     else onChange(res);
   };
   const onRemoveRow = () => {
-    if (rowCount <= 1) return toast.error('至少保留一行');
+    if (rowCount <= 1) return message.error('至少保留一行');
     const res = removeRow(currentSeats);
-    if (res.error) toast.error(res.error);
+    if (res.error) message.error(res.error);
     else onChange(res);
   };
   const onAddCol = () => {
     const res = addCol(currentSeats);
-    if (res.error) toast.error(res.error);
+    if (res.error) message.error(res.error);
     else onChange(res);
   };
   const onRemoveCol = () => {
-    if (colCount <= 1) return toast.error('至少保留一列');
+    if (colCount <= 1) return message.error('至少保留一列');
     const res = removeCol(currentSeats);
-    if (res.error) toast.error(res.error);
+    if (res.error) message.error(res.error);
     else onChange(res);
   };
 
@@ -415,11 +414,11 @@ const SeatLayoutEditor: React.FC<SeatLayoutEditorProps> = ({ seats, onChange }) 
       <div className={styles.statBox}>
         <Space size={16}>
           <Typography.Text className={styles.normalText}>{rowCount} 行 × {colCount} （共{currentSeats.length}座）</Typography.Text>
-          <Space size={6}><Armchair size={16} color='#1677ff' /><Typography.Text className={styles.normalText}>可用：{availableSeats}</Typography.Text></Space>
-          <Space size={6}><RectangleHorizontal size={16} color='#999' /><Typography.Text className={styles.normalText}>过道：{currentSeats.length - availableSeats}</Typography.Text></Space>
+          <Space size={6}><TeamOutlined style={{ fontSize: 16, color: '#1677ff' }} /><Typography.Text className={styles.normalText}>可用：{availableSeats}</Typography.Text></Space>
+          <Space size={6}><DashOutlined style={{ fontSize: 16, color: '#999' }} /><Typography.Text className={styles.normalText}>过道：{currentSeats.length - availableSeats}</Typography.Text></Space>
         </Space>
         <Space size={8}>
-          <Button size='small' icon={<Columns size={14} />} onClick={setMiddleColumnAisle}>中间过道</Button>
+          <Button size='small' icon={<ColumnWidthOutlined style={{ fontSize: 14 }} />} onClick={setMiddleColumnAisle}>中间过道</Button>
           <Button size='small' onClick={clearAllAisles}>清除所有过道</Button>
         </Space>
       </div>
@@ -427,13 +426,13 @@ const SeatLayoutEditor: React.FC<SeatLayoutEditorProps> = ({ seats, onChange }) 
       <div className={styles.rowColOps}>
         <Space>
           <Typography.Text className={styles.opLabelText}>行操作：</Typography.Text>
-          <Button size='small' icon={<Plus size={12} />} onClick={onAddRow}>添加行</Button>
-          <Button size='small' danger icon={<Minus size={12} />} disabled={rowCount <= 1} onClick={onRemoveRow}>删除行</Button>
+          <Button size='small' icon={<PlusOutlined style={{ fontSize: 12 }} />} onClick={onAddRow}>添加行</Button>
+          <Button size='small' danger icon={<MinusOutlined style={{ fontSize: 12 }} />} disabled={rowCount <= 1} onClick={onRemoveRow}>删除行</Button>
         </Space>
         <Space>
           <Typography.Text className={styles.opLabelText}>列操作：</Typography.Text>
-          <Button size='small' icon={<Plus size={12} />} onClick={onAddCol}>添加列</Button>
-          <Button size='small' danger icon={<Minus size={12} />} disabled={colCount <= 1} onClick={onRemoveCol}>删除列</Button>
+          <Button size='small' icon={<PlusOutlined style={{ fontSize: 12 }} />} onClick={onAddCol}>添加列</Button>
+          <Button size='small' danger icon={<MinusOutlined style={{ fontSize: 12 }} />} disabled={colCount <= 1} onClick={onRemoveCol}>删除列</Button>
         </Space>
       </div>
       {/* 座位画布 */}
@@ -535,7 +534,7 @@ const HallForm: React.FC<HallFormProps> = ({ data, errors, onChange }) => {
       <Card size='small' styles={{ body: { padding: 12 } }}>
         <div className={styles.seatCountRow}>
           <Typography.Text className={styles.seatCountLabel}>预计可用座位</Typography.Text>
-          <Space size={6}><Armchair size={16} color='#1677ff' /><Typography.Text strong className={styles.seatCountValue}>{totalSeats} 座</Typography.Text></Space>
+          <Space size={6}><TeamOutlined style={{ fontSize: 16, color: '#1677ff' }} /><Typography.Text strong className={styles.seatCountValue}>{totalSeats} 座</Typography.Text></Space>
         </div>
       </Card>
       <Form.Item label='座位布局编辑' validateStatus={errors.seats ? 'error' : ''} help={errors.seats}>
@@ -547,6 +546,7 @@ const HallForm: React.FC<HallFormProps> = ({ data, errors, onChange }) => {
 
 // ====================== 主页面 Hall 影厅管理 ======================
 const Hall: React.FC = () => {
+  const { message } = AntApp.useApp();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const cinemaIdParam = searchParams.get('cinemaId');
@@ -592,7 +592,7 @@ const Hall: React.FC = () => {
         return (
           <Space size={12}>
             <div className={styles.hallIconBox} style={{ background: `${typeItem?.color || 'blue'}10` }}>
-              <LayoutGrid size={20} style={{ color: `${typeItem?.color || '#1677ff'}` }} />
+              <AppstoreOutlined style={{ fontSize: 20, color: `${typeItem?.color || '#1677ff'}` }} />
             </div>
             <div>
               <Typography.Text strong>{name}</Typography.Text>
@@ -603,7 +603,7 @@ const Hall: React.FC = () => {
       },
     },
     { title: '座位布局', dataIndex: 'rowCount', align: 'center', render: (r, row) => `${r} × ${row.colCount}` },
-    { title: '可用座位', dataIndex: 'totalSeats', align: 'center', render: v => <Space size={4}><Armchair size={14} /><Typography.Text className={styles.availableSeatsText}>{v}</Typography.Text></Space> },
+    { title: '可用座位', dataIndex: 'totalSeats', align: 'center', render: v => <Space size={4}><TeamOutlined style={{ fontSize: 14 }} /><Typography.Text className={styles.availableSeatsText}>{v}</Typography.Text></Space> },
     {
       title: '状态',
       dataIndex: 'status',
@@ -619,9 +619,9 @@ const Hall: React.FC = () => {
       align: 'center',
       render: (_v, row) => (
         <Space size={8}>
-          <Button size='small' type='link' icon={<Eye size={14} />} onClick={() => setViewingHall(row) || setLayoutModalOpen(true)}>座位</Button>
-          <Button size='small' icon={<Edit2 size={14} />} onClick={() => openEdit(row)}>编辑</Button>
-          <Button size='small' danger icon={<Trash2 size={14} />} onClick={() => handleDelete(row)}>删除</Button>
+          <Button size='small' type='link' icon={<EyeOutlined style={{ fontSize: 14 }} />} onClick={() => setViewingHall(row) || setLayoutModalOpen(true)}>座位</Button>
+          <Button size='small' icon={<EditOutlined style={{ fontSize: 14 }} />} onClick={() => openEdit(row)}>编辑</Button>
+          <Button size='small' danger icon={<DeleteOutlined style={{ fontSize: 14 }} />} onClick={() => handleDelete(row)}>删除</Button>
         </Space>
       ),
     },
@@ -630,7 +630,7 @@ const Hall: React.FC = () => {
   const handleSearch = () => setSelectedIds([]);
   const handleReset = () => { setKeyword(''); setTypeFilter(undefined); setSelectedIds([]); };
   const openAdd = () => {
-    if (!selectedCinemaId) return toast.error('请先选择影院');
+    if (!selectedCinemaId) return message.error('请先选择影院');
     setEditingHall(null);
     setFormData({ name: '', type: '', rowCount: 0, colCount: 0, totalSeats: 0, seats: [] });
     setFormErrors({});
@@ -646,10 +646,10 @@ const Hall: React.FC = () => {
   const saveLayout = async (data: { seats: SeatItem[]; totalSeats: number }) => {
     if (!viewingHall) return;
     const hasSchedule = schedules.some(s => String(s.hallId) === String(viewingHall.id) && s.status !== 'cancelled' && s.status !== 'ended');
-    if (hasSchedule) return toast.error('该影厅存在未结束排期，无法修改座位');
+    if (hasSchedule) return message.error('该影厅存在未结束排期，无法修改座位');
     updateHall(viewingHall.id, { seats: data.seats, totalSeats: data.totalSeats });
     setViewingHall(prev => prev ? { ...prev, ...data } : null);
-    toast.success('座位布局已更新');
+    message.success('座位布局已更新');
   };
   // 表单校验
   const validateForm = () => {
@@ -671,17 +671,17 @@ const Hall: React.FC = () => {
       if (editingHall) {
         const hasSchedule = schedules.some(s => String(s.hallId) === String(editingHall.id) && s.status !== 'cancelled' && s.status !== 'ended');
         if (hasSchedule && (rowCnt !== editingHall.rowCount || colCnt !== editingHall.colCount)) {
-          return toast.error('存在活跃排期，不可修改行列数量');
+          return message.error('存在活跃排期，不可修改行列数量');
         }
         await updateHall(editingHall.id, savePayload);
-        toast.success('影厅更新成功');
+        message.success('影厅更新成功');
       } else {
         await addHall({ ...savePayload, cinemaId: selectedCinemaId });
-        toast.success('新增影厅成功');
+        message.success('新增影厅成功');
       }
       setModalOpen(false);
     } catch (e: any) {
-      toast.error(e.message || '操作失败');
+      message.error(e.message || '操作失败');
     } finally {
       setSubmitting(false);
     }
@@ -689,8 +689,8 @@ const Hall: React.FC = () => {
   // 删除影厅
   const handleDelete = (hall: HallItem) => {
     const hasSchedule = schedules.some(s => String(s.hallId) === String(hall.id) && s.status !== 'cancelled' && s.status !== 'ended');
-    if (hasSchedule) return toast.error('该影厅有排期，无法删除');
-    Modal.confirm({ title: '删除确认', content: `确定删除【${hall.name}】？删除不可恢复`, okText: '确认删除', okDanger: true, onOk: () => { deleteHall(hall.id); toast.success('删除成功'); setSelectedIds(prev => prev.filter(id => id !== hall.id)); } });
+    if (hasSchedule) return message.error('该影厅有排期，无法删除');
+    Modal.confirm({ title: '删除确认', content: `确定删除【${hall.name}】？删除不可恢复`, okText: '确认删除', okDanger: true, onOk: () => { deleteHall(hall.id); message.success('删除成功'); setSelectedIds(prev => prev.filter(id => id !== hall.id)); } });
   };
   const backCinema = () => { setSelectedCinemaId(''); navigate('/halls'); };
 
@@ -700,7 +700,7 @@ const Hall: React.FC = () => {
       <div className={styles.headerWrap}>
         <div>
           {selectedCinemaId && (
-            <Button type='link' size='small' icon={<ArrowLeft size={16} />} onClick={backCinema} className={styles.backButton}>返回影院列表</Button>
+            <Button type='link' size='small' icon={<ArrowLeftOutlined style={{ fontSize: 16 }} />} onClick={backCinema} className={styles.backButton}>返回影院列表</Button>
           )}
           <Typography.Title level={3} className={styles.pageTitle}>
             {currentCinema ? `${currentCinema.name} - 影厅管理` : '影厅管理'}
@@ -709,14 +709,14 @@ const Hall: React.FC = () => {
             {currentCinema ? '管理该影院所有影厅座位布局' : '请先选择影院查看对应影厅'}
           </Typography.Text>
         </div>
-        {selectedCinemaId && <Button type='primary' icon={<Plus size={16} />} onClick={openAdd}>新增影厅</Button>}
+        {selectedCinemaId && <Button type='primary' icon={<PlusOutlined style={{ fontSize: 16 }} />} onClick={openAdd}>新增影厅</Button>}
       </div>
 
       {/* 未选影院 - 选择卡片 */}
       {!selectedCinemaId && (
         <div className={styles.selectCinemaBox}>
           <div className={styles.selectCinemaIcon}>
-            <MapPin size={32} color='#1677ff' />
+            <EnvironmentOutlined style={{ fontSize: 32, color: '#1677ff' }} />
           </div>
           <Typography.Title level={5} className={styles.selectCinemaTitle}>请选择影院</Typography.Title>
           <Typography.Text type='secondary' className={styles.selectCinemaHint}>选择对应影院后管理影厅</Typography.Text>
@@ -726,7 +726,7 @@ const Hall: React.FC = () => {
                 <Typography.Text strong>{c.name}</Typography.Text>
                 <div className={styles.cinemaCardAddress}>{c.address}</div>
                 <div className={styles.cinemaCardHalls}>
-                  <Armchair size={12} className={styles.cinemaCardHallIcon} /> {c.hallCount} 个影厅
+                  <TeamOutlined style={{ fontSize: 12 }} className={styles.cinemaCardHallIcon} /> {c.hallCount} 个影厅
                 </div>
               </Card>
             ))}
@@ -739,7 +739,7 @@ const Hall: React.FC = () => {
         <>
           <div className={styles.filterBox}>
             <Space size={12}>
-              <Input placeholder='搜索影厅名称' value={keyword} onChange={e => setKeyword(e.target.value)} className={styles.searchInput} prefix={<Search size={14} color='#999' />} allowClear />
+              <Input placeholder='搜索影厅名称' value={keyword} onChange={e => setKeyword(e.target.value)} className={styles.searchInput} prefix={<SearchOutlined style={{ fontSize: 14, color: '#999' }} />} allowClear />
               <Select placeholder='全部类型' allowClear value={typeFilter} onChange={v => setTypeFilter(v)} className={styles.typeSelect}>
                 {HALL_TYPES.map(t => <Select.Option key={t.value} value={t.value}>{t.label}</Select.Option>)}
               </Select>
