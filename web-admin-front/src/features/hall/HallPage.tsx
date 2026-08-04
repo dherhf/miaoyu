@@ -46,7 +46,7 @@ export function HallPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => { if (cinemaIdParam) setSelectedCinemaId(cinemaIdParam); }, [cinemaIdParam]);
-  useEffect(() => { if (selectedCinemaId) void fetchHalls({ cinemaId: Number(selectedCinemaId) }); }, [selectedCinemaId, fetchHalls]);
+  useEffect(() => { if (selectedCinemaId) void fetchHalls({ cinemaId: selectedCinemaId }); }, [selectedCinemaId, fetchHalls]);
   const currentCinema = useMemo(() => cinemas.find(c => String(c.id) === String(selectedCinemaId)), [cinemas, selectedCinemaId]);
   const filteredHalls = useMemo(() => {
     let list = selectedCinemaId ? getHallsByCinemaId(selectedCinemaId) : [...halls];

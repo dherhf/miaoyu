@@ -2,12 +2,12 @@
 
 /** 排期列表记录 */
 export interface ScheduleRecord {
-  id: number;
-  movieId: number;
+  id: string;
+  movieId: string;
   movieName: string;
-  cinemaId: number;
+  cinemaId: string;
   cinemaName: string;
-  hallId: number;
+  hallId: string;
   hallName: string;
   showDate: string;
   startTime: string;
@@ -34,9 +34,9 @@ export interface ScheduleDetail extends ScheduleRecord {
 
 /** 排期列表查询参数 */
 export interface ScheduleListParams {
-  cinemaId?: number;
+  cinemaId?: string;
   movieName?: string;
-  hallId?: number;
+  hallId?: string;
   showDate?: string;
   status?: string;
   page?: number;
@@ -45,9 +45,9 @@ export interface ScheduleListParams {
 
 /** 新增排期参数 */
 export interface ScheduleCreateParams {
-  movieId: number;
-  cinemaId: number;
-  hallId: number;
+  movieId: string;
+  cinemaId: string;
+  hallId: string;
   showDate: string;
   startTime: string;
   price: number;
@@ -56,7 +56,7 @@ export interface ScheduleCreateParams {
 
 /** 修改排期参数 */
 export interface ScheduleUpdateParams {
-  hallId?: number;
+  hallId?: string;
   showDate?: string;
   startTime?: string;
   endTime?: string;
@@ -71,12 +71,12 @@ export type ScheduleStatus = 'available' | 'full' | 'ended' | 'cancelled';
 
 /** 排期条目（Store / 页面展示用） */
 export interface ScheduleItem {
-  id: string | number;
-  cinemaId: string | number;
+  id: string;
+  cinemaId: string;
   cinemaName: string;
-  hallId: string | number;
+  hallId: string;
   hallName: string;
-  movieId: string | number;
+  movieId: string;
   movieName: string;
   showDate: string;
   showTime: string;

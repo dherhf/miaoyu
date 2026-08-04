@@ -26,7 +26,7 @@ export const hallApi = {
     request.get('/halls', { params }),
 
   /** 查询影厅详情（含座位布局） */
-  getHallDetail: (id: number): Promise<HallDetail> =>
+  getHallDetail: (id: string): Promise<HallDetail> =>
     request.get(`/halls/${id}`),
 
   /** 新增影厅 */
@@ -42,6 +42,6 @@ export const hallApi = {
     request.put(`/halls/${id}/layout`, data),
 
   /** 删除影厅 */
-  deleteHall: (id: number): Promise<null> =>
+  deleteHall: (id: string): Promise<null> =>
     request.delete(`/halls/${id}`),
 };

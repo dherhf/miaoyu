@@ -4,8 +4,8 @@
 
 /** 影厅列表记录 */
 export interface HallRecord {
-  id: number;
-  cinemaId: number;
+  id: string;
+  cinemaId: string;
   cinemaName: string;
   name: string;
   screenType: string;
@@ -33,7 +33,7 @@ export interface HallDetail extends HallRecord {
 
 /** 影厅列表查询参数 */
 export interface HallListParams {
-  cinemaId?: number;
+  cinemaId?: string;
   name?: string;
   screenType?: string;
   status?: number;
@@ -43,7 +43,7 @@ export interface HallListParams {
 
 /** 新增影厅参数 */
 export interface HallCreateParams {
-  cinemaId: number;
+  cinemaId: string;
   name: string;
   screenType?: string;
 }
@@ -64,7 +64,7 @@ export interface LayoutSaveParams {
 
 /** 保存座位布局响应 */
 export interface LayoutSaveResult {
-  hallId: number;
+  hallId: string;
   totalSeats: number;
   updatedAt: string;
 }
@@ -80,8 +80,8 @@ export interface SeatItem {
 
 /** 影厅条目（Store / 页面展示用） */
 export interface HallItem {
-  id: string | number;
-  cinemaId: string | number;
+  id: string;
+  cinemaId: string;
   name: string;
   type: string;
   rowCount: number;

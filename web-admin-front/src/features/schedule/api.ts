@@ -23,7 +23,7 @@ export const scheduleApi = {
     request.get('/schedules', { params }),
 
   /** 查询场次详情 */
-  getDetail: (id: number): Promise<ScheduleDetail> =>
+  getDetail: (id: string): Promise<ScheduleDetail> =>
     request.get(`/schedules/${id}`),
 
   /** 新增场次 */
@@ -35,10 +35,10 @@ export const scheduleApi = {
     request.put(`/schedules/${id}`, data),
 
   /** 取消场次 */
-  cancel: (id: number): Promise<null> =>
+  cancel: (id: string): Promise<null> =>
     request.put(`/schedules/${id}/cancel`),
 
   /** 删除场次 */
-  delete: (id: number): Promise<null> =>
+  delete: (id: string): Promise<null> =>
     request.delete(`/schedules/${id}`),
 };

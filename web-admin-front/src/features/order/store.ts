@@ -10,7 +10,7 @@ interface OrderState {
   total: number;
   loading: boolean;
   fetchOrders: (params: OrderListParams) => Promise<void>;
-  fetchOrderDetail: (id: number) => Promise<OrderItem | undefined>;
+  fetchOrderDetail: (id: string) => Promise<OrderItem | undefined>;
 }
 
 export const useOrderStore = create<OrderState>((set) => ({
@@ -28,7 +28,7 @@ export const useOrderStore = create<OrderState>((set) => ({
     }
   },
 
-  fetchOrderDetail: async (id: number): Promise<OrderItem | undefined> => {
+  fetchOrderDetail: async (id: string): Promise<OrderItem | undefined> => {
     const res = await getOrderDetail(id);
     return mapOrderRecord(res);
   },

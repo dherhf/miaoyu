@@ -24,9 +24,9 @@ export const LANGUAGE_VERSIONS = [
 ];
 
 export interface ScheduleFormData {
-  cinemaId: string | number;
-  hallId: string | number;
-  movieId: string | number;
+  cinemaId: string;
+  hallId: string;
+  movieId: string;
   showDate: string;
   showTime: string;
   endTime: string;
@@ -49,9 +49,9 @@ interface ScheduleFormProps {
   data: ScheduleFormData;
   errors: ScheduleFormErr;
   onChange: (vals: ScheduleFormData) => void;
-  cinemas: Array<{ id: string | number; name: string; branch?: string; address: string }>;
-  halls: Array<{ id: string | number; cinemaId: string | number; name: string; totalSeats: number }>;
-  movies: Array<{ id: string | number; name: string; duration: number; status: string }>;
+  cinemas: Array<{ id: string; name: string; branch?: string; address: string }>;
+  halls: Array<{ id: string; cinemaId: string; name: string; totalSeats: number }>;
+  movies: Array<{ id: string; name: string; duration: number; status: string }>;
 }
 
 export function ScheduleForm({ data, errors, onChange, cinemas, halls, movies }: ScheduleFormProps) {

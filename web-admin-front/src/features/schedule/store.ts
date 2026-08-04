@@ -30,11 +30,11 @@ interface ScheduleState {
   schedules: ScheduleItem[];
   loading: boolean;
   fetchSchedules: (params?: ScheduleListParams) => Promise<void>;
-  hasMovieSchedule: (movieId: number | string) => boolean;
+  hasMovieSchedule: (movieId: string) => boolean;
   addSchedule: (payload: ScheduleCreateParams) => Promise<void>;
   updateSchedule: (id: number, payload: ScheduleUpdateParams) => Promise<void>;
-  cancelSchedule: (id: number) => Promise<void>;
-  deleteSchedule: (id: number) => Promise<void>;
+  cancelSchedule: (id: string) => Promise<void>;
+  deleteSchedule: (id: string) => Promise<void>;
 }
 
 export const useScheduleStore = create<ScheduleState>((set, get) => ({
@@ -51,7 +51,7 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
     }
   },
 
-  hasMovieSchedule: (movieId: number | string): boolean => {
+  hasMovieSchedule: (movieId: string): boolean => {
     return get().schedules.some(
       (s) => String(s.movieId) === String(movieId) && s.status !== 'cancelled' && s.status !== 'ended',
     );
@@ -67,12 +67,12 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
     await get().fetchSchedules();
   },
 
-  cancelSchedule: async (id: number): Promise<void> => {
+  cancelSchedule: async (id: string): Promise<void> => {
     await scheduleApi.cancel(id);
     await get().fetchSchedules();
   },
 
-  deleteSchedule: async (id: number): Promise<void> => {
+  deleteSchedule: async (id: string): Promise<void> => {
     await scheduleApi.delete(id);
     await get().fetchSchedules();
   },

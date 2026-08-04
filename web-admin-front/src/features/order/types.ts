@@ -4,7 +4,7 @@
 
 /** 订单列表记录 */
 export interface OrderRecord {
-  id: number;
+  id: string;
   orderNo: string;
   userPhone: string;
   movieName: string;
@@ -60,10 +60,10 @@ export interface OrderSeat {
 
 /** 订单条目（Store / 页面展示用） */
 export interface OrderItem {
-  id: number;
+  id: string;
   orderNo: string;
   userPhone: string;
-  userId?: number;
+  userId?: string;
   movieName: string;
   cinemaName: string;
   cinemaAddress?: string;
@@ -80,7 +80,7 @@ export interface OrderItem {
   cancelledAt?: string;
   cancelReason?: string;
   seats?: OrderSeat[];
-  scheduleId?: number;
+  scheduleId?: string;
 }
 
 // ---------- 映射函数 ----------

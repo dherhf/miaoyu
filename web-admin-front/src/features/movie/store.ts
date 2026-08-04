@@ -26,8 +26,8 @@ interface MovieState {
   lastParams: MovieListParams | undefined;
   fetchMovies: (params?: MovieListParams) => Promise<void>;
   addMovie: (payload: MovieCreateParams) => Promise<MovieDetail>;
-  editMovie: (id: number, payload: MovieCreateParams) => Promise<void>;
-  toggleStatus: (ids: number[], target: MovieStatus) => Promise<BatchResult>;
+  editMovie: (id: string, payload: MovieCreateParams) => Promise<void>;
+  toggleStatus: (ids: string[], target: MovieStatus) => Promise<BatchResult>;
 }
 
 export const useMovieStore = create<MovieState>((set, get) => ({
@@ -56,12 +56,12 @@ export const useMovieStore = create<MovieState>((set, get) => ({
     return detail;
   },
 
-  editMovie: async (id: number, payload: MovieCreateParams): Promise<void> => {
+  editMovie: async (id: string, payload: MovieCreateParams): Promise<void> => {
     await movieApi.updateMovie(id, payload);
     await get().fetchMovies();
   },
 
-  toggleStatus: async (ids: number[], target: MovieStatus): Promise<BatchResult> => {
+  toggleStatus: async (ids: string[], target: MovieStatus): Promise<BatchResult> => {
     let result: BatchResult;
     if (target === 'showing') {
       if (ids.length === 1) {
