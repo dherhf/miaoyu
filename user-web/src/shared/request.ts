@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { Toast } from 'antd-mobile'
+import { getGlobalMessage } from './globalMessage'
 import { useAuthStore } from '@/features/auth/store'
 import { router } from '@/router'
 
@@ -29,7 +29,7 @@ request.interceptors.response.use(
       response.data = result.data
       return response
     }
-    Toast.show({ content: result.message || '请求失败', icon: 'fail' })
+    getGlobalMessage()?.error(result.message || '请求失败')
     return Promise.reject({ __handled: true, ...result })
   },
   (error) => {
@@ -44,17 +44,17 @@ request.interceptors.response.use(
     }
 
     if (error.response?.status === 403) {
-      Toast.show({ content: '无权限执行此操作', icon: 'fail' })
+      getGlobalMessage()?.error('无权限执行此操作')
       return Promise.reject(error)
     }
 
     const serverMsg = error.response?.data?.message
     if (serverMsg) {
-      Toast.show({ content: serverMsg, icon: 'fail' })
+      getGlobalMessage()?.error(serverMsg)
     } else if (error.code === 'ECONNABORTED') {
-      Toast.show({ content: '请求超时，请稍后重试', icon: 'fail' })
+      getGlobalMessage()?.error('请求超时，请稍后重试')
     } else {
-      Toast.show({ content: '网络异常，请稍后重试', icon: 'fail' })
+      getGlobalMessage()?.error('网络异常，请稍后重试')
     }
     return Promise.reject(error)
   },
