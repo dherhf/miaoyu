@@ -61,7 +61,7 @@ export const useMovieStore = create<MovieState>((set, get) => ({
     await get().fetchMovies();
   },
 
-  toggleStatus: async (ids: number[], target: MovieStatus): Promise<BatchResult> => {
+  toggleStatus: async (ids: string[], target: MovieStatus): Promise<BatchResult> => {
     let result: BatchResult;
     if (target === 'showing') {
       if (ids.length === 1) {

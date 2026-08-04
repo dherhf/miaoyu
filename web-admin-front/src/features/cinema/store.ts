@@ -12,7 +12,7 @@ interface CinemaState {
   addCinema: (payload: CinemaCreateParams) => Promise<void>;
   updateCinema: (id: number, payload: CinemaCreateParams) => Promise<void>;
   toggleCinemaStatus: (id: number, target: CinemaStatus) => Promise<void>;
-  deleteCinema: (id: number) => Promise<void>;
+  deleteCinema: (id: string) => Promise<void>;
 }
 
 export const useCinemaStore = create<CinemaState>((set, get) => ({
@@ -48,7 +48,7 @@ export const useCinemaStore = create<CinemaState>((set, get) => ({
     await get().fetchCinemas();
   },
 
-  deleteCinema: async (id: number): Promise<void> => {
+  deleteCinema: async (id: string): Promise<void> => {
     await cinemaApi.delete(id);
     await get().fetchCinemas();
   },

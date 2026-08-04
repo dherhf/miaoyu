@@ -11,6 +11,6 @@ export function getOrderList(params: OrderListParams): Promise<PageResult<OrderR
 }
 
 /** 查询订单详情 */
-export function getOrderDetail(id: number): Promise<OrderDetail> {
+export function getOrderDetail(id: string): Promise<OrderDetail> {
   return request.get(`/orders/${id}`);
 }

@@ -14,7 +14,7 @@ export const cinemaApi = {
     request.get('/cinemas', { params }),
 
   /** 查询影院详情 */
-  getDetail: (id: number): Promise<CinemaDetail> =>
+  getDetail: (id: string): Promise<CinemaDetail> =>
     request.get(`/cinemas/${id}`),
 
   /** 新增影院 */
@@ -26,14 +26,14 @@ export const cinemaApi = {
     request.put(`/cinemas/${id}`, data),
 
   /** 停业 */
-  close: (id: number): Promise<null> =>
+  close: (id: string): Promise<null> =>
     request.put(`/cinemas/${id}/close`),
 
   /** 营业 */
-  open: (id: number): Promise<null> =>
+  open: (id: string): Promise<null> =>
     request.put(`/cinemas/${id}/open`),
 
   /** 删除影院 */
-  delete: (id: number): Promise<null> =>
+  delete: (id: string): Promise<null> =>
     request.delete(`/cinemas/${id}`),
 };

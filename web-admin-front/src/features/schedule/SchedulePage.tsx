@@ -51,7 +51,7 @@ export function SchedulePage() {
 
   // URL影院参数
   const cinemaIdParam = searchParams.get('cinemaId');
-  const [selectedCinemaId, setSelectedCinemaId] = useState<string | number>(cinemaIdParam ?? '');
+  const [selectedCinemaId, setSelectedCinemaId] = useState<string>(cinemaIdParam ?? '');
 
   // 筛选状态
   const [keyword, setKeyword] = useState('');
@@ -170,7 +170,7 @@ export function SchedulePage() {
   };
 
   // 排期冲突检测
-  const checkConflict = (data: ScheduleFormData, excludeId?: string | number) => {
+  const checkConflict = (data: ScheduleFormData, excludeId?: string) => {
     const targetMovie = movies.find(m => m.id === data.movieId);
     const start = dayjs(`${data.showDate} ${data.showTime}`);
     const end = start.add(targetMovie?.duration || 120, 'minute');
@@ -197,8 +197,8 @@ export function SchedulePage() {
         return;
       }
       if (editSchedule) {
-        await scheduleStore.updateSchedule(Number(editSchedule.id), {
-          hallId: Number(formData.hallId),
+        await scheduleStore.updateSchedule(editSchedule.id, {
+          hallId: formData.hallId,
           showDate: formData.showDate,
           startTime: formData.showTime,
           endTime: formData.endTime,
@@ -208,9 +208,9 @@ export function SchedulePage() {
         message.success('排期更新成功');
       } else {
         await scheduleStore.addSchedule({
-          movieId: Number(formData.movieId),
-          cinemaId: Number(formData.cinemaId),
-          hallId: Number(formData.hallId),
+          movieId: formData.movieId,
+          cinemaId: formData.cinemaId,
+          hallId: formData.hallId,
           showDate: formData.showDate,
           startTime: formData.showTime,
           price: formData.price,
@@ -235,7 +235,7 @@ export function SchedulePage() {
       okButtonProps: { danger: true },
       onOk: async () => {
         try {
-          await scheduleStore.cancelSchedule(Number(row.id));
+          await scheduleStore.cancelSchedule(row.id);
           message.success('场次已取消');
         } catch (e: any) {
           message.error(e.message || '操作失败');
@@ -253,7 +253,7 @@ export function SchedulePage() {
       okButtonProps: { danger: true },
       onOk: async () => {
         try {
-          await scheduleStore.deleteSchedule(Number(row.id));
+          await scheduleStore.deleteSchedule(row.id);
           message.success('删除成功');
         } catch (e: any) {
           message.error(e.message || '操作失败');
