@@ -1,5 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { toast } from 'sonner';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Plus,
   Search,
@@ -11,25 +10,20 @@ import {
   Armchair,
   ArrowLeft,
   Ban,
-  AlertTriangle,
 } from 'lucide-react';
 import {
   Table,
   Modal,
-  Form,
   Input,
   Select,
-  InputNumber,
   DatePicker,
-  TimePicker,
-  Radio,
   Button,
   Space,
   Tag,
   Card,
   message,
 } from 'antd';
-import type { TableProps, ModalProps, FormProps } from 'antd';
+import type { TableProps } from 'antd';
 import dayjs from 'dayjs';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCinemaStore } from '../cinema';
@@ -40,277 +34,20 @@ import {
   SCHEDULE_STATUS,
   SCHEDULE_STATUS_LABELS,
 } from './store';
-import { useOrderStore } from '../order';
+import type { ScheduleItem, ScheduleStatus } from './types';
+import { ScheduleForm, LANGUAGE_VERSIONS } from './ScheduleForm';
+import type { ScheduleFormData, ScheduleFormErr } from './ScheduleForm';
 import styles from './SchedulePage.module.css';
 
-// ===================== 常量与TS类型 =====================
-const LANGUAGE_VERSIONS = [
-  { value: 'chinese_2d', label: '国语 2D' },
-  { value: 'chinese_3d', label: '国语 3D' },
-  { value: 'chinese_imax', label: '国语 IMAX' },
-  { value: 'english_2d', label: '英语 2D' },
-  { value: 'english_3d', label: '英语 3D' },
-  { value: 'english_imax', label: '英语 IMAX' },
-  { value: 'japanese', label: '日语原声' },
-  { value: 'korean', label: '韩语原声' },
-];
-
-type ScheduleStatus = 'available' | 'full' | 'ended' | 'cancelled';
-interface ScheduleItem {
-  id: string | number;
-  cinemaId: string | number;
-  cinemaName: string;
-  hallId: string | number;
-  hallName: string;
-  movieId: string | number;
-  movieName: string;
-  showDate: string;
-  showTime: string;
-  endTime: string;
-  price: number;
-  vipPrice?: number;
-  languageVersion: string;
-  totalSeats: number;
-  soldSeats: number;
-  availableSeats: number;
-  status: ScheduleStatus;
-}
-interface ScheduleFormData {
-  cinemaId: string | number;
-  hallId: string | number;
-  movieId: string | number;
-  showDate: string;
-  showTime: string;
-  endTime: string;
-  price: number;
-  vipPrice?: number;
-  languageVersion: string;
-}
-interface ScheduleFormErr {
-  cinemaId?: string;
-  hallId?: string;
-  movieId?: string;
-  showDate?: string;
-  showTime?: string;
-  price?: string;
-  languageVersion?: string;
-}
-
-// ===================== 排期表单子组件 =====================
-interface ScheduleFormProps {
-  data: ScheduleFormData;
-  errors: ScheduleFormErr;
-  onChange: (vals: ScheduleFormData) => void;
-  cinemas: Array<{ id: string | number; name: string; branch: string; address: string }>;
-  halls: Array<{ id: string | number; cinemaId: string | number; name: string; totalSeats: number }>;
-  movies: Array<{ id: string | number; name: string; duration: number; status: string }>;
-}
-const ScheduleForm: React.FC<ScheduleFormProps> = ({ data, errors, onChange, cinemas, halls, movies }) => {
-  const updateField = (key: keyof ScheduleFormData, val: any) => {
-    onChange({ ...data, [key]: val });
-  };
-
-  // 根据选中影院过滤影厅
-  const cinemaHalls = useMemo(() => {
-    return halls.filter(h => h.cinemaId === data.cinemaId);
-  }, [halls, data.cinemaId]);
-
-  // 切换影院自动填充第一个影厅
-  useEffect(() => {
-    if (data.cinemaId && cinemaHalls.length && !data.hallId) {
-      updateField('hallId', cinemaHalls[0].id);
-    }
-  }, [data.cinemaId]);
-
-  // 根据影片时长自动计算结束时间
-  useEffect(() => {
-    const targetMovie = movies.find(m => m.id === data.movieId);
-    if (!targetMovie || !data.showDate || !data.showTime) return;
-    const [h, m] = data.showTime.split(':').map(Number);
-    const start = dayjs(`${data.showDate} ${data.showTime}`);
-    const end = start.add(target.duration, 'minute');
-    updateField('endTime', end.format('HH:mm'));
-  }, [data.movieId, data.showDate, data.showTime, movies]);
-
-  return (
-    <Form layout="vertical">
-      {/* 影院选择 */}
-      <Form.Item
-        label="选择影院"
-        required
-        validateStatus={errors.cinemaId ? 'error' : ''}
-        help={errors.cinemaId}
-        className={styles.formItem}
-      >
-        <Radio.Group
-          value={data.cinemaId}
-          onChange={(e) => updateField('cinemaId', e.target.value)}
-        >
-          <Space direction="vertical" size={8} className={styles.cinemaListSpace}>
-            {cinemas.map(cinema => (
-              <Radio key={cinema.id} value={cinema.id} className={styles.radioAlignStart}>
-                <div>
-                  <div className={styles.cinemaName}>{cinema.name} {cinema.branch}</div>
-                  <div className={styles.cinemaAddress}>{cinema.address}</div>
-                </div>
-              </Radio>
-            ))}
-          </Space>
-        </Radio.Group>
-      </Form.Item>
-
-      {/* 影厅选择 */}
-      <Form.Item
-        label="选择影厅"
-        required
-        validateStatus={errors.hallId ? 'error' : ''}
-        help={errors.hallId}
-        className={styles.formItem}
-      >
-        {!data.cinemaId ? (
-          <div className={styles.placeholderHint}>请先选择影院</div>
-        ) : cinemaHalls.length === 0 ? (
-          <div className={styles.placeholderHint}>该影院暂无可用影厅</div>
-        ) : (
-          <Radio.Group value={data.hallId} onChange={(e) => updateField('hallId', e.target.value)}>
-            <Space wrap size={8}>
-              {cinemaHalls.map(hall => (
-                <Radio key={hall.id} value={hall.id}>{hall.name}</Radio>
-              ))}
-            </Space>
-          </Radio.Group>
-        )}
-      </Form.Item>
-
-      {/* 影片下拉 */}
-      <Form.Item
-        label="选择影片"
-        required
-        validateStatus={errors.movieId ? 'error' : ''}
-        help={errors.movieId}
-        className={styles.formItem}
-      >
-        <Select
-          placeholder="请选择影片"
-          value={data.movieId || undefined}
-          onChange={(v) => updateField('movieId', v)}
-          className={styles.fullWidth}
-        >
-          {movies.filter(m => m.status === 'showing' || m.status === 'coming').map(movie => (
-            <Select.Option key={movie.id} value={movie.id}>
-              {movie.name}（{movie.duration}分钟）
-            </Select.Option>
-          ))}
-        </Select>
-      </Form.Item>
-
-      {/* 日期 + 时间 双栏 */}
-      <div className={styles.twoColWrap}>
-        <Form.Item
-          label="放映日期"
-          required
-          validateStatus={errors.showDate ? 'error' : ''}
-          help={errors.showDate}
-          className={styles.colItem}
-        >
-          <DatePicker
-            value={data.showDate ? dayjs(data.showDate) : undefined}
-            onChange={(d) => updateField('showDate', d?.format('YYYY-MM-DD'))}
-            disabledDate={(d) => d.isBefore(dayjs().subtract(1, 'day'))}
-            className={styles.fullWidth}
-          />
-        </Form.Item>
-        <Form.Item
-          label="开始时间"
-          required
-          validateStatus={errors.showTime ? 'error' : ''}
-          help={errors.showTime}
-          className={styles.colItem}
-        >
-          <TimePicker
-            value={data.showTime ? dayjs(`2000-01-01 ${data.showTime}`) : undefined}
-            onChange={(t) => updateField('showTime', t?.format('HH:mm'))}
-            format="HH:mm"
-            className={styles.fullWidth}
-          />
-        </Form.Item>
-      </div>
-
-      {/* 自动计算结束时间 */}
-      {data.endTime && (
-        <div className={styles.endTimeBar}>
-          <span className={styles.endTimeLabel}>预计结束时间</span>
-          <Space size={4}>
-            <Clock size={16} color='#666' />
-            <span className={styles.endTimeValue}>{data.endTime}</span>
-          </Space>
-        </div>
-      )}
-
-      {/* 票价 & 语言版本 */}
-      <div className={styles.twoColWrap}>
-        <Form.Item
-          label="票价"
-          required
-          validateStatus={errors.price ? 'error' : ''}
-          help={errors.price}
-          className={styles.colItem}
-        >
-          <InputNumber
-            addonBefore="¥"
-            min={0.01}
-            step={0.01}
-            value={data.price}
-            onChange={(v) => updateField('price', v)}
-            className={styles.fullWidth}
-            placeholder="0.00"
-          />
-        </Form.Item>
-        <Form.Item
-          label="语言版本"
-          required
-          validateStatus={errors.languageVersion ? 'error' : ''}
-          help={errors.languageVersion}
-          className={styles.colItem}
-        >
-          <Select
-            placeholder="请选择"
-            value={data.languageVersion}
-            onChange={(v) => updateField('languageVersion', v)}
-            className={styles.fullWidth}
-          >
-            {LANGUAGE_VERSIONS.map(item => (
-              <Select.Option key={item.value} value={item.value}>{item.label}</Select.Option>
-            ))}
-          </Select>
-        </Form.Item>
-      </div>
-
-      {/* VIP票价 */}
-      <Form.Item label="VIP票价（选填）" className={styles.formItem}>
-        <InputNumber
-          addonBefore="¥"
-          min={0.01}
-          step={0.01}
-          value={data.vipPrice}
-          onChange={(v) => updateField('vipPrice', v)}
-          placeholder="优惠价格，不填同原价"
-          className={styles.fullWidth}
-        />
-      </Form.Item>
-    </Form>
-  );
-};
-
 // ===================== 主页面 Schedule排期管理 =====================
-const SchedulePage: React.FC = () => {
+export function SchedulePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const cinemaStore = useCinemaStore();
   const movieStore = useMovieStore();
   const hallStore = useHallStore();
   const scheduleStore = useScheduleStore();
-  const orderStore = useOrderStore();
+  const { schedules: allSchedules, loading: scheduleLoading, fetchSchedules } = scheduleStore;
 
   // URL影院参数
   const cinemaIdParam = searchParams.get('cinemaId');
@@ -347,11 +84,15 @@ const SchedulePage: React.FC = () => {
     if (cinemaIdParam) setSelectedCinemaId(cinemaIdParam);
   }, [cinemaIdParam]);
 
+  // 初始加载排期数据
+  useEffect(() => {
+    void fetchSchedules();
+  }, [fetchSchedules]);
+
   // 数据缓存
   const cinemas = cinemaStore.cinemas;
   const movies = movieStore.movies;
   const allHalls = hallStore.halls;
-  const allSchedules = scheduleStore.schedules;
   const currentCinema = useMemo(() => cinemas.find(c => String(c.id) === String(selectedCinemaId)), [cinemas, selectedCinemaId]);
   const cinemaHalls = useMemo(() => allHalls.filter(h => String(h.cinemaId) === String(selectedCinemaId)), [allHalls, selectedCinemaId]);
 
@@ -370,6 +111,156 @@ const SchedulePage: React.FC = () => {
 
   // 计算上座率
   const calcRate = (sold: number, total: number) => total === 0 ? 0 : Math.round((sold / total) * 100);
+
+  // 打开新增弹窗
+  const openAdd = () => {
+    if (!selectedCinemaId) return message.warning('请先选择影院');
+    setEditSchedule(null);
+    setFormData({
+      cinemaId: selectedCinemaId,
+      hallId: '',
+      movieId: '',
+      showDate: dayjs().format('YYYY-MM-DD'),
+      showTime: '',
+      endTime: '',
+      price: 0,
+      vipPrice: undefined,
+      languageVersion: 'chinese_2d',
+    });
+    setFormErrors({});
+    setModalOpen(true);
+  };
+
+  // 打开编辑弹窗
+  const openEdit = (row: ScheduleItem) => {
+    setEditSchedule(row);
+    setFormData({
+      cinemaId: row.cinemaId,
+      hallId: row.hallId,
+      movieId: row.movieId,
+      showDate: row.showDate,
+      showTime: row.showTime,
+      endTime: row.endTime,
+      price: row.price,
+      vipPrice: row.vipPrice,
+      languageVersion: row.languageVersion,
+    });
+    setFormErrors({});
+    setModalOpen(true);
+  };
+
+  // 返回影院选择页
+  const backCinema = () => {
+    setSelectedCinemaId('');
+    navigate('/schedules');
+  };
+
+  // 表单校验
+  const validateForm = () => {
+    const err: ScheduleFormErr = {};
+    if (!formData.cinemaId) err.cinemaId = '请选择影院';
+    if (!formData.hallId) err.hallId = '请选择影厅';
+    if (!formData.movieId) err.movieId = '请选择影片';
+    if (!formData.showDate) err.showDate = '请选择放映日期';
+    if (!formData.showTime) err.showTime = '请选择放映时间';
+    if (!formData.price || formData.price <= 0) err.price = '票价必须大于0';
+    if (!formData.languageVersion) err.languageVersion = '请选择语言版本';
+    setFormErrors(err);
+    return Object.keys(err).length === 0;
+  };
+
+  // 排期冲突检测
+  const checkConflict = (data: ScheduleFormData, excludeId?: string | number) => {
+    const targetMovie = movies.find(m => m.id === data.movieId);
+    const start = dayjs(`${data.showDate} ${data.showTime}`);
+    const end = start.add(targetMovie?.duration || 120, 'minute');
+    const targetHalls = allSchedules.filter(s => s.hallId === data.hallId && s.id !== excludeId && s.status !== SCHEDULE_STATUS.CANCELLED);
+    for (const item of targetHalls) {
+      const itemStart = dayjs(`${item.showDate} ${item.showTime}`);
+      const itemEnd = itemStart.add(movies.find(m => m.id === item.movieId)?.duration || 120, 'minute');
+      if (start.isBefore(itemEnd) && end.isAfter(itemStart)) {
+        return { conflict: true, target: item };
+      }
+    }
+    return { conflict: false };
+  };
+
+  // 保存排期
+  const submitForm = async () => {
+    if (!validateForm()) return;
+    setSubmitting(true);
+    try {
+      const { conflict, target } = checkConflict(formData, editSchedule?.id);
+      if (conflict && target) {
+        message.error(`排期冲突：${target.movieName} ${target.showTime}-${target.endTime}`);
+        setSubmitting(false);
+        return;
+      }
+      if (editSchedule) {
+        await scheduleStore.updateSchedule(Number(editSchedule.id), {
+          hallId: Number(formData.hallId),
+          showDate: formData.showDate,
+          startTime: formData.showTime,
+          endTime: formData.endTime,
+          price: formData.price,
+          languageVersion: formData.languageVersion,
+        });
+        message.success('排期更新成功');
+      } else {
+        await scheduleStore.addSchedule({
+          movieId: Number(formData.movieId),
+          cinemaId: Number(formData.cinemaId),
+          hallId: Number(formData.hallId),
+          showDate: formData.showDate,
+          startTime: formData.showTime,
+          price: formData.price,
+          languageVersion: formData.languageVersion,
+        });
+        message.success('新增排期成功');
+      }
+      setModalOpen(false);
+    } catch (e: any) {
+      message.error(e.message || '操作失败');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // 取消场次
+  const handleCancelSchedule = (row: ScheduleItem) => {
+    if (row.soldSeats > 0) return message.error('该场次存在订单，不可取消');
+    Modal.confirm({
+      title: '确认取消排期',
+      content: `确定取消【${row.movieName} ${row.showDate}】？`,
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await scheduleStore.cancelSchedule(Number(row.id));
+          message.success('场次已取消');
+        } catch (e: any) {
+          message.error(e.message || '操作失败');
+        }
+      },
+    });
+  };
+
+  // 删除场次
+  const handleDeleteSchedule = (row: ScheduleItem) => {
+    if (row.soldSeats > 0) return message.error('该场次存在订单，无法删除');
+    Modal.confirm({
+      title: '删除确认',
+      content: `删除【${row.movieName}】后无法恢复`,
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await scheduleStore.deleteSchedule(Number(row.id));
+          message.success('删除成功');
+        } catch (e: any) {
+          message.error(e.message || '操作失败');
+        }
+      },
+    });
+  };
 
   // 表格列配置
   const tableColumns: TableProps<ScheduleItem>['columns'] = useMemo(() => [
@@ -462,7 +353,7 @@ const SchedulePage: React.FC = () => {
       title: '操作',
       width: 160,
       align: 'center',
-      render: (_: any, row) => {
+      render: (_: unknown, row: ScheduleItem) => {
         const hasSold = row.soldSeats > 0;
         const isEnd = row.status === SCHEDULE_STATUS.ENDED;
         const isCancel = row.status === SCHEDULE_STATUS.CANCELLED;
@@ -482,145 +373,6 @@ const SchedulePage: React.FC = () => {
       },
     },
   ], []);
-
-  // 打开新增弹窗
-  const openAdd = () => {
-    if (!selectedCinemaId) return message.warning('请先选择影院');
-    setEditSchedule(null);
-    setFormData({
-      cinemaId: selectedCinemaId,
-      hallId: '',
-      movieId: '',
-      showDate: dayjs().format('YYYY-MM-DD'),
-      showTime: '',
-      endTime: '',
-      price: 0,
-      vipPrice: undefined,
-      languageVersion: 'chinese_2d',
-    });
-    setFormErrors({});
-    setModalOpen(true);
-  };
-
-  // 打开编辑弹窗
-  const openEdit = (row: ScheduleItem) => {
-    setEditSchedule(row);
-    setFormData({
-      cinemaId: row.cinemaId,
-      hallId: row.hallId,
-      movieId: row.movieId,
-      showDate: row.showDate,
-      showTime: row.showTime,
-      endTime: row.endTime,
-      price: row.price,
-      vipPrice: row.vipPrice,
-      languageVersion: row.languageVersion,
-    });
-    setFormErrors({});
-    setModalOpen(true);
-  };
-
-  // 返回影院选择页
-  const backCinema = () => {
-    setSelectedCinemaId('');
-    navigate('/schedules');
-  };
-
-  // 表单校验
-  const validateForm = () => {
-    const err: ScheduleFormErr = {};
-    if (!formData.cinemaId) err.cinemaId = '请选择影院';
-    if (!formData.hallId) err.hallId = '请选择影厅';
-    if (!formData.movieId) err.movieId = '请选择影片';
-    if (!formData.showDate) err.showDate = '请选择放映日期';
-    if (!formData.showTime) err.showTime = '请选择放映时间';
-    if (!formData.price || formData.price <= 0) err.price = '票价必须大于0';
-    if (!formData.languageVersion) err.languageVersion = '请选择语言版本';
-    setFormErrors(err);
-    return Object.keys(err).length === 0;
-  };
-
-  // 排期冲突检测
-  const checkConflict = (data: ScheduleFormData, excludeId?: string | number) => {
-    const targetMovie = movies.find(m => m.id === data.movieId);
-    const start = dayjs(`${data.showDate} ${data.showTime}`);
-    const end = start.add(targetMovie?.duration || 120, 'minute');
-    const targetHalls = allSchedules.filter(s => s.hallId === data.hallId && s.id !== excludeId && s.status !== SCHEDULE_STATUS.CANCELLED);
-    for (const item of targetHalls) {
-      const itemStart = dayjs(`${item.showDate} ${item.showTime}`);
-      const itemEnd = itemStart.add(movies.find(m => m.id === item.movieId)?.duration || 120, 'minute');
-      if (start.isBefore(itemEnd) && end.isAfter(itemStart)) {
-        return { conflict: true, target: item };
-      }
-    }
-    return { conflict: false };
-  };
-
-  // 保存排期
-  const submitForm = async () => {
-    if (!validateForm()) return;
-    setSubmitting(true);
-    try {
-      const { conflict, target } = checkConflict(formData, editSchedule?.id);
-      if (conflict) {
-        toast.error(`排期冲突：${target.movieName} ${target.showTime}-${target.endTime}`);
-        setSubmitting(false);
-        return;
-      }
-      const movie = movies.find(m => m.id === formData.movieId);
-      const hall = allHalls.find(h => h.id === formData.hallId);
-      const cinema = cinemas.find(c => c.id === formData.cinemaId);
-      const payload = {
-        ...formData,
-        movieName: movie?.name,
-        hallName: hall?.name,
-        cinemaName: cinema?.name,
-        totalSeats: hall?.totalSeats || 0,
-        soldSeats: editSchedule?.soldSeats || 0,
-        availableSeats: (hall?.totalSeats || 0) - (editSchedule?.soldSeats || 0),
-      };
-      if (editSchedule) {
-        scheduleStore.updateSchedule(editSchedule.id, payload);
-        toast.success('排期更新成功');
-      } else {
-        scheduleStore.addSchedule(payload);
-        toast.success('新增排期成功');
-      }
-      setModalOpen(false);
-    } catch (e: any) {
-      toast.error(e.message || '操作失败');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // 取消场次
-  const handleCancelSchedule = (row: ScheduleItem) => {
-    if (row.soldSeats > 0) return toast.error('该场次存在订单，不可取消');
-    Modal.confirm({
-      title: '确认取消排期',
-      content: `确定取消【${row.movieName} ${row.showDate}】？`,
-      okDanger: true,
-      onOk: () => {
-        scheduleStore.cancelSchedule(row.id);
-        toast.success('场次已取消');
-      },
-    });
-  };
-
-  // 删除场次
-  const handleDeleteSchedule = (row: ScheduleItem) => {
-    if (row.soldSeats > 0) return toast.error('该场次存在订单，无法删除');
-    Modal.confirm({
-      title: '删除确认',
-      content: `删除【${row.movieName}】后无法恢复`,
-      okDanger: true,
-      onOk: () => {
-        scheduleStore.deleteSchedule(row.id);
-        toast.success('删除成功');
-      },
-    });
-  };
 
   return (
     <div className={styles.pageRoot}>
@@ -706,6 +458,7 @@ const SchedulePage: React.FC = () => {
               columns={tableColumns}
               dataSource={filteredScheduleList}
               bordered
+              loading={scheduleLoading}
               scroll={{ x: 'max-content' }}
               rowSelection={{ selectedRowKeys, onChange: (keys) => setSelectedRowKeys(keys as string[]) }}
               pagination={{ pageSize: 10 }}
@@ -735,6 +488,4 @@ const SchedulePage: React.FC = () => {
       </Modal>
     </div>
   );
-};
-
-export default SchedulePage;
+}

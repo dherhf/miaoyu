@@ -15,29 +15,30 @@ export type {
   ScheduleUpdateParams,
 } from './types';
 
-// ===================== API =====================
+// API
 
-/** 查询场次列表 */
-export function getScheduleList(params: ScheduleListParams): Promise<PageResult<ScheduleRecord>> {
-  return request.get('/schedules', { params });
-}
+export const scheduleApi = {
+  /** 查询场次列表 */
+  getList: (params: ScheduleListParams): Promise<PageResult<ScheduleRecord>> =>
+    request.get('/schedules', { params }),
 
-/** 查询场次详情 */
-export function getScheduleDetail(id: number): Promise<ScheduleDetail> {
-  return request.get(`/schedules/${id}`);
-}
+  /** 查询场次详情 */
+  getDetail: (id: number): Promise<ScheduleDetail> =>
+    request.get(`/schedules/${id}`),
 
-/** 新增场次 */
-export function createSchedule(data: ScheduleCreateParams): Promise<ScheduleDetail> {
-  return request.post('/schedules', data);
-}
+  /** 新增场次 */
+  create: (data: ScheduleCreateParams): Promise<ScheduleDetail> =>
+    request.post('/schedules', data),
 
-/** 修改场次 */
-export function updateSchedule(id: number, data: ScheduleUpdateParams): Promise<ScheduleDetail> {
-  return request.put(`/schedules/${id}`, data);
-}
+  /** 修改场次 */
+  update: (id: number, data: ScheduleUpdateParams): Promise<ScheduleDetail> =>
+    request.put(`/schedules/${id}`, data),
 
-/** 取消场次 */
-export function cancelSchedule(id: number): Promise<null> {
-  return request.put(`/schedules/${id}/cancel`);
-}
+  /** 取消场次 */
+  cancel: (id: number): Promise<null> =>
+    request.put(`/schedules/${id}/cancel`),
+
+  /** 删除场次 */
+  delete: (id: number): Promise<null> =>
+    request.delete(`/schedules/${id}`),
+};
