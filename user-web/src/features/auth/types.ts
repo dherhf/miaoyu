@@ -9,7 +9,7 @@ export interface RegisterDTO {
 }
 
 export interface UserInfoVO {
-  id: number
+  id: string
   phone: string
   nickname: string
   status: number

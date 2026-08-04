@@ -1,18 +1,22 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Button, Form, Input, NavBar, Toast } from 'antd-mobile'
+import { App, Button, Form, Input } from 'antd'
 import { useAuthStore } from './store'
+import { useHeaderBack } from '@/layouts/navBarStore'
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const { message } = App.useApp()
   const login = useAuthStore((s) => s.login)
   const [loading, setLoading] = useState(false)
+
+  useHeaderBack()
 
   const handleSubmit = async (values: { phone: string; password: string }) => {
     setLoading(true)
     try {
       await login(values.phone, values.password)
-      Toast.show({ content: '登录成功', icon: 'success' })
+      message.success('登录成功')
       navigate('/')
     } catch {
       // 拦截器已统一提示
@@ -22,35 +26,33 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <NavBar>登录</NavBar>
-      <div style={{ flex: 1, padding: '16px' }}>
-        <Form
-          layout="horizontal"
-          onFinish={handleSubmit}
-          footer={
-            <Button block type="submit" color="primary" size="large" loading={loading}>
-              登录
-            </Button>
-          }
-        >
+    <div className="flex-1 p-3 sm:p-4 md:p-6 lg:max-w-[960px] lg:mx-auto lg:w-full lg:px-6 lg:py-8 xl:max-w-[1200px] xl:p-8">
+      <div className="max-w-[400px] mx-auto w-full">
+        <Form layout="vertical" onFinish={handleSubmit}>
           <Form.Item
             name="phone"
+            label="手机号"
             rules={[
               { required: true, message: '手机号不能为空' },
               { pattern: /^1[3-9]\d{9}$/, message: '手机号格式错误' },
             ]}
           >
-            <Input placeholder="请输入手机号" clearable />
+            <Input placeholder="请输入手机号" allowClear size="large" />
           </Form.Item>
           <Form.Item
             name="password"
+            label="密码"
             rules={[{ required: true, message: '密码不能为空' }]}
           >
-            <Input placeholder="请输入密码" type="password" clearable />
+            <Input.Password placeholder="请输入密码" size="large" />
+          </Form.Item>
+          <Form.Item className="mb-0!">
+            <Button block type="primary" htmlType="submit" size="large" loading={loading}>
+              登录
+            </Button>
           </Form.Item>
         </Form>
-        <div style={{ textAlign: 'center', marginTop: '12px' }}>
+        <div className="text-center mt-4">
           还没有账号？<Link to="/register">去注册</Link>
         </div>
       </div>
