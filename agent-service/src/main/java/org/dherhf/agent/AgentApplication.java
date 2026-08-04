@@ -1,4 +1,4 @@
-package org.dherhf;
+package org.dherhf.agent;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
