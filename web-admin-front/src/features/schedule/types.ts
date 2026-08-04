@@ -1,6 +1,4 @@
-// ===================== 排期相关类型 =====================
-
-// ---------- API 层 ----------
+// API 层
 
 /** 排期列表记录 */
 export interface ScheduleRecord {
@@ -66,7 +64,7 @@ export interface ScheduleUpdateParams {
   languageVersion?: string;
 }
 
-// ---------- Store 层 ----------
+// Store 层
 
 /** 排期状态 */
 export type ScheduleStatus = 'available' | 'full' | 'ended' | 'cancelled';
@@ -90,4 +88,35 @@ export interface ScheduleItem {
   soldSeats: number;
   availableSeats: number;
   status: ScheduleStatus;
+}
+
+// 映射函数
+
+/** API status ('onsale' | 'cancelled' | 'ended') → ScheduleStatus */
+export function mapScheduleStatus(status: string, availableSeats: number): ScheduleStatus {
+  if (status === 'cancelled') return 'cancelled';
+  if (status === 'ended') return 'ended';
+  return availableSeats === 0 ? 'full' : 'available';
+}
+
+/** ScheduleRecord → ScheduleItem */
+export function mapScheduleRecord(record: ScheduleRecord): ScheduleItem {
+  return {
+    id: record.id,
+    cinemaId: record.cinemaId,
+    cinemaName: record.cinemaName,
+    hallId: record.hallId,
+    hallName: record.hallName,
+    movieId: record.movieId,
+    movieName: record.movieName,
+    showDate: record.showDate,
+    showTime: record.startTime,
+    endTime: record.endTime,
+    price: record.price,
+    languageVersion: record.languageVersion,
+    totalSeats: record.totalSeats,
+    soldSeats: record.soldSeats,
+    availableSeats: record.availableSeats,
+    status: mapScheduleStatus(record.status, record.availableSeats),
+  };
 }
