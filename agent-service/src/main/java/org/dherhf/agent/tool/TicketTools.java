@@ -108,6 +108,7 @@ public class TicketTools {
     ) {
         log.info("[Tool:searchMovies] keyword={}, type={}", keyword, type);
         Result<Object> result = ticketClient.searchMovies(keyword, type);
+        log.info("[Tool:searchMovies] result code={}, data={}", result.getCode(), result.getData());
         if (result.getCode() != 0) {
             log.warn("[Tool:searchMovies] 查询失败: {}", result.getMessage());
             return emitCard(CardPayload.builder()
@@ -115,7 +116,7 @@ public class TicketTools {
                     .cardData(Map.of("movies", List.of(), "error", result.getMessage()))
                     .build());
         }
-        List<MovieRow> movies = extractRows(result.getData(), "movies", MovieRow.class);
+        List<MovieRow> movies = extractRows(result.getData(), "records", MovieRow.class);
         List<CardPayload.MovieCard> cards = movies.stream()
                 .map(m -> CardPayload.MovieCard.builder()
                         .id(m.getId())
@@ -136,6 +137,7 @@ public class TicketTools {
     ) {
         log.info("[Tool:searchCinemas] keyword={}, facilities={}", keyword, facilities);
         Result<Object> result = ticketClient.searchCinemas(keyword, facilities);
+        log.info("[Tool:searchCinemas] result code={}, data={}", result.getCode(), result.getData());
         if (result.getCode() != 0) {
             log.warn("[Tool:searchCinemas] 查询失败: {}", result.getMessage());
             return emitCard(CardPayload.builder()
@@ -143,7 +145,7 @@ public class TicketTools {
                     .cardData(Map.of("cinemas", List.of(), "error", result.getMessage()))
                     .build());
         }
-        List<CinemaRow> cinemas = extractRows(result.getData(), "cinemas", CinemaRow.class);
+        List<CinemaRow> cinemas = extractRows(result.getData(), "records", CinemaRow.class);
         List<CardPayload.CinemaCard> cards = cinemas.stream()
                 .map(c -> CardPayload.CinemaCard.builder()
                         .id(c.getId())
@@ -172,7 +174,7 @@ public class TicketTools {
                     .cardData(Map.of("sessions", List.of(), "error", result.getMessage()))
                     .build());
         }
-        List<SessionRow> sessions = extractRows(result.getData(), "sessions", SessionRow.class);
+        List<SessionRow> sessions = extractRows(result.getData(), "records", SessionRow.class);
         List<CardPayload.SessionCard> cards = sessions.stream()
                 .map(s -> CardPayload.SessionCard.builder()
                         .id(s.getId())
@@ -275,6 +277,69 @@ public class TicketTools {
                 .build());
     }
 
+    @Tool("支付订单。用户确认支付待支付订单时调用，需要订单ID和幂等请求ID。返回支付结果（含取票码）。")
+    public CardPayload payOrder(
+            @P("订单 ID（由 queryOrders 或 lockAndCreateOrder 返回）") Long orderId,
+            @P("幂等请求ID，UUID 格式，前端生成") String requestId
+    ) {
+        Long userId = requireUserId();
+        log.info("[Tool:payOrder] userId={}, orderId={}, requestId={}", userId, orderId, requestId);
+        Result<Object> result = ticketClient.payOrder(userId, orderId, requestId);
+        if (result.getCode() != 0) {
+            log.warn("[Tool:payOrder] 支付失败: {}", result.getMessage());
+            return emitCard(CardPayload.builder()
+                    .cardType("order_success")
+                    .cardData(Map.of("error", result.getMessage()))
+                    .build());
+        }
+        return emitCard(CardPayload.builder()
+                .cardType("order_success")
+                .cardData(result.getData())
+                .build());
+    }
+
+    @Tool("取消待支付订单。用户要求取消未支付订单时调用，释放锁定座位。仅待支付订单可取消。")
+    public CardPayload cancelOrder(
+            @P("订单 ID（由 queryOrders 返回）") Long orderId,
+            @P("幂等请求ID，UUID 格式，前端生成") String requestId
+    ) {
+        Long userId = requireUserId();
+        log.info("[Tool:cancelOrder] userId={}, orderId={}, requestId={}", userId, orderId, requestId);
+        Result<Object> result = ticketClient.cancelOrder(userId, orderId, requestId);
+        if (result.getCode() != 0) {
+            log.warn("[Tool:cancelOrder] 取消失败: {}", result.getMessage());
+            return emitCard(CardPayload.builder()
+                    .cardType("order_success")
+                    .cardData(Map.of("error", result.getMessage()))
+                    .build());
+        }
+        return emitCard(CardPayload.builder()
+                .cardType("order_success")
+                .cardData(Map.of("orderId", orderId, "status", "cancelled"))
+                .build());
+    }
+
+    @Tool("退票。用户要求退已支付订单时调用，释放已售座位并退款。仅已出票且未放映的订单可退。")
+    public CardPayload refundOrder(
+            @P("订单 ID（由 queryOrders 返回）") Long orderId,
+            @P("幂等请求ID，UUID 格式，前端生成") String requestId
+    ) {
+        Long userId = requireUserId();
+        log.info("[Tool:refundOrder] userId={}, orderId={}, requestId={}", userId, orderId, requestId);
+        Result<Object> result = ticketClient.refundOrder(userId, orderId, requestId);
+        if (result.getCode() != 0) {
+            log.warn("[Tool:refundOrder] 退票失败: {}", result.getMessage());
+            return emitCard(CardPayload.builder()
+                    .cardType("order_success")
+                    .cardData(Map.of("error", result.getMessage()))
+                    .build());
+        }
+        return emitCard(CardPayload.builder()
+                .cardType("order_success")
+                .cardData(Map.of("orderId", orderId, "status", "refunded"))
+                .build());
+    }
+
     // ========== 内部工具方法 ==========
 
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -341,6 +406,7 @@ public class TicketTools {
         private java.math.BigDecimal rating;
         private String[] types;
         private Integer duration;
+        private String releaseDate;
     }
 
     @lombok.Data
@@ -348,7 +414,7 @@ public class TicketTools {
         private Long id;
         private String name;
         private String address;
-        private String distance;
+        private Long distance;
         private String[] facilities;
         private java.math.BigDecimal rating;
     }

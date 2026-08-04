@@ -32,7 +32,7 @@ interface ScheduleState {
   fetchSchedules: (params?: ScheduleListParams) => Promise<void>;
   hasMovieSchedule: (movieId: string) => boolean;
   addSchedule: (payload: ScheduleCreateParams) => Promise<void>;
-  updateSchedule: (id: number, payload: ScheduleUpdateParams) => Promise<void>;
+  updateSchedule: (id: string, payload: ScheduleUpdateParams) => Promise<void>;
   cancelSchedule: (id: string) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
 }
@@ -62,7 +62,7 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
     await get().fetchSchedules();
   },
 
-  updateSchedule: async (id: number, payload: ScheduleUpdateParams): Promise<void> => {
+  updateSchedule: async (id: string, payload: ScheduleUpdateParams): Promise<void> => {
     await scheduleApi.update(id, payload);
     await get().fetchSchedules();
   },

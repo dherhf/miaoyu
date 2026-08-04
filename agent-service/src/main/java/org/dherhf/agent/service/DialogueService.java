@@ -148,8 +148,7 @@ public class DialogueService {
         userMsg.setRole("user");
         userMsg.setContent(content);
         userMsg.setCreatedAt(LocalDateTime.now());
-        Map<String, Object> userMsgMap = objectMapper.convertValue(userMsg, Map.class);
-        contextService.updateContext(sessionId, slotState, userMsgMap, userMsg.getCreatedAt().toString());
+        contextService.updateContext(sessionId, slotState, userMsg, userMsg.getCreatedAt());
 
         String aiResponse;
         try {
@@ -195,8 +194,7 @@ public class DialogueService {
         aiMsg.setIntent(parsed.intent != null ? parsed.intent.name() : null);
         aiMsg.setSlots(mergedSlots);
         aiMsg.setCreatedAt(LocalDateTime.now());
-        Map<String, Object> aiMsgMap = objectMapper.convertValue(aiMsg, Map.class);
-        contextService.updateContext(sessionId, mergedSlots, aiMsgMap, aiMsg.getCreatedAt().toString());
+        contextService.updateContext(sessionId, mergedSlots, aiMsg, aiMsg.getCreatedAt());
 
         sendSseEvent(emitter, SseEvent.done(sessionId,
                 parsed.intent != null ? parsed.intent.name() : "",

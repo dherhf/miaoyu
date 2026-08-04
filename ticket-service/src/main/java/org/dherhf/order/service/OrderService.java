@@ -29,6 +29,10 @@ public interface OrderService {
 
     PayResultVO internalPayOrder(Long userId, Long orderId, String requestId);
 
+    void internalCancelOrder(Long userId, Long orderId, String requestId);
+
+    void internalRefundOrder(Long userId, Long orderId, String requestId);
+
     PageResult<OrderListVO> internalListOrders(Long userId, String keyword, String status, String dateFrom, String dateTo, Integer page, Integer size);
 
     void timeoutCancel(Long orderId);

@@ -28,7 +28,7 @@ export function SeatLayoutViewer({
   onSave,
 }: SeatLayoutViewerProps) {
   const [isEditMode, setIsEditMode] = useState(false);
-  const [tempSeats, setTempSeats] = useState<SeatItem[]>(() => initialSeats || generateSeats(rowCount, colCount));
+  const [tempSeats, setTempSeats] = useState<SeatItem[]>(() => initialSeats.length ? initialSeats : generateSeats(rowCount, colCount));
   const [selectedSeats, setSelectedSeats] = useState<Set<string>>(new Set());
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ row: number; col: number } | null>(null);
@@ -130,12 +130,12 @@ export function SeatLayoutViewer({
 
   const enterEditMode = () => {
     setIsEditMode(true);
-    setTempSeats([...initialSeats]);
+    setTempSeats(initialSeats.length ? [...initialSeats] : generateSeats(rowCount, colCount));
     setSelectedSeats(new Set());
   };
   const cancelEdit = () => {
     setIsEditMode(false);
-    setTempSeats([...initialSeats]);
+    setTempSeats(initialSeats.length ? [...initialSeats] : generateSeats(rowCount, colCount));
     setSelectedSeats(new Set());
   };
   const saveEdit = () => {

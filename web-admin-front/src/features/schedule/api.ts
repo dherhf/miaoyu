@@ -31,7 +31,7 @@ export const scheduleApi = {
     request.post('/schedules', data),
 
   /** 修改场次 */
-  update: (id: number, data: ScheduleUpdateParams): Promise<ScheduleDetail> =>
+  update: (id: string, data: ScheduleUpdateParams): Promise<ScheduleDetail> =>
     request.put(`/schedules/${id}`, data),
 
   /** 取消场次 */
