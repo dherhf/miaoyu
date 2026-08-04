@@ -148,7 +148,15 @@ public class DialogueService {
         userMsg.setRole("user");
         userMsg.setContent(content);
         userMsg.setCreatedAt(LocalDateTime.now());
-        contextService.updateContext(sessionId, slotState, userMsg, userMsg.getCreatedAt());
+
+        // 创建一个不包含createdAt的map来避免序列化问题
+        Map<String, Object> userMsgMap = new HashMap<>();
+        userMsgMap.put("msgId", userMsg.getMsgId());
+        userMsgMap.put("role", userMsg.getRole());
+        userMsgMap.put("content", userMsg.getContent());
+        // 不添加createdAt，让MongoDB自动处理
+
+        contextService.updateContext(sessionId, slotState, userMsgMap, userMsg.getCreatedAt().toString());
 
         String aiResponse;
         try {
@@ -194,7 +202,19 @@ public class DialogueService {
         aiMsg.setIntent(parsed.intent != null ? parsed.intent.name() : null);
         aiMsg.setSlots(mergedSlots);
         aiMsg.setCreatedAt(LocalDateTime.now());
-        contextService.updateContext(sessionId, mergedSlots, aiMsg, aiMsg.getCreatedAt());
+
+        // 创建一个不包含createdAt的map来避免序列化问题
+        Map<String, Object> aiMsgMap = new HashMap<>();
+        aiMsgMap.put("msgId", aiMsg.getMsgId());
+        aiMsgMap.put("role", aiMsg.getRole());
+        aiMsgMap.put("content", aiMsg.getContent());
+        aiMsgMap.put("cardType", aiMsg.getCardType());
+        aiMsgMap.put("cardData", aiMsg.getCardData());
+        aiMsgMap.put("intent", aiMsg.getIntent());
+        aiMsgMap.put("slots", aiMsg.getSlots());
+        // 不添加createdAt，让MongoDB自动处理
+
+        contextService.updateContext(sessionId, mergedSlots, aiMsgMap, aiMsg.getCreatedAt().toString());
 
         sendSseEvent(emitter, SseEvent.done(sessionId,
                 parsed.intent != null ? parsed.intent.name() : "",
