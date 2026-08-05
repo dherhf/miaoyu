@@ -30,6 +30,13 @@
     </dependencyManagement>
 
     <dependencies>
+        <!-- Common -->
+        <dependency>
+            <groupId>org.dherhf</groupId>
+            <artifactId>common</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+
         <!-- Web + Validation (从父 POM 移入) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

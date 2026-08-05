@@ -45,6 +45,7 @@ class JwtUtilTest {
         ReflectionTestUtils.setField(jwtUtil, "userExpiration", 86400L);
         ReflectionTestUtils.setField(jwtUtil, "adminExpiration", 28800L);
         ReflectionTestUtils.setField(jwtUtil, "issuer", "miaoyu");
+        jwtUtil.init();
     }
 
     @Nested
@@ -99,8 +100,10 @@ class JwtUtilTest {
         @DisplayName("使用旧密钥签名的 Token 能用 old-secret 回退解析")
         void shouldFallbackToOldSecret() {
             ReflectionTestUtils.setField(jwtUtil, "currentSecret", OLD_SECRET);
+            jwtUtil.init();
             String token = jwtUtil.generateToken(1L, "user");
             ReflectionTestUtils.setField(jwtUtil, "currentSecret", CURRENT_SECRET);
+            jwtUtil.init();
 
             Claims claims = jwtUtil.parseToken(token);
             assertThat(claims).isNotNull();
@@ -111,6 +114,7 @@ class JwtUtilTest {
         @DisplayName("old-secret 为空时无效 Token 返回 null")
         void shouldReturnNullWhenOldSecretIsEmpty() {
             ReflectionTestUtils.setField(jwtUtil, "oldSecret", "");
+            jwtUtil.init();
             assertThat(jwtUtil.parseToken("invalid.token.here")).isNull();
         }
     }
@@ -135,6 +139,52 @@ class JwtUtilTest {
         void shouldNotBlacklistInvalidToken() {
             jwtUtil.blacklistToken("invalid.token");
             verify(redisTemplate, never()).opsForValue();
+        }
+    }
+
+    @Nested
+    @DisplayName("isBlacklisted")
+    class IsBlacklistedTest {
+
+        @Test
+        @DisplayName("Token 在黑名单中返回 true")
+        void shouldReturnTrueWhenBlacklisted() {
+            String token = "some.token.here";
+            when(redisTemplate.hasKey("token:blacklist:" + token)).thenReturn(true);
+
+            assertThat(jwtUtil.isBlacklisted(token)).isTrue();
+        }
+
+        @Test
+        @DisplayName("Token 不在黑名单中返回 false")
+        void shouldReturnFalseWhenNotBlacklisted() {
+            String token = "some.token.here";
+            when(redisTemplate.hasKey("token:blacklist:" + token)).thenReturn(false);
+
+            assertThat(jwtUtil.isBlacklisted(token)).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("getUserId / getType")
+    class ExtractClaimsTest {
+
+        @Test
+        @DisplayName("从 Claims 中提取 userId")
+        void shouldExtractUserId() {
+            String token = jwtUtil.generateToken(42L, "user");
+            Claims claims = jwtUtil.parseToken(token);
+
+            assertThat(jwtUtil.getUserId(claims)).isEqualTo(42L);
+        }
+
+        @Test
+        @DisplayName("从 Claims 中提取 type")
+        void shouldExtractType() {
+            String token = jwtUtil.generateToken(1L, "admin");
+            Claims claims = jwtUtil.parseToken(token);
+
+            assertThat(jwtUtil.getType(claims)).isEqualTo("admin");
         }
     }
 }

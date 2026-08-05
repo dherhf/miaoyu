@@ -1,6 +1,7 @@
 package org.dherhf.common.util;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.Cipher;
@@ -17,9 +18,9 @@ import java.util.HexFormat;
  * <p>
  * 基于 JDK 原生 JCA 实现,采用 Spring {@code @Component} 模式管理,
  * 支持从配置文件自动读取默认 AES 密钥。
- *
  */
 @Component
+@ConditionalOnProperty(name = "crypto.aes-base64-key")
 public class CryptoUtil {
 
     private static String defaultAesBase64Key;
