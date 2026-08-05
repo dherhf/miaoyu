@@ -15,8 +15,9 @@ export interface CreateSessionResponse {
 export interface SendMessageRequest {
   content: string
   seatIds?: string[]
-  sessionId?: string
+  scheduleId?: string
   ticketCount?: number
+  requestId?: string
 }
 
 export interface SessionSummary {
