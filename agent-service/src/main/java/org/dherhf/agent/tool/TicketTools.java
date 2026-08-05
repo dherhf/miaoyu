@@ -3,40 +3,27 @@ package org.dherhf.agent.tool;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import lombok.extern.slf4j.Slf4j;
-import org.dherhf.common.result.Result;
 import org.dherhf.agent.model.card.CardPayload;
-import org.dherhf.agent.model.ticket.CinemaRow;
-import org.dherhf.agent.model.ticket.MovieRow;
 import org.dherhf.agent.model.ticket.RequestContext;
-import org.dherhf.agent.model.ticket.SessionRow;
 import org.dherhf.agent.service.ContextService;
 import org.dherhf.agent.service.IdempotentService;
+import org.dherhf.common.result.ErrorCodeEnum;
+import org.dherhf.common.result.Result;
 
-import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
 
 /**
  * LangChain4j 业务工具集，通过 @Tool 注解暴露给 LLM 进行 Function Calling。
  * <p>
- * 每次请求由 DialogueService 创建新实例，通过 sessionId 从 Redis 查询请求上下文（userId / requestId 等），
- * 替代原 ThreadLocal 方案。
+ * 设计原则：Tool 只做透传——参数和返回值均为 String，不做格式化/转换。
+ * 所有格式化逻辑（日期解析、类型映射、卡片构建等）交给 LLM 处理。
  * </p>
  * <p>
- * 工具列表（对应系分 §3.9.2 关键技术设计 - 业务工具集）：
- * <ol>
- *   <li>{@link #searchMovies} - 查询影片列表</li>
- *   <li>{@link #searchCinemas} - 查询影院列表</li>
- *   <li>{@link #querySessions} - 查询场次列表</li>
- *   <li>{@link #getSeatMap} - 获取座位图</li>
- *   <li>{@link #queryOrders} - 查询用户订单</li>
- *   <li>{@link #lockAndCreateOrder} - 锁座下单</li>
- *   <li>{@link #queryOrderDetail} - 查询订单详情</li>
- * </ol>
+ * 每次请求由 DialogueService 创建新实例，通过 sessionId 从 Redis 查询请求上下文（userId / requestId 等）。
+ * 工具方法返回后端原始 JSON，同时将卡片数据缓冲供 SSE 推送。
  * </p>
  */
 @Slf4j
@@ -48,8 +35,6 @@ public class TicketTools {
     private final IdempotentService idempotentService;
     private final String sessionId;
 
-    // 卡片缓冲区：工具方法返回的 CardPayload 自动入缓冲，
-    // 由 DialogueService 在 chat() 结束后 drainCards() 取出推送 SSE card 事件
     private final List<CardPayload> cardBuffer = new ArrayList<>();
 
     public TicketTools(TicketServiceClient ticketClient,
@@ -74,11 +59,13 @@ public class TicketTools {
     }
 
     /**
-     * 将工具产生的卡片加入缓冲区，同时返回该卡片。
+     * 将后端返回的原始数据加入卡片缓冲区，供 SSE 推送。
      */
-    private CardPayload emitCard(CardPayload card) {
-        cardBuffer.add(card);
-        return card;
+    private void emitCard(String cardType, Object cardData) {
+        cardBuffer.add(CardPayload.builder()
+                .cardType(cardType)
+                .cardData(cardData)
+                .build());
     }
 
     private Long requireUserId() {
@@ -89,472 +76,232 @@ public class TicketTools {
         return ctx.getUserId();
     }
 
-    private static Long parseLong(String s) {
-        if (s == null || s.isBlank()) return null;
-        try { return Long.parseLong(s.trim()); } catch (NumberFormatException e) { return null; }
-    }
-
-    /**
-     * 获取前端透传的幂等 requestId，缺失时兜底生成（不保证重试幂等）。
-     */
     private String getRequestId() {
         RequestContext ctx = contextService.getRequestContext(sessionId);
         String rid = ctx != null ? ctx.getRequestId() : null;
         return rid != null && !rid.isBlank() ? rid : UUID.randomUUID().toString();
     }
 
+    private String toJson(Object obj) {
+        try {
+            return objectMapper.writeValueAsString(obj);
+        } catch (Exception e) {
+            log.error("[toJson] 序列化失败: {}", e.getMessage());
+            return "{\"code\":" + ErrorCodeEnum.TOOL_ERROR.getCode()
+                    + ",\"message\":\"工具返回值序列化失败\"}";
+        }
+    }
+
+    private static Long parseLong(String s) {
+        if (s == null || s.isBlank()) return null;
+        try { return Long.parseLong(s.trim()); } catch (NumberFormatException e) { return null; }
+    }
+
+    private static Integer parseInt(String s) {
+        if (s == null || s.isBlank()) return null;
+        try { return Integer.parseInt(s.trim()); } catch (NumberFormatException e) { return null; }
+    }
+
+    private static List<Long> parseLongList(String s) {
+        if (s == null || s.isBlank()) return List.of();
+        return Arrays.stream(s.split(","))
+                .map(String::trim)
+                .filter(str -> !str.isEmpty())
+                .map(str -> {
+                    try { return Long.parseLong(str); } catch (NumberFormatException e) { return null; }
+                })
+                .filter(java.util.Objects::nonNull)
+                .toList();
+    }
+
     // ========== 业务工具 ==========
 
-    @Tool("根据影片名称或类型查询影片列表。当用户表达模糊意图（如'想看个喜剧'）或指定片名时调用。也可按影院查影片（如'长沙学院有什么电影'）。返回影片卡片数据。")
-    public CardPayload searchMovies(
+    @Tool("根据影片名称或类型查询影片列表。当用户表达模糊意图（如'想看个喜剧'）或指定片名时调用。也可按影院查影片（如'长沙学院有什么电影'）。返回后端原始 JSON 数据。")
+    public String searchMovies(
             @P("影片名称关键词，如'流浪地球3'；用户未指定片名时传空字符串") String keyword,
             @P("影片类型标签，英文枚举值：scifi(科幻)/action(动作)/comedy(喜剧)/romance(爱情)/suspense(悬疑)/animation(动画)/documentary(纪录片)/other(其他)；无类型约束时传空字符串") String type,
             @P("影院 ID，当用户想查某影院有哪些电影时传入（由 searchCinemas 返回）；无影院约束时传空字符串") String cinemaId
     ) {
         Long cinemaIdLong = parseLong(cinemaId);
         log.info("[Tool:searchMovies] keyword={}, type={}, cinemaId={}", keyword, type, cinemaIdLong);
-
-        // 修复：增加影片类型筛选的兼容性处理
-        String processedType = type != null ? type.trim().toLowerCase() : "";
-        if (!processedType.isEmpty()) {
-            // 添加对常见类型的标准化处理
-            switch (processedType) {
-                case "动作":
-                    processedType = "action";
-                    break;
-                case "喜剧":
-                    processedType = "comedy";
-                    break;
-                case "科幻":
-                    processedType = "sci-fi";
-                    break;
-                case "剧情":
-                    processedType = "drama";
-                    break;
-                case "恐怖":
-                    processedType = "horror";
-                    break;
-                case "爱情":
-                    processedType = "romance";
-                    break;
-                case "动画":
-                    processedType = "animation";
-                    break;
-                default:
-                    // 如果是英文类型，保持原样
-                    break;
-            }
+        Result<Object> result = ticketClient.searchMovies(keyword, type, cinemaIdLong);
+        if (result.getCode() == 0) {
+            emitCard("movie_list", result.getData());
         }
-
-        Result<Object> result = ticketClient.searchMovies(keyword, processedType, cinemaIdLong);
-        log.info("[Tool:searchMovies] result code={}, data={}", result.getCode(), result.getData());
-        if (result.getCode() != 0) {
-            log.warn("[Tool:searchMovies] 查询失败: {}", result.getMessage());
-            // 添加降级处理：返回一个空列表而不是报错
-            return emitCard(CardPayload.builder()
-                    .cardType("movie_list")
-                    .cardData(Map.of("movies", List.of(), "error", "抱歉，暂无合适的影片信息，您可以尝试其他搜索条件。"))
-                    .build());
-        }
-        List<MovieRow> movies = extractRows(result.getData(), "records", MovieRow.class);
-        List<CardPayload.MovieCard> cards = movies.stream()
-                .map(m -> CardPayload.MovieCard.builder()
-                        .id(m.getId())
-                        .name(m.getName())
-                        .posterUrl(m.getPosterUrl())
-                        .rating(m.getRating())
-                        .types(m.getTypes())
-                        .duration(m.getDuration())
-                        .build())
-                .collect(Collectors.toList());
-        return emitCard(CardPayload.movieList(cards));
+        return toJson(result);
     }
 
-    @Tool("根据名称或设施查询影院列表。用户选定影片后或主动询问影院时调用。返回影院卡片数据。")
-    public CardPayload searchCinemas(
+    @Tool("根据名称或设施查询影院列表。用户选定影片后或主动询问影院时调用。返回后端原始 JSON 数据。")
+    public String searchCinemas(
             @P("影院名称关键词，如'万达影城'；无约束时传空字符串") String keyword,
             @P("设施要求，如'IMAX'；无要求时传空字符串") String facilities
     ) {
         log.info("[Tool:searchCinemas] keyword={}, facilities={}", keyword, facilities);
         Result<Object> result = ticketClient.searchCinemas(keyword, facilities);
-        log.info("[Tool:searchCinemas] result code={}, data={}", result.getCode(), result.getData());
-        if (result.getCode() != 0) {
-            log.warn("[Tool:searchCinemas] 查询失败: {}", result.getMessage());
-            // 添加降级处理：返回一个空列表而不是报错
-            return emitCard(CardPayload.builder()
-                    .cardType("cinema_list")
-                    .cardData(Map.of("cinemas", List.of(), "error", "抱歉，暂无合适的影院信息，您可以尝试其他搜索条件。"))
-                    .build());
+        if (result.getCode() == 0) {
+            emitCard("cinema_list", result.getData());
         }
-        List<CinemaRow> cinemas = extractRows(result.getData(), "records", CinemaRow.class);
-        List<CardPayload.CinemaCard> cards = cinemas.stream()
-                .map(c -> CardPayload.CinemaCard.builder()
-                        .id(c.getId())
-                        .name(c.getName())
-                        .address(c.getAddress())
-                        .distance(c.getDistance())
-                        .facilities(c.getFacilities())
-                        .rating(c.getRating())
-                        .build())
-                .collect(Collectors.toList());
-        return emitCard(CardPayload.cinemaList(cards));
+        return toJson(result);
     }
 
-    @Tool("查询场次列表。用户选定影片和影院后调用，根据 movieId+cinemaId+date 获取可售场次。返回场次卡片数据。")
-    public CardPayload querySessions(
-            @P("影片 ID（由 searchMovies 返回）") Long movieId,
-            @P("影院 ID（由 searchCinemas 返回）") Long cinemaId,
-            @P("放映日期，支持'今天'、'明天'、'后天'、'大后天'、'周X'、'M月D日'或具体日期；用户未指定时传空字符串") String date
+    @Tool("查询场次列表。用户选定影片和影院后调用，根据 movieId+cinemaId+date 获取可售场次。返回后端原始 JSON 数据。")
+    public String querySessions(
+            @P("影片 ID（由 searchMovies 返回）") String movieId,
+            @P("影院 ID（由 searchCinemas 返回）") String cinemaId,
+            @P("放映日期，须为 yyyy-MM-dd 格式（你需要将'今天'、'明天'、'周X'、'M月D日'等相对日期转换为具体日期）；用户未指定时传空字符串") String date
     ) {
-        String resolvedDate = resolveRelativeDate(date);
-        log.info("[Tool:querySessions] movieId={}, cinemaId={}, date={} -> resolved={}", movieId, cinemaId, date, resolvedDate);
-
-        Result<Object> result = ticketClient.searchSessions(movieId, cinemaId, resolvedDate);
-        if (result.getCode() != 0) {
-            log.warn("[Tool:querySessions] 查询失败: {}", result.getMessage());
-            return emitCard(CardPayload.builder()
-                    .cardType("session_list")
-                    .cardData(Map.of("sessions", List.of(), "error", "抱歉，暂无合适的场次信息，您可以尝试其他时间或影院。"))
-                    .build());
+        Long movieIdLong = parseLong(movieId);
+        Long cinemaIdLong = parseLong(cinemaId);
+        log.info("[Tool:querySessions] movieId={}, cinemaId={}, date={}", movieIdLong, cinemaIdLong, date);
+        Result<Object> result = ticketClient.searchSessions(movieIdLong, cinemaIdLong, date);
+        if (result.getCode() == 0) {
+            emitCard("session_list", result.getData());
         }
-
-        List<SessionRow> sessions = extractRows(result.getData(), "records", SessionRow.class);
-        List<CardPayload.SessionCard> cards = sessions.stream()
-                .map(s -> CardPayload.SessionCard.builder()
-                        .id(s.getId())
-                        .showDate(s.getShowDate())
-                        .startTime(s.getStartTime())
-                        .endTime(s.getEndTime())
-                        .hallName(s.getHallName())
-                        .languageVersion(s.getLanguageVersion())
-                        .price(s.getPrice())
-                        .availableSeats(s.getAvailableSeats())
-                        .build())
-                .collect(Collectors.toList());
-        return emitCard(CardPayload.sessionList(cards));
+        return toJson(result);
     }
 
-    @Tool("获取座位图。用户选定场次后调用，返回全部座位状态（available/locked/sold）。")
-    public CardPayload getSeatMap(
-            @P("场次 ID（由 querySessions 返回）") Long scheduleId
+    @Tool("获取座位图。用户选定场次后调用，返回全部座位状态（available/locked/sold）。返回后端原始 JSON 数据。")
+    public String getSeatMap(
+            @P("场次 ID（由 querySessions 返回）") String scheduleId
     ) {
-        log.info("[Tool:getSeatMap] scheduleId={}", scheduleId);
-        Result<Object> result = ticketClient.getSeatMap(scheduleId);
-        if (result.getCode() != 0) {
-            log.warn("[Tool:getSeatMap] 查询失败: {}", result.getMessage());
-            return emitCard(CardPayload.builder()
-                    .cardType("seat_map")
-                    .cardData(Map.of("error", result.getMessage()))
-                    .build());
+        Long scheduleIdLong = parseLong(scheduleId);
+        log.info("[Tool:getSeatMap] scheduleId={}", scheduleIdLong);
+        Result<Object> result = ticketClient.getSeatMap(scheduleIdLong);
+        if (result.getCode() == 0) {
+            emitCard("seat_map", result.getData());
         }
-        return emitCard(CardPayload.builder()
-                .cardType("seat_map")
-                .cardData(result.getData())
-                .build());
+        return toJson(result);
     }
 
-    @Tool("查询当前用户的订单列表。用户表达查询/修改/退票意图时调用。")
-    public CardPayload queryOrders(
+    @Tool("查询当前用户的订单列表。用户表达查询/修改/退票意图时调用。返回后端原始 JSON 数据。")
+    public String queryOrders(
             @P("订单状态过滤，如'pending'（待支付）、'paid'（已支付）、'refunded'（已退票）；查全部传空字符串") String status
     ) {
         Long userId = requireUserId();
         log.info("[Tool:queryOrders] userId={}, status={}", userId, status);
-        // P1-b 修复：将 status 传给 ticketClient
         Result<Object> result = ticketClient.queryUserOrders(userId, status);
-        if (result.getCode() != 0) {
-            log.warn("[Tool:queryOrders] 查询失败: {}", result.getMessage());
-            return emitCard(CardPayload.builder()
-                    .cardType("pending_order")
-                    .cardData(Map.of("orders", List.of(), "error", result.getMessage()))
-                    .build());
+        if (result.getCode() == 0) {
+            emitCard("order_list", result.getData());
         }
-        return emitCard(CardPayload.builder()
-                .cardType("pending_order")
-                .cardData(result.getData())
-                .build());
+        return toJson(result);
     }
 
-    @Tool("锁座并创建订单。前端选座后由 Agent 调用，传入 scheduleId+seatIds+ticketCount。返回订单确认卡片。")
-    public CardPayload lockAndCreateOrder(
-            @P("场次 ID（前端选场次后直接提供）") Long scheduleId,
-            @P("座位 ID 列表（前端选座后直接提供，无需 LLM 提取）") List<Long> seatIds,
-            @P("购票数量（=座位数）") Integer ticketCount
+    @Tool("锁座并创建订单。前端选座后由 Agent 调用，传入 scheduleId+seatIds+ticketCount。返回后端原始 JSON 数据。")
+    public String lockAndCreateOrder(
+            @P("场次 ID（前端选场次后直接提供）") String scheduleId,
+            @P("座位 ID 列表，逗号分隔（前端选座后直接提供，无需 LLM 提取）") String seatIds,
+            @P("购票数量（=座位数）") String ticketCount
     ) {
         Long userId = requireUserId();
-        RequestContext ctx = contextService.getRequestContext(sessionId);
-        // P1-a 修复：优先使用前端传入的 ticketCount，LLM 未提供时回退到上下文中的值
-        Integer effectiveTicketCount = ticketCount != null ? ticketCount : (ctx != null ? ctx.getTicketCount() : null);
+        Long scheduleIdLong = parseLong(scheduleId);
+        List<Long> seatIdList = parseLongList(seatIds);
+        Integer count = parseInt(ticketCount);
+        if (count == null) {
+            RequestContext ctx = contextService.getRequestContext(sessionId);
+            count = ctx != null ? ctx.getTicketCount() : null;
+        }
         String requestId = getRequestId();
         log.info("[Tool:lockAndCreateOrder] userId={}, scheduleId={}, seatIds={}, count={}, requestId={}",
-                userId, scheduleId, seatIds, effectiveTicketCount, requestId);
+                userId, scheduleIdLong, seatIdList, count, requestId);
 
-        // agent 层幂等校验
-        CardPayload cached = idempotentService.getIfPresent(requestId, CardPayload.class);
+        String cached = idempotentService.getIfPresent(requestId, String.class);
         if (cached != null) {
             log.info("[Tool:lockAndCreateOrder] 幂等命中缓存: requestId={}", requestId);
-            return emitCard(cached);
+            return cached;
         }
 
-        Result<Object> result = ticketClient.lockSeat(userId, scheduleId, seatIds, effectiveTicketCount, requestId);
-        if (result.getCode() != 0) {
-            log.warn("[Tool:lockAndCreateOrder] 锁座失败: {}", result.getMessage());
-            return emitCard(CardPayload.builder()
-                    .cardType("order_confirm")
-                    .cardData(Map.of("error", result.getMessage()))
-                    .build());
+        Result<Object> result = ticketClient.lockSeat(userId, scheduleIdLong, seatIdList, count, requestId);
+        String json = toJson(result);
+        if (result.getCode() == 0) {
+            idempotentService.put(requestId, json);
+            emitCard("order_confirm", result.getData());
         }
-        Map<String, Object> data = toMap(result.getData());
-        CardPayload card = CardPayload.builder()
-                .cardType("order_confirm")
-                .cardData(data)
-                .build();
-        idempotentService.put(requestId, card);
-        return emitCard(card);
+        return json;
     }
 
-    @Tool("查询订单详情。用户询问订单状态或发起退票前调用。")
-    public CardPayload queryOrderDetail(
-            @P("订单 ID（由 queryOrders 返回）") Long orderId
+    @Tool("查询订单详情。用户询问订单状态或发起退票前调用。返回后端原始 JSON 数据。")
+    public String queryOrderDetail(
+            @P("订单 ID（由 queryOrders 返回）") String orderId
     ) {
         Long userId = requireUserId();
-        log.info("[Tool:queryOrderDetail] orderId={}, userId={}", orderId, userId);
-        Result<Object> result = ticketClient.queryOrderDetail(orderId, userId);
-        if (result.getCode() != 0) {
-            log.warn("[Tool:queryOrderDetail] 查询失败: {}", result.getMessage());
-            return emitCard(CardPayload.builder()
-                    .cardType("order_success")
-                    .cardData(Map.of("error", result.getMessage()))
-                    .build());
+        Long orderIdLong = parseLong(orderId);
+        log.info("[Tool:queryOrderDetail] orderId={}, userId={}", orderIdLong, userId);
+        Result<Object> result = ticketClient.queryOrderDetail(orderIdLong, userId);
+        if (result.getCode() == 0) {
+            emitCard("order_success", result.getData());
         }
-        return emitCard(CardPayload.builder()
-                .cardType("order_success")
-                .cardData(result.getData())
-                .build());
+        return toJson(result);
     }
 
-    @Tool("支付订单。用户确认支付待支付订单时调用。返回支付结果（含取票码）。")
-    public CardPayload payOrder(
-            @P("订单 ID（由 queryOrders 或 lockAndCreateOrder 返回）") Long orderId
+    @Tool("支付订单。用户确认支付待支付订单时调用。返回后端原始 JSON 数据（含取票码）。")
+    public String payOrder(
+            @P("订单 ID（由 queryOrders 或 lockAndCreateOrder 返回）") String orderId
     ) {
         Long userId = requireUserId();
+        Long orderIdLong = parseLong(orderId);
         String requestId = getRequestId();
-        log.info("[Tool:payOrder] userId={}, orderId={}, requestId={}", userId, orderId, requestId);
+        log.info("[Tool:payOrder] userId={}, orderId={}, requestId={}", userId, orderIdLong, requestId);
 
-        // agent 层幂等校验
-        CardPayload cached = idempotentService.getIfPresent(requestId, CardPayload.class);
+        String cached = idempotentService.getIfPresent(requestId, String.class);
         if (cached != null) {
             log.info("[Tool:payOrder] 幂等命中缓存: requestId={}", requestId);
-            return emitCard(cached);
+            return cached;
         }
 
-        Result<Object> result = ticketClient.payOrder(userId, orderId, requestId);
-        if (result.getCode() != 0) {
-            log.warn("[Tool:payOrder] 支付失败: {}", result.getMessage());
-            return emitCard(CardPayload.builder()
-                    .cardType("order_success")
-                    .cardData(Map.of("error", result.getMessage()))
-                    .build());
+        Result<Object> result = ticketClient.payOrder(userId, orderIdLong, requestId);
+        String json = toJson(result);
+        if (result.getCode() == 0) {
+            idempotentService.put(requestId, json);
+            emitCard("order_success", result.getData());
         }
-        CardPayload card = CardPayload.builder()
-                .cardType("order_success")
-                .cardData(result.getData())
-                .build();
-        idempotentService.put(requestId, card);
-        return emitCard(card);
+        return json;
     }
 
-    @Tool("取消待支付订单。用户要求取消未支付订单时调用，释放锁定座位。仅待支付订单可取消。")
-    public CardPayload cancelOrder(
-            @P("订单 ID（由 queryOrders 返回）") Long orderId
+    @Tool("取消待支付订单。用户要求取消未支付订单时调用，释放锁定座位。仅待支付订单可取消。返回后端原始 JSON 数据。")
+    public String cancelOrder(
+            @P("订单 ID（由 queryOrders 返回）") String orderId
     ) {
         Long userId = requireUserId();
+        Long orderIdLong = parseLong(orderId);
         String requestId = getRequestId();
-        log.info("[Tool:cancelOrder] userId={}, orderId={}, requestId={}", userId, orderId, requestId);
+        log.info("[Tool:cancelOrder] userId={}, orderId={}, requestId={}", userId, orderIdLong, requestId);
 
-        // agent 层幂等校验
-        CardPayload cached = idempotentService.getIfPresent(requestId, CardPayload.class);
+        String cached = idempotentService.getIfPresent(requestId, String.class);
         if (cached != null) {
             log.info("[Tool:cancelOrder] 幂等命中缓存: requestId={}", requestId);
-            return emitCard(cached);
+            return cached;
         }
 
-        Result<Object> result = ticketClient.cancelOrder(userId, orderId, requestId);
-        if (result.getCode() != 0) {
-            log.warn("[Tool:cancelOrder] 取消失败: {}", result.getMessage());
-            return emitCard(CardPayload.builder()
-                    .cardType("order_success")
-                    .cardData(Map.of("error", result.getMessage()))
-                    .build());
+        Result<Object> result = ticketClient.cancelOrder(userId, orderIdLong, requestId);
+        String json = toJson(result);
+        if (result.getCode() == 0) {
+            idempotentService.put(requestId, json);
+            emitCard("order_success", result.getData());
         }
-        CardPayload card = CardPayload.builder()
-                .cardType("order_success")
-                .cardData(Map.of("orderId", orderId, "status", "cancelled"))
-                .build();
-        idempotentService.put(requestId, card);
-        return emitCard(card);
+        return json;
     }
 
-    @Tool("退票。用户要求退已支付订单时调用，释放已售座位并退款。仅已出票且未放映的订单可退。")
-    public CardPayload refundOrder(
-            @P("订单 ID（由 queryOrders 返回）") Long orderId
+    @Tool("退票。用户要求退已支付订单时调用，释放已售座位并退款。仅已出票且未放映的订单可退。返回后端原始 JSON 数据。")
+    public String refundOrder(
+            @P("订单 ID（由 queryOrders 返回）") String orderId
     ) {
         Long userId = requireUserId();
+        Long orderIdLong = parseLong(orderId);
         String requestId = getRequestId();
-        log.info("[Tool:refundOrder] userId={}, orderId={}, requestId={}", userId, orderId, requestId);
+        log.info("[Tool:refundOrder] userId={}, orderId={}, requestId={}", userId, orderIdLong, requestId);
 
-        // agent 层幂等校验
-        CardPayload cached = idempotentService.getIfPresent(requestId, CardPayload.class);
+        String cached = idempotentService.getIfPresent(requestId, String.class);
         if (cached != null) {
             log.info("[Tool:refundOrder] 幂等命中缓存: requestId={}", requestId);
-            return emitCard(cached);
+            return cached;
         }
 
-        Result<Object> result = ticketClient.refundOrder(userId, orderId, requestId);
-        if (result.getCode() != 0) {
-            log.warn("[Tool:refundOrder] 退票失败: {}", result.getMessage());
-            return emitCard(CardPayload.builder()
-                    .cardType("order_success")
-                    .cardData(Map.of("error", result.getMessage()))
-                    .build());
+        Result<Object> result = ticketClient.refundOrder(userId, orderIdLong, requestId);
+        String json = toJson(result);
+        if (result.getCode() == 0) {
+            idempotentService.put(requestId, json);
+            emitCard("order_success", result.getData());
         }
-        CardPayload card = CardPayload.builder()
-                .cardType("order_success")
-                .cardData(Map.of("orderId", orderId, "status", "refunded"))
-                .build();
-        idempotentService.put(requestId, card);
-        return emitCard(card);
+        return json;
     }
-
-    // ========== 内部工具方法 ==========
-
-    private static final Pattern WEEKDAY_PATTERN = Pattern.compile("周([一二三四五六日天])");
-    private static final Pattern MONTH_DAY_PATTERN = Pattern.compile("(\\d{1,2})月(\\d{1,2})日");
-    private static final Pattern DATE_PATTERN = Pattern.compile("(\\d{4})-(\\d{1,2})-(\\d{1,2})");
-    private static final Map<String, DayOfWeek> WEEKDAY_MAP = Map.of(
-            "一", DayOfWeek.MONDAY, "二", DayOfWeek.TUESDAY, "三", DayOfWeek.WEDNESDAY,
-            "四", DayOfWeek.THURSDAY, "五", DayOfWeek.FRIDAY, "六", DayOfWeek.SATURDAY,
-            "日", DayOfWeek.SUNDAY, "天", DayOfWeek.SUNDAY);
-
-    /**
-     * 将中文相对日期解析为 YYYY-MM-DD 格式。
-     * 支持：今天/明天/后天/大后天/周X/M月D日/YYYY-M-D/YYYY-MM-DD
-     * 支持去掉时段后缀（明天下午→明天）。
-     */
-    private static String resolveRelativeDate(String input) {
-        if (input == null || input.isBlank()) {
-            return null;
-        }
-        String text = input.trim();
-        LocalDate today = LocalDate.now();
-
-        // 去掉时段后缀：上午/下午/晚上/早上/中午/傍晚/夜里
-        text = text.replaceAll("(上午|下午|晚上|早上|中午|傍晚|夜里|晚)$", "").trim();
-
-        switch (text) {
-            case "今天", "今日" -> { return today.toString(); }
-            case "明天", "明日" -> { return today.plusDays(1).toString(); }
-            case "后天" -> { return today.plusDays(2).toString(); }
-            case "大后天" -> { return today.plusDays(3).toString(); }
-            default -> {}
-        }
-
-        // 周X
-        Matcher weekMatcher = WEEKDAY_PATTERN.matcher(text);
-        if (weekMatcher.matches()) {
-            DayOfWeek target = WEEKDAY_MAP.get(weekMatcher.group(1));
-            if (target != null) {
-                int diff = target.getValue() - today.getDayOfWeek().getValue();
-                if (diff <= 0) diff += 7;
-                return today.plusDays(diff).toString();
-            }
-        }
-
-        // M月D日
-        Matcher mdMatcher = MONTH_DAY_PATTERN.matcher(text);
-        if (mdMatcher.matches()) {
-            int month = Integer.parseInt(mdMatcher.group(1));
-            int day = Integer.parseInt(mdMatcher.group(2));
-            int year = today.getYear();
-            LocalDate candidate = LocalDate.of(year, month, day);
-            if (candidate.isBefore(today)) {
-                candidate = candidate.plusYears(1);
-            }
-            return candidate.toString();
-        }
-
-        // YYYY-M-D 或 YYYY-MM-DD
-        Matcher dateMatcher = DATE_PATTERN.matcher(text);
-        if (dateMatcher.matches()) {
-            try {
-                return LocalDate.of(
-                        Integer.parseInt(dateMatcher.group(1)),
-                        Integer.parseInt(dateMatcher.group(2)),
-                        Integer.parseInt(dateMatcher.group(3))).toString();
-            } catch (DateTimeParseException e) {
-                return null;
-            }
-        }
-
-        // 已经是 YYYY-MM-DD 格式
-        try {
-            return LocalDate.parse(text).toString();
-        } catch (DateTimeParseException e) {
-            return null;
-        }
-    }
-
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    private <T> List<T> extractRows(Object data, String key, Class<T> clazz) {
-        if (data == null) {
-            return List.of();
-        }
-        Object rows;
-        if (data instanceof Map m) {
-            rows = m.get(key);
-        } else {
-            rows = data;
-        }
-        if (rows == null) {
-            return List.of();
-        }
-        if (rows instanceof List l) {
-            return (List<T>) l.stream()
-                    .map(item -> convert(item, clazz))
-                    .filter(Objects::nonNull)
-                    .toList();
-        }
-        return List.of();
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Map<String, Object> toMap(Object obj) {
-        if (obj == null) {
-            return Map.of();
-        }
-        if (obj instanceof Map) {
-            return (Map<String, Object>) obj;
-        }
-        // Bean → Map 简化处理，交给 Jackson ObjectMapper 在上层转换
-        return Map.of("data", obj);
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T> T convert(Object item, Class<T> clazz) {
-        if (item == null) {
-            return null;
-        }
-        if (clazz.isInstance(item)) {
-            return (T) item;
-        }
-        if (item instanceof Map map) {
-            try {
-                return objectMapper.convertValue(map, clazz);
-            } catch (Exception ex) {
-                log.warn("[convert] 转换失败: {}", ex.getMessage());
-                return null;
-            }
-        }
-        return null;
-    }
-
 }
