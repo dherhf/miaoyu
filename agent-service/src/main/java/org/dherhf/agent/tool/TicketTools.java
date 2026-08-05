@@ -5,10 +5,12 @@ import dev.langchain4j.agent.tool.Tool;
 import lombok.extern.slf4j.Slf4j;
 import org.dherhf.common.result.Result;
 import org.dherhf.agent.model.card.CardPayload;
+import org.dherhf.agent.model.ticket.CinemaRow;
+import org.dherhf.agent.model.ticket.MovieRow;
+import org.dherhf.agent.model.ticket.RequestContext;
+import org.dherhf.agent.model.ticket.SessionRow;
 import org.dherhf.agent.service.ContextService;
 import org.dherhf.agent.service.IdempotentService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -20,6 +22,10 @@ import java.util.stream.Collectors;
 
 /**
  * LangChain4j 业务工具集，通过 @Tool 注解暴露给 LLM 进行 Function Calling。
+ * <p>
+ * 每次请求由 DialogueService 创建新实例，通过 sessionId 从 Redis 查询请求上下文（userId / requestId 等），
+ * 替代原 ThreadLocal 方案。
+ * </p>
  * <p>
  * 工具列表（对应系分 §3.9.2 关键技术设计 - 业务工具集）：
  * <ol>
@@ -34,84 +40,53 @@ import java.util.stream.Collectors;
  * </p>
  */
 @Slf4j
-@Component
 public class TicketTools {
 
     private final TicketServiceClient ticketClient;
     private final tools.jackson.databind.ObjectMapper objectMapper;
     private final ContextService contextService;
     private final IdempotentService idempotentService;
+    private final String sessionId;
 
-    @Autowired
+    // 卡片缓冲区：工具方法返回的 CardPayload 自动入缓冲，
+    // 由 DialogueService 在 chat() 结束后 drainCards() 取出推送 SSE card 事件
+    private final List<CardPayload> cardBuffer = new ArrayList<>();
+
     public TicketTools(TicketServiceClient ticketClient,
                        tools.jackson.databind.ObjectMapper objectMapper,
                        ContextService contextService,
-                       IdempotentService idempotentService) {
+                       IdempotentService idempotentService,
+                       String sessionId) {
         this.ticketClient = ticketClient;
         this.objectMapper = objectMapper;
         this.contextService = contextService;
         this.idempotentService = idempotentService;
-    }
-
-    // ========== ThreadLocal 上下文：当前会话的 userId / scheduleId / seatIds / ticketCount ==========
-
-    private static final ThreadLocal<Long> CURRENT_USER_ID = new ThreadLocal<>();
-    private static final ThreadLocal<Long> CURRENT_SCHEDULE_ID = new ThreadLocal<>();
-    private static final ThreadLocal<List<Long>> CURRENT_SEAT_IDS = new ThreadLocal<>();
-    private static final ThreadLocal<Integer> CURRENT_TICKET_COUNT = new ThreadLocal<>();
-    private static final ThreadLocal<String> CURRENT_REQUEST_ID = new ThreadLocal<>();
-
-    // P1-c 修复：卡片缓冲区，工具方法返回的 CardPayload 自动入缓冲，
-    // 由 DialogueService 在 chat() 结束后 drainCards() 取出推送 SSE card 事件
-    private static final ThreadLocal<List<CardPayload>> CARD_BUFFER = new ThreadLocal<>();
-
-    public static void setContext(Long userId, Long scheduleId, List<Long> seatIds, Integer ticketCount, String requestId) {
-        CURRENT_USER_ID.set(userId);
-        CURRENT_SCHEDULE_ID.set(scheduleId);
-        CURRENT_SEAT_IDS.set(seatIds);
-        CURRENT_TICKET_COUNT.set(ticketCount);
-        CURRENT_REQUEST_ID.set(requestId);
-        CARD_BUFFER.set(new ArrayList<>());
-    }
-
-    public static void clearContext() {
-        CURRENT_USER_ID.remove();
-        CURRENT_SCHEDULE_ID.remove();
-        CURRENT_SEAT_IDS.remove();
-        CURRENT_TICKET_COUNT.remove();
-        CURRENT_REQUEST_ID.remove();
-        CARD_BUFFER.remove();
+        this.sessionId = sessionId;
     }
 
     /**
      * 取出并清空卡片缓冲区（由 DialogueService 在 LLM 回复后调用）。
      */
-    public static List<CardPayload> drainCards() {
-        List<CardPayload> buffer = CARD_BUFFER.get();
-        if (buffer == null) {
-            return List.of();
-        }
-        CARD_BUFFER.set(new ArrayList<>());
-        return buffer;
+    public List<CardPayload> drainCards() {
+        List<CardPayload> snapshot = new ArrayList<>(cardBuffer);
+        cardBuffer.clear();
+        return snapshot;
     }
 
     /**
      * 将工具产生的卡片加入缓冲区，同时返回该卡片。
      */
     private CardPayload emitCard(CardPayload card) {
-        List<CardPayload> buffer = CARD_BUFFER.get();
-        if (buffer != null) {
-            buffer.add(card);
-        }
+        cardBuffer.add(card);
         return card;
     }
 
     private Long requireUserId() {
-        Long uid = CURRENT_USER_ID.get();
-        if (uid == null) {
-            throw new IllegalStateException("用户上下文未初始化");
+        RequestContext ctx = contextService.getRequestContext(sessionId);
+        if (ctx == null || ctx.getUserId() == null) {
+            throw new IllegalStateException("请求上下文未初始化: sessionId=" + sessionId);
         }
-        return uid;
+        return ctx.getUserId();
     }
 
     private static Long parseLong(String s) {
@@ -123,7 +98,8 @@ public class TicketTools {
      * 获取前端透传的幂等 requestId，缺失时兜底生成（不保证重试幂等）。
      */
     private String getRequestId() {
-        String rid = CURRENT_REQUEST_ID.get();
+        RequestContext ctx = contextService.getRequestContext(sessionId);
+        String rid = ctx != null ? ctx.getRequestId() : null;
         return rid != null && !rid.isBlank() ? rid : UUID.randomUUID().toString();
     }
 
@@ -194,35 +170,6 @@ public class TicketTools {
         return emitCard(CardPayload.movieList(cards));
     }
 
-    @Tool("检查影片是否有在售场次。推荐影片前调用，确保影片真正有排片。")
-    public CardPayload checkMovieHasSchedules(
-            @P("影片 ID（由 searchMovies 返回）") Long movieId
-    ) {
-        log.info("[Tool:checkMovieHasSchedules] movieId={}", movieId);
-        try {
-            Result<Object> result = ticketClient.checkMovieHasSchedules(movieId);
-            if (result.getCode() != 0) {
-                log.warn("[Tool:checkMovieHasSchedules] 查询失败: {}", result.getMessage());
-                return emitCard(CardPayload.builder()
-                        .cardType("validation_result")
-                        .cardData(Map.of("hasSchedules", false, "error", result.getMessage()))
-                        .build());
-            }
-            Map<String, Object> data = toMap(result.getData());
-            Boolean hasSchedules = (Boolean) data.get("hasSchedules");
-            return emitCard(CardPayload.builder()
-                    .cardType("validation_result")
-                    .cardData(Map.of("hasSchedules", Boolean.TRUE.equals(hasSchedules)))
-                    .build());
-        } catch (Exception ex) {
-            log.error("[Tool:checkMovieHasSchedules] 调用 ticket-service 失败: movieId={}", movieId, ex);
-            return emitCard(CardPayload.builder()
-                    .cardType("validation_result")
-                    .cardData(Map.of("hasSchedules", false, "error", "校验失败：" + ex.getMessage()))
-                    .build());
-        }
-    }
-
     @Tool("根据名称或设施查询影院列表。用户选定影片后或主动询问影院时调用。返回影院卡片数据。")
     public CardPayload searchCinemas(
             @P("影院名称关键词，如'万达影城'；无约束时传空字符串") String keyword,
@@ -262,41 +209,14 @@ public class TicketTools {
         String resolvedDate = resolveRelativeDate(date);
         log.info("[Tool:querySessions] movieId={}, cinemaId={}, date={} -> resolved={}", movieId, cinemaId, date, resolvedDate);
 
-        // 构造缓存键
-        String cacheKey = "sessions_" + movieId + "_" + cinemaId + "_" + date;
-
-        // 检查缓存
-        Object cachedResult = contextService.getCachedQueryResult(cacheKey, Object.class);
-        if (cachedResult != null) {
-            log.info("[Tool:querySessions] 使用缓存结果: {}", cacheKey);
-            List<SessionRow> sessions = extractRows(cachedResult, "records", SessionRow.class);
-            List<CardPayload.SessionCard> cards = sessions.stream()
-                    .map(s -> CardPayload.SessionCard.builder()
-                            .id(s.getId())
-                            .showDate(s.getShowDate())
-                            .startTime(s.getStartTime())
-                            .endTime(s.getEndTime())
-                            .hallName(s.getHallName())
-                            .languageVersion(s.getLanguageVersion())
-                            .price(s.getPrice())
-                            .availableSeats(s.getAvailableSeats())
-                            .build())
-                    .toList();
-            return emitCard(CardPayload.sessionList(cards));
-        }
-
         Result<Object> result = ticketClient.searchSessions(movieId, cinemaId, resolvedDate);
         if (result.getCode() != 0) {
             log.warn("[Tool:querySessions] 查询失败: {}", result.getMessage());
-            // 添加降级处理：返回一个空列表而不是报错
             return emitCard(CardPayload.builder()
                     .cardType("session_list")
                     .cardData(Map.of("sessions", List.of(), "error", "抱歉，暂无合适的场次信息，您可以尝试其他时间或影院。"))
                     .build());
         }
-
-        // 缓存结果
-        contextService.cacheQueryResult(cacheKey, result.getData(), java.time.Duration.ofMinutes(5));
 
         List<SessionRow> sessions = extractRows(result.getData(), "records", SessionRow.class);
         List<CardPayload.SessionCard> cards = sessions.stream()
@@ -361,8 +281,9 @@ public class TicketTools {
             @P("购票数量（=座位数）") Integer ticketCount
     ) {
         Long userId = requireUserId();
+        RequestContext ctx = contextService.getRequestContext(sessionId);
         // P1-a 修复：优先使用前端传入的 ticketCount，LLM 未提供时回退到上下文中的值
-        Integer effectiveTicketCount = ticketCount != null ? ticketCount : CURRENT_TICKET_COUNT.get();
+        Integer effectiveTicketCount = ticketCount != null ? ticketCount : (ctx != null ? ctx.getTicketCount() : null);
         String requestId = getRequestId();
         log.info("[Tool:lockAndCreateOrder] userId={}, scheduleId={}, seatIds={}, count={}, requestId={}",
                 userId, scheduleId, seatIds, effectiveTicketCount, requestId);
@@ -636,38 +557,4 @@ public class TicketTools {
         return null;
     }
 
-    // ========== Row DTO（对应 ticket-service 返回字段） ==========
-
-    @lombok.Data
-    public static class MovieRow {
-        private Long id;
-        private String name;
-        private String posterUrl;
-        private java.math.BigDecimal rating;
-        private String[] types;
-        private Integer duration;
-        private String releaseDate;
-    }
-
-    @lombok.Data
-    public static class CinemaRow {
-        private Long id;
-        private String name;
-        private String address;
-        private Long distance;
-        private String[] facilities;
-        private java.math.BigDecimal rating;
-    }
-
-    @lombok.Data
-    public static class SessionRow {
-        private Long id;
-        private String showDate;
-        private String startTime;
-        private String endTime;
-        private String hallName;
-        private String languageVersion;
-        private java.math.BigDecimal price;
-        private Integer availableSeats;
-    }
 }

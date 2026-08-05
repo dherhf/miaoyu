@@ -14,8 +14,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.bson.Document;
+import org.dherhf.agent.document.ChatMessage;
 import org.dherhf.agent.document.ChatSessionDocument;
 import org.dherhf.agent.enums.SessionStatusEnum;
+import org.dherhf.agent.repository.ChatMessageRepository;
 import org.dherhf.agent.repository.ChatSessionRepository;
 
 /**
@@ -30,6 +32,7 @@ import org.dherhf.agent.repository.ChatSessionRepository;
 public class ChatSessionService {
 
     private final ChatSessionRepository repository;
+    private final ChatMessageRepository chatMessageRepository;
     private final MongoTemplate mongoTemplate;
     private final ContextService contextService;
 
@@ -49,7 +52,6 @@ public class ChatSessionService {
         session.setUserId(userId);
         session.setTitle(title == null || title.isBlank() ? "新对话" : title);
         session.setStatus(SessionStatusEnum.ACTIVE.getValue());
-        session.setMessages(List.of());
         LocalDateTime now = LocalDateTime.now();
         session.setCreatedAt(now);
         session.setLastMessageAt(now);
@@ -79,7 +81,7 @@ public class ChatSessionService {
     }
 
     /**
-     * 查询会话详情（含消息列表和槽位状态）。
+     * 查询会话详情（不含消息列表，消息通过 getMessages 单独查询）。
      */
     public Optional<ChatSessionDocument> getSession(String sessionId, Long userId) {
         return repository.findBySessionId(sessionId)
@@ -87,7 +89,14 @@ public class ChatSessionService {
     }
 
     /**
-     * 删除会话（含 Redis 缓存清理）。
+     * 查询会话的全部消息（按 msgId 正序）。
+     */
+    public List<ChatMessage> getMessages(String sessionId) {
+        return chatMessageRepository.findBySessionIdOrderByMsgIdAsc(sessionId);
+    }
+
+    /**
+     * 删除会话（含消息和 Redis 缓存清理）。
      */
     public boolean deleteSession(String sessionId, Long userId) {
         Optional<ChatSessionDocument> opt = getSession(sessionId, userId);
@@ -98,6 +107,7 @@ public class ChatSessionService {
                 Query.query(Criteria.where("sessionId").is(sessionId)),
                 ChatSessionDocument.class
         );
+        chatMessageRepository.deleteBySessionId(sessionId);
         contextService.clearContext(sessionId);
         return true;
     }
