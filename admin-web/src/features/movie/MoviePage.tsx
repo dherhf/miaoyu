@@ -1,5 +1,4 @@
 import { useState, useRef } from 'react';
-import { toast } from 'sonner';
 import {
   Plus,
   Edit2,
@@ -106,14 +105,14 @@ export function MovieManage() {
         okButtonProps: { danger: true },
         onOk: async () => {
           await toggleStatus([row.id], targetStatus);
-          toast.success(`已${action}`);
+          message.success(`已${action}`);
           actionRef.current?.reload();
         },
       });
       return;
     }
     await toggleStatus([row.id], targetStatus);
-    toast.success(`已${action}`);
+    message.success(`已${action}`);
     actionRef.current?.reload();
   };
 
@@ -130,7 +129,7 @@ export function MovieManage() {
         okButtonProps: { danger: true },
         onOk: async () => {
           await toggleStatus(selectedIds, targetStatus);
-          toast.success(`成功${action}${selectedIds.length}部影片`);
+          message.success(`成功${action}${selectedIds.length}部影片`);
           setSelectedIds([]);
           actionRef.current?.reload();
         },
@@ -138,7 +137,7 @@ export function MovieManage() {
       return;
     }
     await toggleStatus(selectedIds, targetStatus);
-    toast.success(`成功${action}${selectedIds.length}部影片`);
+    message.success(`成功${action}${selectedIds.length}部影片`);
     setSelectedIds([]);
     actionRef.current?.reload();
   };
@@ -174,13 +173,13 @@ export function MovieManage() {
         if (editingMovie.status !== values.status) {
           await toggleStatus([editingMovie.id], values.status);
         }
-        toast.success('影片更新成功');
+        message.success('影片更新成功');
       } else {
         const detail = await addMovie(payload);
         if (values.status === 'showing') {
           await toggleStatus([detail.id], 'showing');
         }
-        toast.success('新增影片成功');
+        message.success('新增影片成功');
       }
       setModalOpen(false);
       setPendingFile(null);
