@@ -2,6 +2,7 @@ package org.dherhf.agent.service;
 
 import tools.jackson.databind.ObjectMapper;
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.service.AiServices;
 import org.dherhf.agent.document.ChatSessionDocument;
 import org.dherhf.agent.enums.SessionStatusEnum;
 import org.dherhf.agent.tool.TicketTools;
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.*;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -50,7 +52,12 @@ class DialogueServiceTest {
         // 跳过 @PostConstruct，手动注入 @Value 字段
         ReflectionTestUtils.setField(service, "negateThreshold", 2);
         ReflectionTestUtils.setField(service, "sseTimeoutSeconds", 60L);
-        // chatAssistant 保持 null（handleMessage 的早期返回路径不会用到）
+
+        // Mock chatAssistant
+        @SuppressWarnings("unchecked")
+        var mockChatAssistant = mock(DialogueService.ChatAssistant.class);
+        when(mockChatAssistant.chat(anyString())).thenReturn("test response");
+        ReflectionTestUtils.setField(service, "chatAssistant", mockChatAssistant);
     }
 
     @AfterEach
