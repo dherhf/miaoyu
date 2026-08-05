@@ -28,7 +28,7 @@ spring:
 ticket-service:
   base-url: http://localhost:8080
   # 内部调用 Token（与 ticket-service 约定的静态 Token）
-  internal-token: miaoyu-internal-token-2026
+  internal-token: ${INTERNAL_TOKEN:miaoyu-internal-token-2026}
 
 # DeepSeek LLM 配置
 langchain4j:
@@ -42,13 +42,6 @@ langchain4j:
       timeout: 60s
       log-requests: true
       log-responses: true
-
-# JWT 配置（与 ticket-service 共用密钥）
-jwt:
-  current-secret: ${JWT_CURRENT_SECRET}
-  old-secret:
-  issuer: miaoyu
-  user-expiration: 86400
 
 # Agent 对话配置
 agent:

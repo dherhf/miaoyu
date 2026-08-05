@@ -1,11 +1,9 @@
 package org.dherhf.agent.controller;
 
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dherhf.agent.common.ErrorCodeEnum;
-import org.dherhf.agent.common.JwtUtil;
 import org.dherhf.agent.common.Result;
 import org.dherhf.agent.model.dto.CreateSessionRequest;
 import org.dherhf.agent.model.dto.CreateSessionResponse;
@@ -20,6 +18,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -32,7 +31,8 @@ import java.util.stream.Collectors;
 /**
  * 对话接口控制器（对应系分 §3.9.1 - 5 个 API）。
  * <p>
- * 所有接口都需要 JWT 认证，从 Authorization 头解析 userId。
+ * 所有接口都需要 JWT 认证（由 Gateway 统一校验），
+ * userId 通过 {@code X-User-Id} Header 注入。
  * </p>
  */
 @Slf4j
@@ -43,7 +43,6 @@ public class ChatController {
 
     private final ChatSessionService chatSessionService;
     private final DialogueService dialogueService;
-    private final JwtUtil jwtUtil;
 
     /**
      * 1. 创建对话会话
@@ -52,12 +51,8 @@ public class ChatController {
     @PostMapping("/sessions")
     public Result<CreateSessionResponse> createSession(
             @Valid @RequestBody(required = false) CreateSessionRequest request,
-            HttpServletRequest httpRequest
+            @RequestHeader("X-User-Id") Long userId
     ) {
-        Long userId = resolveUserId(httpRequest);
-        if (userId == null) {
-            return Result.error(ErrorCodeEnum.UNAUTHORIZED);
-        }
         String title = request == null ? null : request.getTitle();
         ChatSessionDocument session = chatSessionService.createSession(userId, title);
 
@@ -78,20 +73,8 @@ public class ChatController {
     public SseEmitter sendMessage(
             @PathVariable String id,
             @Valid @RequestBody SendMessageRequest request,
-            HttpServletRequest httpRequest
+            @RequestHeader("X-User-Id") Long userId
     ) {
-        Long userId = resolveUserId(httpRequest);
-        if (userId == null) {
-            SseEmitter emitter = new SseEmitter(5000L);
-            try {
-                emitter.send(SseEmitter.event()
-                        .name("error")
-                        .data(Map.of("code", 401, "message", "未登录或登录已过期")));
-                emitter.complete();
-            } catch (Exception ignored) {}
-            return emitter;
-        }
-
         log.info("[sendMessage] sessionId={}, userId={}, content={}",
                 id, userId, request.getContent());
 
@@ -113,13 +96,8 @@ public class ChatController {
     public Result<SessionListResponse> listSessions(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            HttpServletRequest httpRequest
+            @RequestHeader("X-User-Id") Long userId
     ) {
-        Long userId = resolveUserId(httpRequest);
-        if (userId == null) {
-            return Result.error(ErrorCodeEnum.UNAUTHORIZED);
-        }
-
         List<ChatSessionDocument> sessions = chatSessionService.listSessions(userId, page, size);
         long total = chatSessionService.countSessions(userId);
 
@@ -147,13 +125,8 @@ public class ChatController {
     @GetMapping("/sessions/{id}")
     public Result<SessionDetailResponse> getSession(
             @PathVariable String id,
-            HttpServletRequest httpRequest
+            @RequestHeader("X-User-Id") Long userId
     ) {
-        Long userId = resolveUserId(httpRequest);
-        if (userId == null) {
-            return Result.error(ErrorCodeEnum.UNAUTHORIZED);
-        }
-
         var opt = chatSessionService.getSession(id, userId);
         if (opt.isEmpty()) {
             return Result.error(ErrorCodeEnum.SESSION_NOT_FOUND);
@@ -193,28 +166,12 @@ public class ChatController {
     @DeleteMapping("/sessions/{id}")
     public Result<Void> deleteSession(
             @PathVariable String id,
-            HttpServletRequest httpRequest
+            @RequestHeader("X-User-Id") Long userId
     ) {
-        Long userId = resolveUserId(httpRequest);
-        if (userId == null) {
-            return Result.error(ErrorCodeEnum.UNAUTHORIZED);
-        }
-
         boolean deleted = chatSessionService.deleteSession(id, userId);
         if (!deleted) {
             return Result.error(ErrorCodeEnum.SESSION_NOT_FOUND);
         }
         return Result.success();
-    }
-
-    // ---- 内部方法 ----
-
-    private Long resolveUserId(HttpServletRequest request) {
-        String auth = request.getHeader("Authorization");
-        if (auth == null || !auth.startsWith("Bearer ")) {
-            return null;
-        }
-        String token = auth.substring(7);
-        return jwtUtil.parseUserId(token);
     }
 }

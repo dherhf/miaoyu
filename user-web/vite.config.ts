@@ -13,12 +13,8 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api/v1/chat': {
-        target: 'http://localhost:8081',
-        changeOrigin: true,
-      },
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:9000',
         changeOrigin: true,
       },
     },
