@@ -2,10 +2,14 @@ package org.dherhf.agent.service;
 
 import org.springframework.stereotype.Service;
 
+import org.dherhf.agent.enums.IntentEnum;
+import org.dherhf.agent.enums.SlotEnum;
+
 /**
  * System Prompt 管理。
  * <p>
  * 固化 Agent 行为边界，包含意图分类定义、槽位说明、工具使用规则、输出格式约束。
+ * <br>意图列表与枚举同步，避免重复维护。
  * </p>
  */
 @Service
@@ -20,23 +24,10 @@ public class PromptService {
 
                 ## 意图分类
                 根据用户输入识别以下意图之一：
-                - BUY_TICKET：用户想买票/订票/选座
-                - MODIFY：用户对已推荐结果表达不满，要求调整（如"太贵了"、"换便宜点的"、"太远了"）
-                - QUERY_ORDER：用户查看自己的历史/待支付订单
-                - FUZZY_RECOMMEND：用户表达模糊偏好（如"想看个喜剧"、"周末看什么"），需按类型推荐而非要求精确片名
-                - OTHER：闲聊或超出业务范围
+                """ + IntentEnum.toPromptList() + """
 
                 ## 槽位定义
-                - film：影片，包含 name 和 movieId
-                - cinema：影院，包含 name 和 cinemaId
-                - time：放映时间，用户自然语言描述（如"明天下午"）
-                - hall：影厅类型偏好（如"IMAX"），可选
-                - count：购票数量
-                - sessionId：场次 ID，由前端选场次后直接提供
-                - seatIds：座位 ID 列表，由前端选座后直接提供，无需 LLM 提取
-                - negate_slot：否定槽位，用户修正时标记哪个槽位需更新（如"太贵了"→negate_slot=price）
-                - priceMax：票价上限（元），用户修正"太贵了"时提取
-                - negateCount：连续否定次数（由系统维护，LLM 不设置）
+                """ + SlotEnum.toPromptList() + """
 
                 ## 工具使用规则
                 1. 意图为 BUY_TICKET 或 FUZZY_RECOMMEND 时：

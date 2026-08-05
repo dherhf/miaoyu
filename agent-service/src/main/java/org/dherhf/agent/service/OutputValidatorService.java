@@ -3,6 +3,8 @@ package org.dherhf.agent.service;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import org.dherhf.agent.enums.SlotEnum;
+
 import java.util.Set;
 
 /**
@@ -15,14 +17,24 @@ import java.util.Set;
 @Service
 public class OutputValidatorService {
 
-    // 输出黑名单：LLM 回复中不应出现的标记
-    private static final Set<String> FORBIDDEN_OUTPUT_MARKERS = Set.of(
-            "system_prompt:",
-            "<|im_start|>system",
-            "## 角色",
-            "## 意图分类定义",
-            "## 槽位定义"
-    );
+    // 输出黑名单：LLM 回复中不应出现的标记（基于 SlotEnum 动态生成 + 固定标记）
+    private static final Set<String> FORBIDDEN_OUTPUT_MARKERS;
+
+    static {
+        var set = new java.util.HashSet<String>();
+        // 槽位定义标记
+        set.add("## 槽位定义");
+        // 意图分类标记
+        set.add("## 意图分类");
+        // 角色标记
+        set.add("## 角色");
+        // 所有槽位 key（中英文均加入，防止 LLM 输出槽位名）
+        for (SlotEnum slot : SlotEnum.values()) {
+            set.add(slot.getKey());
+            set.add(slot.getDescriptionZh());
+        }
+        FORBIDDEN_OUTPUT_MARKERS = Set.copyOf(set);
+    }
 
     /**
      * 校验 LLM 输出是否合规。
