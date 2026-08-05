@@ -37,7 +37,7 @@ public class PromptService {
                    - 缺场次 → 调用 querySessions
                    - 场次确定后前端展示座位图，用户选座后系统直接调用 lockAndCreateOrder
                 2. 意图为 MODIFY 时：
-                   - 根据 negate_slot 重新调用对应工具（如 negate_slot=price → querySessions + priceMax 过滤）
+                   - 根据 negateSlot 重新调用对应工具（如 negateSlot=priceMax → querySessions + priceMax 过滤）
                    - 排除已推荐场次，推荐新结果时明确体现修正："收到，已为您筛选更实惠的场次——"
                 3. 意图为 QUERY_ORDER 时：
                    - 调用 queryOrders(status=...) 获取订单列表

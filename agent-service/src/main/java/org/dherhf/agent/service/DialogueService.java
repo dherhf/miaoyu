@@ -1,8 +1,10 @@
 package org.dherhf.agent.service;
 
 import tools.jackson.databind.ObjectMapper;
+import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.service.AiServices;
-import jakarta.annotation.PostConstruct;
+import dev.langchain4j.service.MemoryId;
+import dev.langchain4j.service.UserMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -11,7 +13,6 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -19,13 +20,17 @@ import org.dherhf.common.result.ErrorCodeEnum;
 import org.dherhf.agent.document.ChatMessage;
 import org.dherhf.agent.enums.IntentEnum;
 import org.dherhf.agent.enums.SessionStatusEnum;
+import org.dherhf.agent.model.card.CardPayload;
 import org.dherhf.agent.model.sse.SseEvent;
+import org.dherhf.agent.model.ticket.RequestContext;
+import org.dherhf.agent.model.ticket.SlotState;
+import org.dherhf.agent.tool.TicketServiceClient;
 import org.dherhf.agent.tool.TicketTools;
 
 import dev.langchain4j.model.chat.ChatModel;
 
 /**
- * 对话引擎主流程服务（对应系分 §3.9.1 - 对话消息处理全链路）。
+ * 对话引擎主流程服务。
  * <p>
  * 流程：用户输入 → 输入安全过滤 → 构造 LLM 请求（System Prompt + 上下文 + 历史） →
  * LangChain4j 调用 DeepSeek → 工具调用（自动跳步/缺槽追问/上下文修正） →
@@ -43,7 +48,8 @@ public class DialogueService {
     private final OutputValidatorService outputValidatorService;
     private final ContextService contextService;
     private final ChatSessionService chatSessionService;
-    private final TicketTools ticketTools;
+    private final TicketServiceClient ticketClient;
+    private final IdempotentService idempotentService;
     private final ObjectMapper objectMapper;
 
     @Value("${agent.negate-threshold}")
@@ -52,20 +58,29 @@ public class DialogueService {
     @Value("${agent.sse-timeout-seconds}")
     private long sseTimeoutSeconds;
 
-    /** LangChain4j AiService 接口，运行时由 AiServices 构建 */
+    /** LangChain4j AiService 接口，@MemoryId 绑定 sessionId 用于会话隔离 */
     public interface ChatAssistant {
-        String chat(@dev.langchain4j.service.UserMessage String userMessage);
+        String chat(@MemoryId String sessionId, @UserMessage String userMessage);
     }
 
-    private ChatAssistant chatAssistant;
-
-    @PostConstruct
-    public void init() {
-        chatAssistant = AiServices.builder(ChatAssistant.class)
+    /**
+     * 为每次请求构建独立的 AiServices 实例，绑定 sessionId 和 TicketTools。
+     * 测试时可覆写此方法返回 mock。
+     */
+    protected ChatAssistant buildChatAssistant(String sessionId, TicketTools tools) {
+        return AiServices.builder(ChatAssistant.class)
                 .chatModel(chatModel)
-                .tools(ticketTools)
-                .systemMessageProvider(chatMemoryId -> promptService.getSystemPrompt())
+                .tools(tools)
+                .systemMessageProvider(memoryId -> promptService.getSystemPrompt())
+                .chatMemoryProvider(memoryId -> MessageWindowChatMemory.builder()
+                        .maxMessages(10)
+                        .id(memoryId)
+                        .build())
                 .build();
+    }
+
+    private TicketTools createTicketTools(String sessionId) {
+        return new TicketTools(ticketClient, objectMapper, contextService, idempotentService, sessionId);
     }
 
     /**
@@ -111,12 +126,30 @@ public class DialogueService {
             return emitter;
         }
 
-        Map<String, Object> slotState = contextService.loadSlotState(sessionId);
+        SlotState slotState = contextService.loadSlotState(sessionId);
 
-        // P0 修复：setContext 必须在虚拟线程内调用，ThreadLocal 不跨线程继承
+        // 将前端传入的场次/座位信息写入槽位
+        if (scheduleId != null) {
+            slotState.setSchedulesId(scheduleId);
+        }
+        if (seatIds != null) {
+            slotState.setSeatIds(seatIds);
+        }
+        if (ticketCount != null) {
+            slotState.setCount(ticketCount);
+        }
+
+        // 将请求上下文存入 Redis，TicketTools 通过 sessionId 查询（替代原 ThreadLocal）
+        RequestContext requestCtx = new RequestContext();
+        requestCtx.setUserId(userId);
+        requestCtx.setScheduleId(scheduleId);
+        requestCtx.setSeatIds(seatIds);
+        requestCtx.setTicketCount(ticketCount);
+        requestCtx.setRequestId(requestId);
+
         Thread.startVirtualThread(() -> {
             try {
-                TicketTools.setContext(userId, scheduleId, seatIds, ticketCount, requestId);
+                contextService.storeRequestContext(sessionId, requestCtx);
                 processDialogue(emitter, sessionId, content, slotState);
             } catch (Exception ex) {
                 log.error("[handleMessage] 对话处理异常: sessionId={}", sessionId, ex);
@@ -125,7 +158,7 @@ public class DialogueService {
                 } catch (IOException ignored) {}
                 emitter.completeWithError(ex);
             } finally {
-                TicketTools.clearContext();
+                contextService.clearRequestContext(sessionId);
             }
         });
 
@@ -136,9 +169,9 @@ public class DialogueService {
             SseEmitter emitter,
             String sessionId,
             String content,
-            Map<String, Object> slotState
+            SlotState slotState
     ) throws IOException {
-        List<Map<String, Object>> recentMessages = contextService.getRecentMessages(sessionId);
+        List<ChatMessage> recentMessages = contextService.getRecentMessages(sessionId);
         String contextPrompt = buildContextPrompt(content, slotState, recentMessages);
 
         // P2-a 修复：msgId 基于全量消息数，而非 historyWindow 截断后的 recentMessages
@@ -150,18 +183,15 @@ public class DialogueService {
         userMsg.setContent(content);
         userMsg.setCreatedAt(LocalDateTime.now());
 
-        // 创建一个不包含createdAt的map来避免序列化问题
-        Map<String, Object> userMsgMap = new HashMap<>();
-        userMsgMap.put("msgId", userMsg.getMsgId());
-        userMsgMap.put("role", userMsg.getRole());
-        userMsgMap.put("content", userMsg.getContent());
-        // 不添加createdAt，让MongoDB自动处理
+        contextService.updateContext(sessionId, slotState, userMsg, userMsg.getCreatedAt());
 
-        contextService.updateContext(sessionId, slotState, userMsgMap, userMsg.getCreatedAt());
+        // 每次请求构建独立的 TicketTools + ChatAssistant，通过 @MemoryId 绑定 sessionId
+        TicketTools tools = createTicketTools(sessionId);
+        ChatAssistant assistant = buildChatAssistant(sessionId, tools);
 
         String aiResponse;
         try {
-            aiResponse = chatAssistant.chat(contextPrompt);
+            aiResponse = assistant.chat(sessionId, contextPrompt);
         } catch (Exception ex) {
             log.error("[processDialogue] LLM 调用失败: {}", ex.getMessage(), ex);
             sendSseEvent(emitter, SseEvent.error("50001", "AI 响应超时，请重试"));
@@ -178,8 +208,8 @@ public class DialogueService {
         ParsedResponse parsed = parseResponse(aiResponse);
 
         // P1-c 修复：推送工具调用产生的卡片数据
-        List<org.dherhf.agent.model.card.CardPayload> cards = TicketTools.drainCards();
-        for (org.dherhf.agent.model.card.CardPayload card : cards) {
+        List<CardPayload> cards = tools.drainCards();
+        for (CardPayload card : cards) {
             sendSseEvent(emitter, SseEvent.card(card.getCardType(), card.getCardData()));
         }
 
@@ -187,57 +217,15 @@ public class DialogueService {
             sendSseEvent(emitter, SseEvent.message(parsed.content));
         }
 
-        Map<String, Object> mergedSlots = contextService.mergeSlots(slotState, parsed.slots);
+        SlotState updatedSlotState = contextService.mergeSlots(slotState, parsed.slots);
 
-        // P0 修复：确保工具调用后槽位状态正确更新（特别处理 film 和 cinema 槽位）
-        Map<String, Object> updatedSlotState = new HashMap<>(mergedSlots);
-
-        // 为了更好的槽位状态管理，如果解析的 slots 中包含电影或影院信息，需要特别处理
-        if (parsed.slots != null) {
-            // 处理电影信息
-            if (parsed.slots.containsKey("film") && parsed.slots.get("film") instanceof Map<?, ?> filmMap) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> filmData = (Map<String, Object>) parsed.slots.get("film");
-                if (filmData != null && !filmData.isEmpty()) {
-                    updatedSlotState.computeIfAbsent("film", k -> new HashMap<>());
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> existingFilm = (Map<String, Object>) updatedSlotState.get("film");
-                    existingFilm.putAll(filmData);
-                }
-            }
-
-            // 处理影院信息
-            if (parsed.slots.containsKey("cinema") && parsed.slots.get("cinema") instanceof Map<?, ?> cinemaMap) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> cinemaData = (Map<String, Object>) parsed.slots.get("cinema");
-                if (cinemaData != null && !cinemaData.isEmpty()) {
-                    updatedSlotState.computeIfAbsent("cinema", k -> new HashMap<>());
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> existingCinema = (Map<String, Object>) updatedSlotState.get("cinema");
-                    existingCinema.putAll(cinemaData);
-                }
-            }
+        // 标准化 movieName 类型字段（统一小写，用于模糊推荐匹配）
+        if (updatedSlotState.getMovieName() != null) {
+            updatedSlotState.setMovieName(updatedSlotState.getMovieName().trim());
         }
 
-        // 修复类型参数的处理一致性
-        if (parsed.slots != null && parsed.slots.containsKey("film")) {
-            Object filmObj = parsed.slots.get("film");
-            if (filmObj instanceof Map<?, ?> filmMap) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> filmData = (Map<String, Object>) filmMap;
-                // 检查是否有类型字段并进行标准化处理
-                if (filmData.containsKey("type")) {
-                    Object typeObj = filmData.get("type");
-                    if (typeObj != null && typeObj instanceof String typeStr) {
-                        // 标准化类型，避免大小写敏感问题
-                        filmData.put("type", typeStr.trim().toLowerCase());
-                    }
-                }
-            }
-        }
-
-        Object negateCount = updatedSlotState.get("negateCount");
-        if (negateCount instanceof Number n && n.intValue() >= negateThreshold) {
+        int negateCount = updatedSlotState.getNegateCount() != null ? updatedSlotState.getNegateCount() : 0;
+        if (negateCount >= negateThreshold) {
             String degradeMsg = "看来我的推荐不太对，让我了解得更准确一些——您更偏好哪种类型？预算大概多少？";
             sendSseEvent(emitter, SseEvent.message(degradeMsg));
             parsed.content = (parsed.content == null ? "" : parsed.content) + degradeMsg;
@@ -251,43 +239,33 @@ public class DialogueService {
         aiMsg.setSlots(updatedSlotState);
         aiMsg.setCreatedAt(LocalDateTime.now());
 
-        // 创建一个不包含createdAt的map来避免序列化问题
-        Map<String, Object> aiMsgMap = new HashMap<>();
-        aiMsgMap.put("msgId", aiMsg.getMsgId());
-        aiMsgMap.put("role", aiMsg.getRole());
-        aiMsgMap.put("content", aiMsg.getContent());
-        aiMsgMap.put("cardType", aiMsg.getCardType());
-        aiMsgMap.put("cardData", aiMsg.getCardData());
-        aiMsgMap.put("intent", aiMsg.getIntent());
-        aiMsgMap.put("slots", aiMsg.getSlots());
-        // 不添加createdAt，让MongoDB自动处理
-
-        contextService.updateContext(sessionId, updatedSlotState, aiMsgMap, aiMsg.getCreatedAt());
+        contextService.updateContext(sessionId, updatedSlotState, aiMsg, aiMsg.getCreatedAt());
 
         // 避免重复推送：只推送一次完成状态
         sendSseEvent(emitter, SseEvent.done(sessionId,
                 parsed.intent != null ? parsed.intent.name() : "",
-                updatedSlotState));  // 使用 updatedSlotState 而不是 mergedSlots
+                updatedSlotState));
         emitter.complete();
     }
 
     private String buildContextPrompt(
             String content,
-            Map<String, Object> slotState,
-            List<Map<String, Object>> recentMessages
+            SlotState slotState,
+            List<ChatMessage> recentMessages
     ) {
         StringBuilder sb = new StringBuilder();
         if (!recentMessages.isEmpty()) {
             sb.append("【历史对话】\n");
-            for (Map<String, Object> msg : recentMessages) {
-                String role = (String) msg.get("role");
-                String text = (String) msg.get("content");
+            for (ChatMessage msg : recentMessages) {
+                String role = msg.getRole();
+                String text = msg.getContent();
                 if (role != null && text != null) {
                     sb.append(role.equals("user") ? "用户" : "助手").append(": ").append(text).append("\n");
                 }
             }
         }
-        if (!slotState.isEmpty()) {
+        // 判断 slotState 是否有非 null 字段
+        if (hasSlotData(slotState)) {
             sb.append("【当前槽位状态】\n");
             try {
                 sb.append(objectMapper.writeValueAsString(slotState)).append("\n");
@@ -295,6 +273,23 @@ public class DialogueService {
         }
         sb.append("【用户输入】\n").append(content);
         return sb.toString();
+    }
+
+    private static boolean hasSlotData(SlotState slotState) {
+        if (slotState == null) return false;
+        return slotState.getMovieId() != null
+                || slotState.getMovieName() != null
+                || slotState.getCinemaId() != null
+                || slotState.getCinemaName() != null
+                || slotState.getHallId() != null
+                || slotState.getHallType() != null
+                || slotState.getHallName() != null
+                || slotState.getTime() != null
+                || slotState.getCount() != null
+                || slotState.getSchedulesId() != null
+                || slotState.getSeatIds() != null
+                || slotState.getPriceMax() != null
+                || slotState.getNegateCount() != null;
     }
 
     private ParsedResponse parseResponse(String aiResponse) {
@@ -315,10 +310,8 @@ public class DialogueService {
                     pr.content = s;
                 }
                 Object slotsObj = map.get("slots");
-                if (slotsObj instanceof Map<?, ?> sm) {
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> slotsMap = (Map<String, Object>) sm;
-                    pr.slots = slotsMap;
+                if (slotsObj != null) {
+                    pr.slots = objectMapper.convertValue(slotsObj, SlotState.class);
                 }
             } catch (Exception ex) {
                 log.debug("[parseResponse] JSON 解析失败，按纯文本处理: {}", ex.getMessage());
@@ -326,7 +319,7 @@ public class DialogueService {
         }
 
         if (pr.slots == null) {
-            pr.slots = new HashMap<>();
+            pr.slots = new SlotState();
         }
         return pr;
     }
@@ -364,6 +357,6 @@ public class DialogueService {
     private static class ParsedResponse {
         String content;
         IntentEnum intent;
-        Map<String, Object> slots;
+        SlotState slots;
     }
 }

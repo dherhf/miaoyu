@@ -12,34 +12,46 @@ import java.util.stream.Collectors;
  */
 public enum SlotEnum {
 
-    /** 影片信息：包含 name 和 movieId */
-    FILM("film", "影片，包含 name 和 movieId", false, false),
+    /** 影片 ID（searchMovies 回填） */
+    MOVIE_ID("movieId", "影片 ID", false, false),
 
-    /** 影院信息：包含 name 和 cinemaId */
-    CINEMA("cinema", "影院，包含 name 和 cinemaId", false, false),
+    /** 影片名称（LLM 从用户消息提取） */
+    MOVIE_NAME("movieName", "影片名称", false, false),
 
-    /** 放映时间：用户自然语言描述（如"明天下午"） */
-    TIME("time", "放映时间，用户自然语言描述（如\"明天下午\"）", false, false),
+    /** 影院 ID（searchCinemas 回填） */
+    CINEMA_ID("cinemaId", "影院 ID", false, false),
 
-    /** 影厅类型偏好：如 IMAX，可选 */
-    HALL("hall", "影厅类型偏好（如\"IMAX\"），可选", false, false),
+    /** 影院名称（LLM 从用户消息提取） */
+    CINEMA_NAME("cinemaName", "影院名称", false, false),
 
-    /** 购票数量 */
+    /** 影厅 ID（querySessions 回填） */
+    HALL_ID("hallId", "影厅 ID", false, false),
+
+    /** 影厅类型偏好（LLM 提取，如 "IMAX"/"3D"/"杜比"） */
+    HALL_TYPE("hallType", "影厅类型偏好（如\"IMAX\"、\"3D\"），可选", false, false),
+
+    /** 影厅名称（querySessions 回填） */
+    HALL_NAME("hallName", "影厅名称", false, false),
+
+    /** 放映时间（LLM 提取用户自然语言后标准化为 yyyy-MM-dd HH:mm:ss） */
+    TIME("time", "放映时间，格式 yyyy-MM-dd HH:mm:ss", false, false),
+
+    /** 购票数量（LLM 提取） */
     COUNT("count", "购票数量", false, false),
 
-    /** 场次 ID：由前端选场次后直接提供 */
-    SESSION_ID("sessionId", "场次 ID，由前端选场次后直接提供", false, false),
+    /** 场次 ID（前端选场次后直接传入，非 LLM 提取） */
+    SCHEDULES_ID("schedulesId", "场次 ID，由前端选场次后直接提供", false, false),
 
-    /** 座位 ID 列表：由前端选座后直接提供，无需 LLM 提取 */
+    /** 座位 ID 列表（前端选座后直接传入，非 LLM 提取） */
     SEAT_IDS("seatIds", "座位 ID 列表，由前端选座后直接提供，无需 LLM 提取", false, false),
 
-    /** 否定槽位：用户修正时标记哪个槽位需更新（如"太贵了"→negate_slot=price） */
-    NEGATE_SLOT("negate_slot", "否定槽位，用户修正时标记哪个槽位需更新（如\"太贵了\"→negate_slot=price\")", false, false),
-
-    /** 票价上限：用户修正"太贵了"时提取（元） */
+    /** 票价上限（LLM 提取，用户修正 "太贵了" 时触发，单位：元） */
     PRICE_MAX("priceMax", "票价上限（元），用户修正\"太贵了\"时提取", false, false),
 
-    /** 连续否定次数：由系统维护，LLM 不设置 */
+    /** 否定槽位标记（LLM 提取，用户修正时标记需清除的槽位名） */
+    NEGATE_SLOT("negateSlot", "否定槽位标记，用户修正时标记需清除的槽位名（如\"太贵了\"→negateSlot=priceMax）", false, false),
+
+    /** 连续否定次数（系统维护，LLM 不设置） */
     NEGATE_COUNT("negateCount", "连续否定次数（由系统维护，LLM 不设置）", false, true);
 
     private final String key;
@@ -55,7 +67,7 @@ public enum SlotEnum {
     }
 
     /**
-     * 槽位键名（JSON 中的 key，如 "film"、"priceMax"）。
+     * 槽位键名（JSON 中的 key，如 "movieId"、"priceMax"）。
      */
     public String getKey() {
         return key;
