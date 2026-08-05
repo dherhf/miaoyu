@@ -320,10 +320,11 @@ public class ScheduleServiceImpl implements ScheduleService {
     }
 
     @Override
-    public PageResult<ScheduleListVO> userList(String movieName, Long cinemaId, String showDate, Integer page, Integer size) {
+    public PageResult<ScheduleListVO> userList(Long movieId, String movieName, Long cinemaId, String showDate, Integer page, Integer size) {
         Page<Schedule> pageParam = new Page<>(page, size);
         LambdaQueryWrapper<Schedule> wrapper = new LambdaQueryWrapper<Schedule>()
                 .eq(Schedule::getStatus, ScheduleStatus.ON_SALE.getCode())
+                .eq(movieId != null, Schedule::getMovieId, movieId)
                 .eq(cinemaId != null, Schedule::getCinemaId, cinemaId)
                 .eq(showDate != null && !showDate.isBlank(), Schedule::getShowDate, showDate != null ? LocalDate.parse(showDate) : null)
                 .ge(Schedule::getShowDate, LocalDate.now())
@@ -393,6 +394,7 @@ public class ScheduleServiceImpl implements ScheduleService {
                 }
             }
             SeatVO seatVO = SeatVO.builder()
+                    .hallCellId(ss.getHallCellId())
                     .seatIndex(ss.getSeatIndex())
                     .status(ss.getStatus())
                     .rowIndex(rowIndex)
@@ -406,14 +408,18 @@ public class ScheduleServiceImpl implements ScheduleService {
             seats.add(seatVO);
         }
 
-        // 座位状态优先从 Redis Bitmap 获取，缓存未命中时从 MySQL 重建并回写
-        if (seatBitmapService.bitmapExists(id)) {
+        // 座位状态优先从 Redis Bitmap 批量获取，缓存未命中时从 MySQL 重建并回写
+        String[] seatStatuses = seatBitmapService.getSeatStatuses(id, schedule.getTotalSeats());
+        if (seatStatuses != null) {
             availableCount = 0;
             for (SeatVO seatVO : seats) {
-                String status = seatBitmapService.getSeatStatus(id, seatVO.getSeatIndex());
-                if (status != null) {
-                    seatVO.setStatus(status);
-                    if (ScheduleSeatStatus.AVAILABLE.getCode().equals(status)) {
+                int idx = seatVO.getSeatIndex();
+                if (idx < seatStatuses.length) {
+                    String status = seatStatuses[idx];
+                    if (status != null) {
+                        seatVO.setStatus(status);
+                    }
+                    if (ScheduleSeatStatus.AVAILABLE.getCode().equals(seatVO.getStatus())) {
                         availableCount++;
                     }
                 } else {

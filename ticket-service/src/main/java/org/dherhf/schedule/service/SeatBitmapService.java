@@ -179,6 +179,50 @@ public class SeatBitmapService {
     }
 
     /**
+     * 批量获取所有座位状态。返回数组下标 = seatIndex，值为状态码。
+     * 缓存未命中返回 null。
+     */
+    public String[] getSeatStatuses(Long scheduleId, int totalSeats) {
+        try {
+            if (!bitmapExists(scheduleId)) {
+                return null;
+            }
+            String occKey = occupiedKey(scheduleId);
+            String soldKey = soldKey(scheduleId);
+            String[] statuses = new String[totalSeats];
+            for (int i = 0; i < totalSeats; i++) {
+                statuses[i] = ScheduleSeatStatus.AVAILABLE.getCode();
+            }
+            // 批量读取 occupied bitmap
+            String occVal = redisTemplate.opsForValue().get(occKey);
+            byte[] occBits = occVal != null ? occVal.getBytes() : null;
+            String soldVal = redisTemplate.opsForValue().get(soldKey);
+            byte[] soldBits = soldVal != null ? soldVal.getBytes() : null;
+            for (int i = 0; i < totalSeats; i++) {
+                boolean occupied = occBits != null && getBit(occBits, i);
+                boolean sold = soldBits != null && getBit(soldBits, i);
+                if (sold) {
+                    statuses[i] = ScheduleSeatStatus.SOLD.getCode();
+                } else if (occupied) {
+                    statuses[i] = ScheduleSeatStatus.LOCKED.getCode();
+                }
+            }
+            return statuses;
+        } catch (Exception e) {
+            log.warn("Failed to get seat statuses from bitmap for schedule {}: {}", scheduleId, e.getMessage());
+            return null;
+        }
+    }
+
+    private boolean getBit(byte[] bytes, long bitIndex) {
+        if (bytes == null) return false;
+        long byteIndex = bitIndex / 8;
+        if (byteIndex >= bytes.length) return false;
+        int bitInByte = 7 - (int)(bitIndex % 8);
+        return (bytes[(int) byteIndex] & (1 << bitInByte)) != 0;
+    }
+
+    /**
      * 从 Bitmap BITCOUNT 获取已占用座位数。
      */
     public long getOccupiedCount(Long scheduleId) {

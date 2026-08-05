@@ -4,6 +4,7 @@ import { Spin, Tag } from 'antd'
 import { getMovieDetail } from './api'
 import type { MovieVO } from './types'
 import { useHeaderBack } from '@/layouts/navBarStore'
+import ScheduleTable from './components/ScheduleTable'
 
 export default function MovieDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -82,6 +83,8 @@ export default function MovieDetailPage() {
           </p>
         </div>
       )}
+
+      <ScheduleTable movieId={id!} />
     </div>
   )
 }

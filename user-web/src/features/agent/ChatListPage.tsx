@@ -16,7 +16,7 @@ export default function ChatListPage() {
   const [creating, setCreating] = useState(false)
   const loadingRef = useRef(false)
 
-  useHeaderBack(true)
+  useHeaderBack(true, '/')
 
   const fetchSessions = useCallback(async () => {
     if (loadingRef.current) return
