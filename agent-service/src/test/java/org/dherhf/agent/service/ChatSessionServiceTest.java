@@ -2,6 +2,7 @@ package org.dherhf.agent.service;
 
 import org.dherhf.agent.common.TestConstants;
 import org.dherhf.agent.document.ChatSessionDocument;
+import org.dherhf.agent.repository.ChatMessageRepository;
 import org.dherhf.agent.repository.ChatSessionRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -32,6 +33,8 @@ import static org.mockito.Mockito.when;
 class ChatSessionServiceTest {
     @Mock
     private ChatSessionRepository repository;
+    @Mock
+    private ChatMessageRepository chatMessageRepository;
     @Mock
     private MongoTemplate mongoTemplate;
     @Mock
@@ -174,7 +177,6 @@ class ChatSessionServiceTest {
         doc.setStatus("ACTIVE");
         doc.setCreatedAt(LocalDateTime.now().minusDays(1));
         doc.setLastMessageAt(lastMsgTime);
-        doc.setMessages(List.of());
         return doc;
     }
 }
