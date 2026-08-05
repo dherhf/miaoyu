@@ -14,6 +14,6 @@ class PromptServiceTest {
         String prompt = promptService.getSystemPrompt();
         assertThat(prompt).isNotBlank();
         assertThat(prompt.length()).isGreaterThan(500);
-        assertThat(prompt).contains("购票助手", "BUY_TICKET", "film", "negate_slot", "searchMovies");
+        assertThat(prompt).contains("购票助手", "BUY_TICKET", "movieName", "negateSlot", "searchMovies");
     }
 }

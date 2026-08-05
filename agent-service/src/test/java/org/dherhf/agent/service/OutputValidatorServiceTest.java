@@ -23,10 +23,11 @@ class OutputValidatorServiceTest {
 
         @ParameterizedTest
         @ValueSource(strings = {
-                "## 角色 购票助手", "## 槽位定义 film", "## 意图分类 BUY_TICKET",
-                "film", "cinema", "time", "hall", "count", "sessionId", "seatIds",
-                "negate_slot", "priceMax", "negateCount",
-                "影片，包含 name 和 movieId", "影院，包含 name 和 cinemaId"
+                "## 角色 购票助手", "## 槽位定义 movieName", "## 意图分类 BUY_TICKET",
+                "movieId", "movieName", "cinemaId", "cinemaName", "hallId", "hallType", "hallName",
+                "time", "count", "schedulesId", "seatIds",
+                "negateSlot", "priceMax", "negateCount",
+                "影片 ID", "影院 ID", "影片名称"
         })
         @DisplayName("泄露系统提示/槽位定义拦截返回false")
         void leakBlock(String text) {

@@ -32,7 +32,7 @@ const S: Record<string, React.CSSProperties> = {
 }
 
 export default function CinemaListCard({ data, onAction }: BaseCardProps<CinemaListCardData>) {
-  const cinemas = data?.cinemas || []
+  const cinemas = data?.records || []
   if (cinemas.length === 0) {
     return <Empty description="暂无符合条件的影院" />
   }

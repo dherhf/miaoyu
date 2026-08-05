@@ -223,10 +223,11 @@ class ChatControllerTest {
             msg.setRole("user");
             msg.setContent("你好");
             msg.setCreatedAt(LocalDateTime.now());
-            doc.setMessages(List.of(msg));
 
             when(chatSessionService.getSession("sess1", 100L))
                     .thenReturn(Optional.of(doc));
+            when(chatSessionService.getMessages("sess1"))
+                    .thenReturn(List.of(msg));
 
             mockMvc.perform(get("/api/v1/chat/sessions/sess1")
                             .header("X-User-Id", "100"))
