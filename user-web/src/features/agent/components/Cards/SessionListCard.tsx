@@ -23,7 +23,7 @@ const S: Record<string, React.CSSProperties> = {
 }
 
 export default function SessionListCard({ data, onAction }: BaseCardProps<SessionListCardData>) {
-  const sessions = data?.sessions || []
+  const sessions = data?.records || []
   if (sessions.length === 0) {
     return <Empty description="暂无符合条件的场次" />
   }
