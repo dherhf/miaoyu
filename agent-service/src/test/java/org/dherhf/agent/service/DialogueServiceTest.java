@@ -4,7 +4,9 @@ import tools.jackson.databind.ObjectMapper;
 import dev.langchain4j.model.chat.ChatModel;
 import org.dherhf.agent.document.ChatMessage;
 import org.dherhf.agent.document.ChatSessionDocument;
+import org.dherhf.agent.enums.IntentEnum;
 import org.dherhf.agent.enums.SessionStatusEnum;
+import org.dherhf.agent.model.AgentResponse;
 import org.dherhf.agent.model.ticket.SlotState;
 import org.dherhf.agent.tool.TicketServiceClient;
 import org.dherhf.agent.tool.TicketTools;
@@ -56,7 +58,8 @@ class DialogueServiceTest {
             protected DialogueService.ChatAssistant buildChatAssistant(String sessionId, TicketTools tools) {
                 @SuppressWarnings("unchecked")
                 var mockAssistant = mock(DialogueService.ChatAssistant.class);
-                when(mockAssistant.chat(eq(sessionId), anyString())).thenReturn("test response");
+                when(mockAssistant.chat(eq(sessionId), anyString()))
+                        .thenReturn(new AgentResponse("test response", IntentEnum.OTHER, new SlotState()));
                 return mockAssistant;
             }
         };
@@ -269,170 +272,6 @@ class DialogueServiceTest {
 
             assertTrue(result.contains("用户: 有效消息"));
             assertFalse(result.contains("无效消息"));
-        }
-    }
-
-    @Nested
-    @DisplayName("parseResponse() LLM 响应解析")
-    class ParseResponseTest {
-
-        private Object parseResponse(String aiResponse) throws Exception {
-            java.lang.reflect.Method method = DialogueService.class
-                    .getDeclaredMethod("parseResponse", String.class);
-            method.setAccessible(true);
-            return method.invoke(service, aiResponse);
-        }
-
-        private String getField(Object obj, String fieldName) throws Exception {
-            java.lang.reflect.Field field = obj.getClass().getDeclaredField(fieldName);
-            field.setAccessible(true);
-            Object value = field.get(obj);
-            return value == null ? null : value.toString();
-        }
-
-        private SlotState getSlotsField(Object obj) throws Exception {
-            java.lang.reflect.Field field = obj.getClass().getDeclaredField("slots");
-            field.setAccessible(true);
-            return (SlotState) field.get(obj);
-        }
-
-        @Test
-        @DisplayName("纯文本响应 → content 设置，intent 为 null，slots 为空")
-        void plainTextResponse() throws Exception {
-            Object result = parseResponse("好的，请问您想看什么电影？");
-
-            assertEquals("好的，请问您想看什么电影？", getField(result, "content"));
-            assertNull(getField(result, "intent"));
-            SlotState slots = getSlotsField(result);
-            assertNotNull(slots);
-            assertNull(slots.getMovieName());
-        }
-
-        @Test
-        @DisplayName("JSON 响应含 intent + content + slots → 全部解析")
-        void jsonResponse() throws Exception {
-            String response = """
-                    {"intent":"BUY_TICKET","content":"好的，为您查询影片","slots":{"movieName":"流浪地球3","count":2}}
-                    """;
-
-            Object result = parseResponse(response);
-
-            assertEquals("好的，为您查询影片", getField(result, "content"));
-            assertEquals("BUY_TICKET", getField(result, "intent"));
-            SlotState slots = getSlotsField(result);
-            assertEquals("流浪地球3", slots.getMovieName());
-            assertEquals(2, slots.getCount());
-        }
-
-        @Test
-        @DisplayName("JSON 中 intent 值无效时 → intent 为 null")
-        void invalidIntent() throws Exception {
-            String response = """
-                    {"intent":"INVALID_INTENT","content":"你好","slots":{}}
-                    """;
-
-            Object result = parseResponse(response);
-
-            assertEquals("你好", getField(result, "content"));
-            assertNull(getField(result, "intent"));
-        }
-
-        @Test
-        @DisplayName("空字符串响应 → content 为空")
-        void emptyResponse() throws Exception {
-            Object result = parseResponse("");
-
-            assertEquals("", getField(result, "content"));
-            SlotState slots = getSlotsField(result);
-            assertNotNull(slots);
-            assertNull(slots.getMovieName());
-        }
-
-        @Test
-        @DisplayName("null 响应 → content 为 null")
-        void nullResponse() throws Exception {
-            Object result = parseResponse(null);
-
-            assertNull(getField(result, "content"));
-            SlotState slots = getSlotsField(result);
-            assertNotNull(slots);
-            assertNull(slots.getMovieName());
-        }
-
-        @Test
-        @DisplayName("JSON 中 slots 为非对象类型 → slots 为空 SlotState")
-        void slotsNotMap() throws Exception {
-            String response = """
-                    {"intent":"OTHER","content":"你好","slots":"invalid"}
-                    """;
-
-            Object result = parseResponse(response);
-
-            assertEquals("你好", getField(result, "content"));
-            SlotState slots = getSlotsField(result);
-            assertNotNull(slots);
-            assertNull(slots.getMovieName());
-        }
-
-        @Test
-        @DisplayName("JSON 中无 content 字段 → 保持原始响应为 content")
-        void noContentField() throws Exception {
-            String response = """
-                    混合文本{"intent":"OTHER","slots":{}}尾部
-                    """;
-
-            Object result = parseResponse(response);
-
-            assertEquals("OTHER", getField(result, "intent"));
-            assertNotNull(getField(result, "content"));
-        }
-    }
-
-    @Nested
-    @DisplayName("extractJson() JSON 提取")
-    class ExtractJsonTest {
-
-        private String extractJson(String text) throws Exception {
-            java.lang.reflect.Method method = DialogueService.class
-                    .getDeclaredMethod("extractJson", String.class);
-            method.setAccessible(true);
-            return (String) method.invoke(service, text);
-        }
-
-        @Test
-        @DisplayName("纯 JSON 字符串")
-        void pureJson() throws Exception {
-            assertEquals("{\"key\":\"value\"}", extractJson("{\"key\":\"value\"}"));
-        }
-
-        @Test
-        @DisplayName("嵌入文本中的 JSON")
-        void embeddedJson() throws Exception {
-            assertEquals("{\"intent\":\"BUY\"}", extractJson("前缀文本 {\"intent\":\"BUY\"} 后缀"));
-        }
-
-        @Test
-        @DisplayName("无 JSON 时返回 null")
-        void noJson() throws Exception {
-            assertNull(extractJson("纯文本无花括号"));
-        }
-
-        @Test
-        @DisplayName("null 输入返回 null")
-        void nullInput() throws Exception {
-            assertNull(extractJson(null));
-        }
-
-        @Test
-        @DisplayName("只有左花括号返回 null")
-        void onlyOpenBrace() throws Exception {
-            assertNull(extractJson("{没有闭合"));
-        }
-
-        @Test
-        @DisplayName("多个 JSON 片段取最外层")
-        void multipleBraces() throws Exception {
-            assertEquals("{\"a\":1,\"b\":{\"c\":2}}", extractJson("文本 {\"a\":1,\"b\":{\"c\":2}} 尾部"));
         }
     }
 }

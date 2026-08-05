@@ -34,32 +34,11 @@ public enum IntentEnum {
     }
 
     /**
-     * 获取中文描述（用于提示词生成）。
-     */
-    public String getDescriptionZh() {
-        return descriptionZh;
-    }
-
-    /**
      * 生成提示词中的意图分类列表（格式：- INTENT_NAME：中文描述）。
      */
     public static String toPromptList() {
         return Arrays.stream(values())
                 .map(e -> "- " + e.name() + "：" + e.descriptionZh)
                 .collect(Collectors.joining("\n"));
-    }
-
-    /**
-     * 安全解析：不抛出异常，无法匹配时返回 null。
-     */
-    public static IntentEnum parseSafe(String value) {
-        if (value == null) {
-            return null;
-        }
-        try {
-            return IntentEnum.valueOf(value.trim());
-        } catch (IllegalArgumentException ignored) {
-            return null;
-        }
     }
 }
