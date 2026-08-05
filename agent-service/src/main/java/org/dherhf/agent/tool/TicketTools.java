@@ -187,7 +187,7 @@ public class TicketTools {
             Boolean hasSchedules = (Boolean) data.get("hasSchedules");
             return emitCard(CardPayload.builder()
                     .cardType("validation_result")
-                    .cardData(Map.of("hasSchedules", hasSchedules != null ? hasSchedules : false))
+                    .cardData(Map.of("hasSchedules", Boolean.TRUE.equals(hasSchedules)))
                     .build());
         } catch (Exception ex) {
             log.error("[Tool:checkMovieHasSchedules] 调用 ticket-service 失败: movieId={}", movieId, ex);

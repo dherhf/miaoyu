@@ -197,10 +197,7 @@ public class DialogueService {
                 @SuppressWarnings("unchecked")
                 Map<String, Object> filmData = (Map<String, Object>) parsed.slots.get("film");
                 if (filmData != null && !filmData.isEmpty()) {
-                    // 如果当前 slotState 中没有 film 信息，则设置它
-                    if (!updatedSlotState.containsKey("film")) {
-                        updatedSlotState.put("film", new HashMap<>());
-                    }
+                    updatedSlotState.computeIfAbsent("film", k -> new HashMap<>());
                     @SuppressWarnings("unchecked")
                     Map<String, Object> existingFilm = (Map<String, Object>) updatedSlotState.get("film");
                     existingFilm.putAll(filmData);
@@ -212,10 +209,7 @@ public class DialogueService {
                 @SuppressWarnings("unchecked")
                 Map<String, Object> cinemaData = (Map<String, Object>) parsed.slots.get("cinema");
                 if (cinemaData != null && !cinemaData.isEmpty()) {
-                    // 如果当前 slotState 中没有 cinema 信息，则设置它
-                    if (!updatedSlotState.containsKey("cinema")) {
-                        updatedSlotState.put("cinema", new HashMap<>());
-                    }
+                    updatedSlotState.computeIfAbsent("cinema", k -> new HashMap<>());
                     @SuppressWarnings("unchecked")
                     Map<String, Object> existingCinema = (Map<String, Object>) updatedSlotState.get("cinema");
                     existingCinema.putAll(cinemaData);
