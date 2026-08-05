@@ -255,7 +255,7 @@ public class TicketTools {
                             .price(s.getPrice())
                             .availableSeats(s.getAvailableSeats())
                             .build())
-                    .collect(Collectors.toList());
+                    .toList();
             return emitCard(CardPayload.sessionList(cards));
         }
 
