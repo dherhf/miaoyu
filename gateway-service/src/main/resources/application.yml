@@ -1,0 +1,35 @@
+server:
+  port: 9000
+
+spring:
+  application:
+    name: gateway-service
+  config:
+    import: "optional:file:.env[.properties]"
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+      database: 0
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            # Agent 对话接口 → agent-service（优先匹配）
+            - id: agent-chat
+              uri: http://localhost:8081
+              predicates:
+                - Path=/api/v1/chat/**
+
+            # 其余 /api/v1/** → ticket-service
+            - id: ticket-service
+              uri: http://localhost:8080
+              predicates:
+                - Path=/api/v1/**
+
+jwt:
+  current-secret: ${JWT_CURRENT_SECRET}
+  old-secret: ${JWT_OLD_SECRET:}
+  issuer: miaoyu
