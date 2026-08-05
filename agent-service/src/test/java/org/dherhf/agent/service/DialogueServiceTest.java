@@ -2,9 +2,11 @@ package org.dherhf.agent.service;
 
 import tools.jackson.databind.ObjectMapper;
 import dev.langchain4j.model.chat.ChatModel;
-import dev.langchain4j.service.AiServices;
+import org.dherhf.agent.document.ChatMessage;
 import org.dherhf.agent.document.ChatSessionDocument;
 import org.dherhf.agent.enums.SessionStatusEnum;
+import org.dherhf.agent.model.ticket.SlotState;
+import org.dherhf.agent.tool.TicketServiceClient;
 import org.dherhf.agent.tool.TicketTools;
 import org.junit.jupiter.api.*;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -26,7 +28,8 @@ class DialogueServiceTest {
     private OutputValidatorService outputValidatorService;
     private ContextService contextService;
     private ChatSessionService chatSessionService;
-    private TicketTools ticketTools;
+    private TicketServiceClient ticketClient;
+    private IdempotentService idempotentService;
     private ObjectMapper objectMapper;
 
     @BeforeEach
@@ -37,32 +40,30 @@ class DialogueServiceTest {
         outputValidatorService = mock(OutputValidatorService.class);
         contextService = mock(ContextService.class);
         chatSessionService = mock(ChatSessionService.class);
-        ticketTools = mock(TicketTools.class);
+        ticketClient = mock(TicketServiceClient.class);
+        idempotentService = mock(IdempotentService.class);
         objectMapper = new ObjectMapper();
 
         when(promptService.getSystemPrompt()).thenReturn("test prompt");
 
-        // 直接通过构造器创建（@RequiredArgsConstructor 生成的构造器）
+        // 直接通过构造器创建，覆写 buildChatAssistant 返回 mock（替代原 ReflectionTestUtils 注入 chatAssistant）
         service = new DialogueService(
                 chatModel, promptService, inputFilterService,
                 outputValidatorService, contextService, chatSessionService,
-                ticketTools, objectMapper
-        );
+                ticketClient, idempotentService, objectMapper
+        ) {
+            @Override
+            protected DialogueService.ChatAssistant buildChatAssistant(String sessionId, TicketTools tools) {
+                @SuppressWarnings("unchecked")
+                var mockAssistant = mock(DialogueService.ChatAssistant.class);
+                when(mockAssistant.chat(eq(sessionId), anyString())).thenReturn("test response");
+                return mockAssistant;
+            }
+        };
 
-        // 跳过 @PostConstruct，手动注入 @Value 字段
+        // 手动注入 @Value 字段
         ReflectionTestUtils.setField(service, "negateThreshold", 2);
         ReflectionTestUtils.setField(service, "sseTimeoutSeconds", 60L);
-
-        // Mock chatAssistant
-        @SuppressWarnings("unchecked")
-        var mockChatAssistant = mock(DialogueService.ChatAssistant.class);
-        when(mockChatAssistant.chat(anyString())).thenReturn("test response");
-        ReflectionTestUtils.setField(service, "chatAssistant", mockChatAssistant);
-    }
-
-    @AfterEach
-    void tearDown() {
-        TicketTools.clearContext();
     }
 
     @Nested
@@ -156,7 +157,7 @@ class DialogueServiceTest {
             when(inputFilterService.isSafe("你好"))
                     .thenReturn(true);
             when(contextService.loadSlotState("s1"))
-                    .thenReturn(Map.of());
+                    .thenReturn(new SlotState());
             when(contextService.getRecentMessages("s1"))
                     .thenReturn(List.of());
             when(contextService.getMessageCount("s1"))
@@ -183,7 +184,7 @@ class DialogueServiceTest {
             when(inputFilterService.isSafe("选好了座位"))
                     .thenReturn(true);
             when(contextService.loadSlotState("s1"))
-                    .thenReturn(Map.of());
+                    .thenReturn(new SlotState());
             when(contextService.getRecentMessages("s1"))
                     .thenReturn(List.of());
             when(contextService.getMessageCount("s1"))
@@ -201,9 +202,9 @@ class DialogueServiceTest {
     @DisplayName("buildContextPrompt() 上下文构造")
     class BuildContextPromptTest {
 
-        private String buildContextPrompt(String content, Map<String, Object> slotState, List<Map<String, Object>> history) throws Exception {
+        private String buildContextPrompt(String content, SlotState slotState, List<ChatMessage> history) throws Exception {
             java.lang.reflect.Method method = DialogueService.class
-                    .getDeclaredMethod("buildContextPrompt", String.class, Map.class, List.class);
+                    .getDeclaredMethod("buildContextPrompt", String.class, SlotState.class, List.class);
             method.setAccessible(true);
             return (String) method.invoke(service, content, slotState, history);
         }
@@ -211,7 +212,7 @@ class DialogueServiceTest {
         @Test
         @DisplayName("空历史 + 空槽位 → 只有用户输入")
         void emptyContext() throws Exception {
-            String result = buildContextPrompt("你好", Map.of(), List.of());
+            String result = buildContextPrompt("你好", new SlotState(), List.of());
 
             assertTrue(result.contains("【用户输入】"));
             assertTrue(result.contains("你好"));
@@ -222,12 +223,15 @@ class DialogueServiceTest {
         @Test
         @DisplayName("有历史对话时包含历史段落")
         void withHistory() throws Exception {
-            List<Map<String, Object>> history = List.of(
-                    Map.of("role", "user", "content", "我想买票"),
-                    Map.of("role", "assistant", "content", "好的，请问看什么电影？")
-            );
+            ChatMessage m1 = new ChatMessage();
+            m1.setRole("user");
+            m1.setContent("我想买票");
+            ChatMessage m2 = new ChatMessage();
+            m2.setRole("assistant");
+            m2.setContent("好的，请问看什么电影？");
+            List<ChatMessage> history = List.of(m1, m2);
 
-            String result = buildContextPrompt("流浪地球3", Map.of(), history);
+            String result = buildContextPrompt("流浪地球3", new SlotState(), history);
 
             assertTrue(result.contains("【历史对话】"));
             assertTrue(result.contains("用户: 我想买票"));
@@ -237,29 +241,31 @@ class DialogueServiceTest {
         @Test
         @DisplayName("有槽位状态时包含槽位段落")
         void withSlotState() throws Exception {
-            Map<String, Object> slots = Map.of("film", "流浪地球3", "count", 2);
+            SlotState slots = new SlotState();
+            slots.setMovieName("流浪地球3");
+            slots.setCount(2);
             String result = buildContextPrompt("明天", slots, List.of());
 
             assertTrue(result.contains("【当前槽位状态】"));
-            assertTrue(result.contains("film"));
+            assertTrue(result.contains("movieName"));
             assertTrue(result.contains("流浪地球3"));
         }
 
         @Test
         @DisplayName("历史消息中 role/content 为 null 时跳过")
         void nullFieldsInHistory() throws Exception {
-            List<Map<String, Object>> history = new ArrayList<>();
-            history.add(Map.of("role", "user", "content", "有效消息"));
-            Map<String, Object> badMsg = new HashMap<>();
-            badMsg.put("role", null);
-            badMsg.put("content", "无效消息");
-            history.add(badMsg);
-            Map<String, Object> badMsg2 = new HashMap<>();
-            badMsg2.put("role", "assistant");
-            badMsg2.put("content", null);
-            history.add(badMsg2);
+            ChatMessage m1 = new ChatMessage();
+            m1.setRole("user");
+            m1.setContent("有效消息");
+            ChatMessage m2 = new ChatMessage();
+            m2.setRole(null);
+            m2.setContent("无效消息");
+            ChatMessage m3 = new ChatMessage();
+            m3.setRole("assistant");
+            m3.setContent(null);
+            List<ChatMessage> history = new ArrayList<>(List.of(m1, m2, m3));
 
-            String result = buildContextPrompt("test", Map.of(), history);
+            String result = buildContextPrompt("test", new SlotState(), history);
 
             assertTrue(result.contains("用户: 有效消息"));
             assertFalse(result.contains("无效消息"));
@@ -284,11 +290,10 @@ class DialogueServiceTest {
             return value == null ? null : value.toString();
         }
 
-        @SuppressWarnings("unchecked")
-        private Map<String, Object> getSlotsField(Object obj) throws Exception {
+        private SlotState getSlotsField(Object obj) throws Exception {
             java.lang.reflect.Field field = obj.getClass().getDeclaredField("slots");
             field.setAccessible(true);
-            return (Map<String, Object>) field.get(obj);
+            return (SlotState) field.get(obj);
         }
 
         @Test
@@ -298,23 +303,25 @@ class DialogueServiceTest {
 
             assertEquals("好的，请问您想看什么电影？", getField(result, "content"));
             assertNull(getField(result, "intent"));
-            assertTrue(getSlotsField(result).isEmpty());
+            SlotState slots = getSlotsField(result);
+            assertNotNull(slots);
+            assertNull(slots.getMovieName());
         }
 
         @Test
         @DisplayName("JSON 响应含 intent + content + slots → 全部解析")
         void jsonResponse() throws Exception {
             String response = """
-                    {"intent":"BUY_TICKET","content":"好的，为您查询影片","slots":{"film":"流浪地球3","count":2}}
+                    {"intent":"BUY_TICKET","content":"好的，为您查询影片","slots":{"movieName":"流浪地球3","count":2}}
                     """;
 
             Object result = parseResponse(response);
 
             assertEquals("好的，为您查询影片", getField(result, "content"));
             assertEquals("BUY_TICKET", getField(result, "intent"));
-            Map<String, Object> slots = getSlotsField(result);
-            assertEquals("流浪地球3", slots.get("film"));
-            assertEquals(2, slots.get("count"));
+            SlotState slots = getSlotsField(result);
+            assertEquals("流浪地球3", slots.getMovieName());
+            assertEquals(2, slots.getCount());
         }
 
         @Test
@@ -336,7 +343,9 @@ class DialogueServiceTest {
             Object result = parseResponse("");
 
             assertEquals("", getField(result, "content"));
-            assertTrue(getSlotsField(result).isEmpty());
+            SlotState slots = getSlotsField(result);
+            assertNotNull(slots);
+            assertNull(slots.getMovieName());
         }
 
         @Test
@@ -345,11 +354,13 @@ class DialogueServiceTest {
             Object result = parseResponse(null);
 
             assertNull(getField(result, "content"));
-            assertTrue(getSlotsField(result).isEmpty());
+            SlotState slots = getSlotsField(result);
+            assertNotNull(slots);
+            assertNull(slots.getMovieName());
         }
 
         @Test
-        @DisplayName("JSON 中 slots 为非 Map 类型 → slots 为空")
+        @DisplayName("JSON 中 slots 为非对象类型 → slots 为空 SlotState")
         void slotsNotMap() throws Exception {
             String response = """
                     {"intent":"OTHER","content":"你好","slots":"invalid"}
@@ -358,7 +369,9 @@ class DialogueServiceTest {
             Object result = parseResponse(response);
 
             assertEquals("你好", getField(result, "content"));
-            assertTrue(getSlotsField(result).isEmpty());
+            SlotState slots = getSlotsField(result);
+            assertNotNull(slots);
+            assertNull(slots.getMovieName());
         }
 
         @Test
@@ -370,7 +383,6 @@ class DialogueServiceTest {
 
             Object result = parseResponse(response);
 
-            // intent 解析失败（OTHER 是有效值）
             assertEquals("OTHER", getField(result, "intent"));
             assertNotNull(getField(result, "content"));
         }
