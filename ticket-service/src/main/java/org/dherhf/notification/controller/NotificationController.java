@@ -20,7 +20,7 @@ public class NotificationController {
     @Operation(summary = "通知列表")
     @GetMapping
     public Result<PageResult<NotificationVO>> list(
-            @RequestAttribute Long userId,
+            @RequestHeader("X-User-Id") Long userId,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) Integer isRead,
             @RequestParam(defaultValue = "1") Integer page,
@@ -30,14 +30,14 @@ public class NotificationController {
 
     @Operation(summary = "标记通知已读")
     @PutMapping("/{id}/read")
-    public Result<Void> markRead(@PathVariable Long id, @RequestAttribute Long userId) {
+    public Result<Void> markRead(@PathVariable Long id, @RequestHeader("X-User-Id") Long userId) {
         notificationService.markRead(id, userId);
         return Result.success();
     }
 
     @Operation(summary = "通知实时推送")
     @GetMapping("/stream")
-    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter stream(@RequestAttribute Long userId) {
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter stream(@RequestHeader("X-User-Id") Long userId) {
         org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter = new org.springframework.web.servlet.mvc.method.annotation.SseEmitter(0L);
         // SSE 连接保持，通知通过 sendNotification 异步写入 DB，前端轮询/后续迭代实现 SSE 推送
         return emitter;

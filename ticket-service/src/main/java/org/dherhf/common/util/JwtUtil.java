@@ -4,7 +4,6 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
-import org.dherhf.common.interceptor.AuthInterceptor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -22,8 +21,8 @@ import java.util.Map;
  * 使用 JJWT 0.13.0 + HS256 签名算法,支持双密钥轮换（current-secret + old-secret）。
  * Token 中直接携带 {@code userId} 和 {@code type}（"user" 或 "admin"）声明,
  * 退出登录时将 Token 加入 Redis 黑名单实现主动失效。
- *
- * @see AuthInterceptor
+ * <p>
+ * Token 校验逻辑已移至 Gateway 统一处理,此类仅保留签发与黑名单写入。
  */
 @Component
 @RequiredArgsConstructor
@@ -105,20 +104,6 @@ public class JwtUtil {
     }
 
     /**
-     * 校验 Token 是否有效：未在黑名单中且签名解析成功。
-     *
-     * @param token JWT 字符串
-     * @return 有效返回 {@code true},否则 {@code false}
-     */
-    public boolean isTokenValid(String token) {
-        Boolean isBlacklisted = redisTemplate.hasKey(TOKEN_BLACKLIST_PREFIX + token);
-        if (Boolean.TRUE.equals(isBlacklisted)) {
-            return false;
-        }
-        return parseToken(token) != null;
-    }
-
-    /**
      * 将 Token 加入 Redis 黑名单,使其立即失效。
      * <p>
      * 黑名单 TTL 设置为 Token 剩余有效期,过期后自动清理。
@@ -137,31 +122,4 @@ public class JwtUtil {
         }
     }
 
-    /**
-     * 从 Token 中提取用户/管理员 ID。
-     *
-     * @param token JWT 字符串
-     * @return 用户 ID,解析失败返回 {@code null}
-     */
-    public Long getUserId(String token) {
-        Claims claims = parseToken(token);
-        if (claims == null) {
-            return null;
-        }
-        return Long.parseLong(claims.get("userId", String.class));
-    }
-
-    /**
-     * 从 Token 中提取类型（"user" 或 "admin"）。
-     *
-     * @param token JWT 字符串
-     * @return Token 类型,解析失败返回 {@code null}
-     */
-    public String getType(String token) {
-        Claims claims = parseToken(token);
-        if (claims == null) {
-            return null;
-        }
-        return claims.get("type", String.class);
-    }
 }

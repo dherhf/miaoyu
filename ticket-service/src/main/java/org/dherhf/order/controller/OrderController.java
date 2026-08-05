@@ -21,7 +21,7 @@ public class OrderController {
     @Operation(summary = "锁座下单")
     @PostMapping("/lock-seat")
     public Result<LockSeatResultVO> lockSeat(
-            @RequestAttribute("userId") Long userId,
+            @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-Request-Id") String requestId,
             @RequestBody LockSeatDTO dto) {
         return Result.success(orderService.lockSeat(userId, dto, requestId));
@@ -30,7 +30,7 @@ public class OrderController {
     @Operation(summary = "支付订单")
     @PostMapping("/{id}/pay")
     public Result<PayResultVO> pay(
-            @RequestAttribute("userId") Long userId,
+            @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-Request-Id") String requestId,
             @PathVariable Long id) {
         return Result.success(orderService.payOrder(userId, id, requestId));
@@ -39,7 +39,7 @@ public class OrderController {
     @Operation(summary = "取消订单")
     @PutMapping("/{id}/cancel")
     public Result<Void> cancel(
-            @RequestAttribute("userId") Long userId,
+            @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-Request-Id") String requestId,
             @PathVariable Long id) {
         orderService.cancelOrder(userId, id, requestId);
@@ -49,7 +49,7 @@ public class OrderController {
     @Operation(summary = "退票")
     @PostMapping("/{id}/refund")
     public Result<Void> refund(
-            @RequestAttribute("userId") Long userId,
+            @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-Request-Id") String requestId,
             @PathVariable Long id) {
         orderService.refundOrder(userId, id, requestId);
@@ -59,7 +59,7 @@ public class OrderController {
     @Operation(summary = "订单列表")
     @GetMapping
     public Result<PageResult<OrderListVO>> list(
-            @RequestAttribute("userId") Long userId,
+            @RequestHeader("X-User-Id") Long userId,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String dateFrom,
             @RequestParam(required = false) String dateTo,
@@ -72,21 +72,21 @@ public class OrderController {
     @Operation(summary = "订单详情")
     @GetMapping("/{id}")
     public Result<OrderDetailVO> detail(
-            @RequestAttribute("userId") Long userId,
+            @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long id) {
         return Result.success(orderService.detail(userId, id));
     }
 
     @Operation(summary = "待支付订单")
     @GetMapping("/pending")
-    public Result<PendingOrderVO> pending(@RequestAttribute("userId") Long userId) {
+    public Result<PendingOrderVO> pending(@RequestHeader("X-User-Id") Long userId) {
         return Result.success(orderService.pendingOrder(userId));
     }
 
     @Operation(summary = "订单剩余支付时间")
     @GetMapping("/{id}/remaining-time")
     public Result<RemainingTimeVO> remainingTime(
-            @RequestAttribute("userId") Long userId,
+            @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long id) {
         return Result.success(orderService.remainingTime(userId, id));
     }
