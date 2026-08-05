@@ -23,9 +23,11 @@ public class InternalMovieController {
     public Result<PageResult<MovieListVO>> list(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String type,
+            @RequestParam(required = false) Long cinemaId,
+            @RequestParam(required = false) String date,
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer size) {
-        return Result.success(movieService.userList(keyword, type, page, size, null));
+        return Result.success(movieService.userList(keyword, type, cinemaId, date, page, size, null));
     }
 
     @Operation(summary = "内部影片详情")

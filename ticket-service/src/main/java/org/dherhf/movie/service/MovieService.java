@@ -26,7 +26,7 @@ public interface MovieService {
 
     MovieVO adminDetail(Long id);
 
-    PageResult<MovieListVO> userList(String keyword, String type, Integer page, Integer size, String sort);
+    PageResult<MovieListVO> userList(String keyword, String type, Long cinemaId, String date, Integer page, Integer size, String sort);
 
     MovieVO userDetail(Long id);
 }

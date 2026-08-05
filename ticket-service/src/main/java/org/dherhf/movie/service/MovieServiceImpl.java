@@ -163,9 +163,29 @@ public class MovieServiceImpl implements MovieService {
     }
 
     @Override
-    public PageResult<MovieListVO> userList(String keyword, String type, Integer page, Integer size, String sort) {
+    public PageResult<MovieListVO> userList(String keyword, String type, Long cinemaId, String date, Integer page, Integer size, String sort) {
+        // 查询有在售场次（status=ON_SALE 且 showDate >= today）的 movieId 集合
+        // 可按 cinemaId 和 date 进一步过滤
+        LambdaQueryWrapper<Schedule> scheduleWrapper = new LambdaQueryWrapper<Schedule>()
+                .select(Schedule::getMovieId)
+                .eq(Schedule::getStatus, ScheduleStatus.ON_SALE.getCode())
+                .ge(Schedule::getShowDate, LocalDate.now())
+                .eq(cinemaId != null, Schedule::getCinemaId, cinemaId)
+                .eq(date != null && !date.isBlank(), Schedule::getShowDate, date != null ? LocalDate.parse(date) : null);
+
+        List<Long> movieIdsWithSchedules = scheduleMapper.selectList(scheduleWrapper)
+                .stream()
+                .map(Schedule::getMovieId)
+                .distinct()
+                .collect(Collectors.toList());
+
+        if (movieIdsWithSchedules.isEmpty()) {
+            return new PageResult<>(0L, page, size, List.of());
+        }
+
         LambdaQueryWrapper<Movie> wrapper = new LambdaQueryWrapper<Movie>()
                 .eq(Movie::getStatus, MovieStatus.ONLINE.getCode())
+                .in(Movie::getId, movieIdsWithSchedules)
                 .and(keyword != null && !keyword.isBlank(), w -> w.like(Movie::getName, keyword));
 
         return queryAndPaged(wrapper, type, page, size, sort);

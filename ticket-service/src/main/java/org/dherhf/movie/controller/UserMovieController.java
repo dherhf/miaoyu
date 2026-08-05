@@ -26,7 +26,7 @@ public class UserMovieController {
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer size,
             @RequestParam(required = false) String sort) {
-        return Result.success(movieService.userList(keyword, type, page, size, sort));
+        return Result.success(movieService.userList(keyword, type, null, null, page, size, sort));
     }
 
     @Operation(summary = "影片详情(用户端)")
