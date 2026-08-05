@@ -5,6 +5,7 @@ WORKDIR /build
 
 # 先复制 POM 文件，利用 Docker 层缓存加速依赖下载
 COPY pom.xml ./
+COPY common/pom.xml common/
 COPY ticket-service/pom.xml ticket-service/
 COPY agent-service/pom.xml agent-service/
 COPY gateway-service/pom.xml gateway-service/
@@ -13,6 +14,7 @@ COPY gateway-service/pom.xml gateway-service/
 RUN mvn dependency:go-offline -B -q || true
 
 # 复制源码并构建
+COPY common/src common/src
 COPY ticket-service/src ticket-service/src
 COPY agent-service/src agent-service/src
 COPY gateway-service/src gateway-service/src
