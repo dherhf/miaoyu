@@ -59,12 +59,12 @@ function fmtDate(dateStr: string, timeStr: string) {
 }
 
 export default function OrderListCard({ data, onAction }: BaseCardProps<OrderListCardData>) {
-  const { orders, total } = data || {}
+  const { records, total } = data || {}
   const [activeFilter, setActiveFilter] = useState('')
 
   const filtered = activeFilter
-    ? (orders || []).filter((o) => o.status === activeFilter)
-    : (orders || [])
+    ? (records || []).filter((o) => o.status === activeFilter)
+    : (records || [])
 
   const handleFilter = (key: string) => {
     setActiveFilter(key)
@@ -102,7 +102,7 @@ export default function OrderListCard({ data, onAction }: BaseCardProps<OrderLis
           </Tag>
         ))}
         <span style={{ marginLeft: 'auto', fontSize: 12, color: '#9ca3af', whiteSpace: 'nowrap' }}>
-          共{total ?? (orders || []).length}条
+          共{total ?? (records || []).length}条
         </span>
       </div>
 
