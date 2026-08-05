@@ -19,8 +19,11 @@ public class SendMessageRequest {
     private java.util.List<Long> seatIds;
 
     /** 由前端选场次后直接提供的场次 ID（无需 LLM 提取） */
-    private Long sessionId;
+    private Long scheduleId;
 
     /** 前端选座时携带的购票数量（=座位数） */
     private Integer ticketCount;
+
+    /** 幂等请求 ID（UUID 格式，前端生成），用于写操作（锁座/支付/取消/退票）的幂等控制 */
+    private String requestId;
 }

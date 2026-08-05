@@ -107,7 +107,7 @@ class ChatControllerTest {
         @DisplayName("有效 X-User-Id 返回 SseEmitter（HTTP 200）")
         void withUserId() throws Exception {
             SseEmitter mockEmitter = new SseEmitter(5000L);
-            when(dialogueService.handleMessage(eq("sess1"), eq(100L), eq("你好"), any(), any(), any()))
+            when(dialogueService.handleMessage(eq("sess1"), eq(100L), eq("你好"), any(), any(), any(), any()))
                     .thenReturn(mockEmitter);
 
             SendMessageRequest req = new SendMessageRequest();

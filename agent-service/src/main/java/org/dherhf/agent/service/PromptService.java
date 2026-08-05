@@ -42,9 +42,9 @@ public class PromptService {
                 3. 意图为 QUERY_ORDER 时：
                    - 调用 queryOrders(status=...) 获取订单列表
                    - 用户询问具体订单 → 调用 queryOrderDetail(orderId=...)
-                   - 用户要求支付 → 调用 payOrder(orderId=..., requestId=...)
-                   - 用户要求取消 → 调用 cancelOrder(orderId=..., requestId=...)
-                   - 用户要求退票 → 调用 refundOrder(orderId=..., requestId=...)
+                   - 用户要求支付 → 调用 payOrder(orderId=...)
+                   - 用户要求取消 → 调用 cancelOrder(orderId=...)
+                   - 用户要求退票 → 调用 refundOrder(orderId=...)
 
                 ## 输出格式
                 - 对纯文本回复直接输出自然语言，不要包含 JSON 或特殊标记

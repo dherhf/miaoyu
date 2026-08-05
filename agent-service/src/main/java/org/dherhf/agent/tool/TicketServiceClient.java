@@ -1,29 +1,29 @@
 package org.dherhf.agent.tool;
 
 import lombok.extern.slf4j.Slf4j;
+import org.dherhf.agent.feign.TicketFeignClient;
 import org.dherhf.common.result.ErrorCodeEnum;
 import org.dherhf.common.result.Result;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClient;
 
+import java.util.List;
 import java.util.Map;
 
 /**
- * 票务服务 HTTP 客户端，封装对 ticket-service 的 /internal 接口调用。
+ * 票务服务客户端，封装对 ticket-service 的 /internal 接口调用。
  * <p>
- * 所有方法返回 {@link Result} 包装，上层 Tool 方法据此判断调用是否成功。
+ * 通过 {@link TicketFeignClient}（OpenFeign）发起远程调用，
+ * 统一捕获异常并返回 {@link Result} 包装，上层 Tool 方法据此判断调用是否成功。
  * </p>
  */
 @Slf4j
 @Component
 public class TicketServiceClient {
 
-    private final RestClient restClient;
+    private final TicketFeignClient feignClient;
 
-    @Autowired
-    public TicketServiceClient(RestClient ticketRestClient) {
-        this.restClient = ticketRestClient;
+    public TicketServiceClient(TicketFeignClient feignClient) {
+        this.feignClient = feignClient;
     }
 
     /**
@@ -31,19 +31,10 @@ public class TicketServiceClient {
      */
     public Result<Object> searchMovies(String keyword, String type) {
         try {
-            return restClient.get()
-                    .uri(builder -> {
-                        builder.path("/internal/movies");
-                        if (keyword != null && !keyword.isBlank()) {
-                            builder.queryParam("keyword", keyword);
-                        }
-                        if (type != null && !type.isBlank()) {
-                            builder.queryParam("type", type);
-                        }
-                        return builder.build();
-                    })
-                    .retrieve()
-                    .body(Result.class);
+            return feignClient.searchMovies(
+                    blankToNull(keyword),
+                    blankToNull(type)
+            );
         } catch (Exception ex) {
             log.error("[searchMovies] 调用 ticket-service 失败: keyword={}, type={}", keyword, type, ex);
             return Result.error(ErrorCodeEnum.TOOL_ERROR, "影片查询失败：" + ex.getMessage());
@@ -55,19 +46,10 @@ public class TicketServiceClient {
      */
     public Result<Object> searchCinemas(String keyword, String facilities) {
         try {
-            return restClient.get()
-                    .uri(builder -> {
-                        builder.path("/internal/cinemas");
-                        if (keyword != null && !keyword.isBlank()) {
-                            builder.queryParam("keyword", keyword);
-                        }
-                        if (facilities != null && !facilities.isBlank()) {
-                            builder.queryParam("facilities", facilities);
-                        }
-                        return builder.build();
-                    })
-                    .retrieve()
-                    .body(Result.class);
+            return feignClient.searchCinemas(
+                    blankToNull(keyword),
+                    blankToNull(facilities)
+            );
         } catch (Exception ex) {
             log.error("[searchCinemas] 调用 ticket-service 失败: keyword={}, facilities={}", keyword, facilities, ex);
             return Result.error(ErrorCodeEnum.TOOL_ERROR, "影院查询失败：" + ex.getMessage());
@@ -79,22 +61,7 @@ public class TicketServiceClient {
      */
     public Result<Object> searchSessions(Long movieId, Long cinemaId, String date) {
         try {
-            return restClient.get()
-                    .uri(builder -> {
-                        builder.path("/internal/sessions");
-                        if (movieId != null) {
-                            builder.queryParam("movieId", movieId);
-                        }
-                        if (cinemaId != null) {
-                            builder.queryParam("cinemaId", cinemaId);
-                        }
-                        if (date != null && !date.isBlank()) {
-                            builder.queryParam("date", date);
-                        }
-                        return builder.build();
-                    })
-                    .retrieve()
-                    .body(Result.class);
+            return feignClient.searchSessions(movieId, cinemaId, blankToNull(date));
         } catch (Exception ex) {
             log.error("[searchSessions] 调用 ticket-service 失败: movieId={}, cinemaId={}, date={}", movieId, cinemaId, date, ex);
             return Result.error(ErrorCodeEnum.TOOL_ERROR, "场次查询失败：" + ex.getMessage());
@@ -106,10 +73,7 @@ public class TicketServiceClient {
      */
     public Result<Object> getSeatMap(Long sessionId) {
         try {
-            return restClient.get()
-                    .uri("/internal/sessions/{id}/seats", sessionId)
-                    .retrieve()
-                    .body(Result.class);
+            return feignClient.getSeatMap(sessionId);
         } catch (Exception ex) {
             log.error("[getSeatMap] 调用 ticket-service 失败: sessionId={}", sessionId, ex);
             return Result.error(ErrorCodeEnum.TOOL_ERROR, "座位图获取失败：" + ex.getMessage());
@@ -121,16 +85,7 @@ public class TicketServiceClient {
      */
     public Result<Object> queryUserOrders(Long userId, String status) {
         try {
-            return restClient.get()
-                    .uri(builder -> {
-                        builder.path("/internal/orders").queryParam("userId", userId);
-                        if (status != null && !status.isBlank()) {
-                            builder.queryParam("status", status);
-                        }
-                        return builder.build();
-                    })
-                    .retrieve()
-                    .body(Result.class);
+            return feignClient.queryUserOrders(userId, blankToNull(status));
         } catch (Exception ex) {
             log.error("[queryUserOrders] 调用 ticket-service 失败: userId={}, status={}", userId, status, ex);
             return Result.error(ErrorCodeEnum.TOOL_ERROR, "订单查询失败：" + ex.getMessage());
@@ -142,10 +97,7 @@ public class TicketServiceClient {
      */
     public Result<Object> queryOrderDetail(Long orderId, Long userId) {
         try {
-            return restClient.get()
-                    .uri(builder -> builder.path("/internal/orders/{id}").queryParam("userId", userId).build(orderId))
-                    .retrieve()
-                    .body(Result.class);
+            return feignClient.queryOrderDetail(orderId, userId);
         } catch (Exception ex) {
             log.error("[queryOrderDetail] 调用 ticket-service 失败: orderId={}, userId={}", orderId, userId, ex);
             return Result.error(ErrorCodeEnum.TOOL_ERROR, "订单详情获取失败：" + ex.getMessage());
@@ -155,7 +107,7 @@ public class TicketServiceClient {
     /**
      * POST /internal/orders/lock-seat
      */
-    public Result<Object> lockSeat(Long userId, Long scheduleId, java.util.List<Long> seatIds, Integer ticketCount, String requestId) {
+    public Result<Object> lockSeat(Long userId, Long scheduleId, List<Long> seatIds, Integer ticketCount, String requestId) {
         try {
             Map<String, Object> body = Map.of(
                     "userId", userId,
@@ -164,11 +116,7 @@ public class TicketServiceClient {
                     "ticketCount", ticketCount,
                     "requestId", requestId
             );
-            return restClient.post()
-                    .uri("/internal/orders/lock-seat")
-                    .body(body)
-                    .retrieve()
-                    .body(Result.class);
+            return feignClient.lockSeat(body);
         } catch (Exception ex) {
             log.error("[lockSeat] 调用 ticket-service 失败: userId={}, scheduleId={}, seatIds={}", userId, scheduleId, seatIds, ex);
             return Result.error(ErrorCodeEnum.TOOL_ERROR, "锁座下单失败：" + ex.getMessage());
@@ -184,11 +132,7 @@ public class TicketServiceClient {
                     "userId", userId,
                     "requestId", requestId
             );
-            return restClient.post()
-                    .uri("/internal/orders/{id}/pay", orderId)
-                    .body(body)
-                    .retrieve()
-                    .body(Result.class);
+            return feignClient.payOrder(orderId, body);
         } catch (Exception ex) {
             log.error("[payOrder] 调用 ticket-service 失败: userId={}, orderId={}", userId, orderId, ex);
             return Result.error(ErrorCodeEnum.TOOL_ERROR, "支付订单失败：" + ex.getMessage());
@@ -204,11 +148,7 @@ public class TicketServiceClient {
                     "userId", userId,
                     "requestId", requestId
             );
-            return restClient.post()
-                    .uri("/internal/orders/{id}/cancel", orderId)
-                    .body(body)
-                    .retrieve()
-                    .body(Result.class);
+            return feignClient.cancelOrder(orderId, body);
         } catch (Exception ex) {
             log.error("[cancelOrder] 调用 ticket-service 失败: userId={}, orderId={}", userId, orderId, ex);
             return Result.error(ErrorCodeEnum.TOOL_ERROR, "取消订单失败：" + ex.getMessage());
@@ -224,11 +164,7 @@ public class TicketServiceClient {
                     "userId", userId,
                     "requestId", requestId
             );
-            return restClient.post()
-                    .uri("/internal/orders/{id}/refund", orderId)
-                    .body(body)
-                    .retrieve()
-                    .body(Result.class);
+            return feignClient.refundOrder(orderId, body);
         } catch (Exception ex) {
             log.error("[refundOrder] 调用 ticket-service 失败: userId={}, orderId={}", userId, orderId, ex);
             return Result.error(ErrorCodeEnum.TOOL_ERROR, "退票失败：" + ex.getMessage());
@@ -240,13 +176,17 @@ public class TicketServiceClient {
      */
     public Result<Object> checkMovieHasSchedules(Long movieId) {
         try {
-            return restClient.get()
-                    .uri("/internal/movies/{id}/check-schedules", movieId)
-                    .retrieve()
-                    .body(Result.class);
+            return feignClient.checkMovieHasSchedules(movieId);
         } catch (Exception ex) {
             log.error("[checkMovieHasSchedules] 调用 ticket-service 失败: movieId={}", movieId, ex);
             return Result.error(ErrorCodeEnum.TOOL_ERROR, "校验失败：" + ex.getMessage());
         }
+    }
+
+    /**
+     * 空白字符串转 null，避免 Feign 发送空串参数。
+     */
+    private static String blankToNull(String s) {
+        return (s == null || s.isBlank()) ? null : s;
     }
 }

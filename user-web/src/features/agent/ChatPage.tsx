@@ -2,9 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { App } from 'antd'
 import { MessageOutlined, SendOutlined } from '@ant-design/icons'
+import { Streamdown } from 'streamdown'
 import { getSessionDetail, sendMessage } from './api'
 import CardRenderer from './components/CardRenderer'
-import type { ChatMessage } from './types'
+import type { ChatMessage, SseCallbacks } from './types'
 import { useHeaderBack } from '@/layouts/navBarStore'
 
 export default function ChatPage() {
@@ -29,8 +30,9 @@ export default function ChatPage() {
             msgId: m.msgId,
             role: (m.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
             content: m.content,
-            cardType: m.cardType,
-            cardData: m.cardData,
+            cards: m.cardType
+              ? [{ cardType: m.cardType, cardData: m.cardData }]
+              : [],
           })),
         )
       })
@@ -53,72 +55,94 @@ export default function ChatPage() {
     el.style.height = Math.min(el.scrollHeight, 100) + 'px'
   }, [])
 
-  const handleSend = async () => {
-    const content = input.trim()
-    if (!content || !id || sending) return
-
-    setInput('')
-    setSending(true)
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-    }
-
-    const userMsg: ChatMessage = { role: 'user', content }
-    const assistantMsg: ChatMessage = { role: 'assistant', content: '', pending: true }
-    setMessages((prev) => [...prev, userMsg, assistantMsg])
-
-    await sendMessage(id, content, {
+  /** 构造 SSE 回调（handleSend 和 handleCardAction 共用） */
+  const createSseCallbacks = useCallback((): SseCallbacks => {
+    return {
       onMessage: (event) => {
         setMessages((prev) => {
           const next = [...prev]
-          const last = next[next.length - 1]
-          if (last && last.role === 'assistant') {
-            last.content += event.content
-            last.pending = false
+          const lastIndex = next.length - 1
+          if (lastIndex >= 0 && next[lastIndex].role === 'assistant') {
+            next[lastIndex] = {
+              ...next[lastIndex],
+              content: next[lastIndex].content + event.content,
+              pending: false,
+            }
           }
-          return [...next]
+          return next
         })
       },
       onCard: (event) => {
         setMessages((prev) => {
           const next = [...prev]
-          const last = next[next.length - 1]
-          if (last && last.role === 'assistant') {
-            last.cardType = event.cardType
-            last.cardData = event.cardData
-            last.pending = false
+          const lastIndex = next.length - 1
+          if (lastIndex >= 0 && next[lastIndex].role === 'assistant') {
+            next[lastIndex] = {
+              ...next[lastIndex],
+              cards: [...next[lastIndex].cards, { cardType: event.cardType, cardData: event.cardData }],
+              pending: false,
+            }
           }
-          return [...next]
+          return next
         })
       },
       onDone: () => {
         setMessages((prev) => {
           const next = [...prev]
-          const last = next[next.length - 1]
-          if (last && last.role === 'assistant') {
-            last.pending = false
+          const lastIndex = next.length - 1
+          if (lastIndex >= 0 && next[lastIndex].role === 'assistant') {
+            next[lastIndex] = { ...next[lastIndex], pending: false }
           }
-          return [...next]
+          return next
         })
       },
       onError: (event) => {
         message.error(event.message || '对话异常')
         setMessages((prev) => {
           const next = [...prev]
-          const last = next[next.length - 1]
-          if (last && last.role === 'assistant') {
-            if (!last.content) {
-              last.content = '抱歉，回复出现了问题，请重试。'
+          const lastIndex = next.length - 1
+          if (lastIndex >= 0 && next[lastIndex].role === 'assistant') {
+            next[lastIndex] = {
+              ...next[lastIndex],
+              content: next[lastIndex].content || '抱歉，回复出现了问题，请重试。',
+              pending: false,
             }
-            last.pending = false
           }
-          return [...next]
+          return next
         })
       },
-    })
+    }
+  }, [message])
 
+  /** 发送消息到后端 SSE */
+  const sendToBackend = useCallback(async (content: string) => {
+    if (!id) return
+    const userMsg: ChatMessage = { role: 'user', content, cards: [] }
+    const assistantMsg: ChatMessage = { role: 'assistant', content: '', cards: [], pending: true }
+    setMessages((prev) => [...prev, userMsg, assistantMsg])
+
+    setSending(true)
+    await sendMessage(id, content, createSseCallbacks())
     setSending(false)
+  }, [id, createSseCallbacks])
+
+  const handleSend = async () => {
+    const content = input.trim()
+    if (!content || sending) return
+
+    setInput('')
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+    }
+
+    await sendToBackend(content)
   }
+
+  /** 卡片交互回调：将用户操作意图作为新消息发送 */
+  const handleCardAction = useCallback(async (text: string) => {
+    if (sending) return
+    await sendToBackend(text)
+  }, [sending, sendToBackend])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -145,7 +169,7 @@ export default function ChatPage() {
         {messages.length === 0 && <EmptyChat />}
 
         {messages.map((msg, idx) => (
-          <MessageBubble key={idx} message={msg} />
+          <MessageBubble key={idx} message={msg} onCardAction={handleCardAction} />
         ))}
 
         <div ref={messagesEndRef} />
@@ -176,7 +200,13 @@ export default function ChatPage() {
   )
 }
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({
+  message,
+  onCardAction,
+}: {
+  message: ChatMessage
+  onCardAction: (text: string) => void
+}) {
   const isUser = message.role === 'user'
 
   if (isUser) {
@@ -192,18 +222,25 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   return (
     <div className="chat-bubble-enter flex justify-start">
       <div className="max-w-[85%] flex flex-col gap-1">
-        {message.pending && !message.content ? (
+        {message.pending && !message.content && message.cards.length === 0 ? (
           <TypingIndicator />
         ) : (
           <>
             {message.content && (
-              <div className="py-[9px] px-[14px] rounded-[4px_16px_16px_16px] bg-surface-alt text-heading text-[15px] leading-[1.5] break-words whitespace-pre-wrap">
-                {message.content}
+              <div className="py-[9px] px-[14px] rounded-[4px_16px_16px_16px] bg-surface-alt text-heading text-[15px] leading-[1.5] break-words">
+                <Streamdown isAnimating={message.pending}>
+                  {message.content}
+                </Streamdown>
               </div>
             )}
-            {message.cardType && (
-              <CardRenderer cardType={message.cardType} cardData={message.cardData} />
-            )}
+            {message.cards.map((card, i) => (
+              <CardRenderer
+                key={i}
+                cardType={card.cardType}
+                cardData={card.cardData}
+                onAction={onCardAction}
+              />
+            ))}
           </>
         )}
       </div>

@@ -7,6 +7,7 @@ import org.dherhf.common.result.ErrorCodeEnum;
 import org.dherhf.common.result.Result;
 import org.dherhf.agent.model.card.CardPayload;
 import org.dherhf.agent.service.ContextService;
+import org.dherhf.agent.service.IdempotentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -36,14 +37,17 @@ public class TicketTools {
     private final TicketServiceClient ticketClient;
     private final tools.jackson.databind.ObjectMapper objectMapper;
     private final ContextService contextService;
+    private final IdempotentService idempotentService;
 
     @Autowired
     public TicketTools(TicketServiceClient ticketClient,
                        tools.jackson.databind.ObjectMapper objectMapper,
-                       ContextService contextService) {
+                       ContextService contextService,
+                       IdempotentService idempotentService) {
         this.ticketClient = ticketClient;
         this.objectMapper = objectMapper;
         this.contextService = contextService;
+        this.idempotentService = idempotentService;
     }
 
     // ========== ThreadLocal 上下文：当前会话的 userId / scheduleId / seatIds / ticketCount ==========
@@ -52,16 +56,18 @@ public class TicketTools {
     private static final ThreadLocal<Long> CURRENT_SCHEDULE_ID = new ThreadLocal<>();
     private static final ThreadLocal<List<Long>> CURRENT_SEAT_IDS = new ThreadLocal<>();
     private static final ThreadLocal<Integer> CURRENT_TICKET_COUNT = new ThreadLocal<>();
+    private static final ThreadLocal<String> CURRENT_REQUEST_ID = new ThreadLocal<>();
 
     // P1-c 修复：卡片缓冲区，工具方法返回的 CardPayload 自动入缓冲，
     // 由 DialogueService 在 chat() 结束后 drainCards() 取出推送 SSE card 事件
     private static final ThreadLocal<List<CardPayload>> CARD_BUFFER = new ThreadLocal<>();
 
-    public static void setContext(Long userId, Long scheduleId, List<Long> seatIds, Integer ticketCount) {
+    public static void setContext(Long userId, Long scheduleId, List<Long> seatIds, Integer ticketCount, String requestId) {
         CURRENT_USER_ID.set(userId);
         CURRENT_SCHEDULE_ID.set(scheduleId);
         CURRENT_SEAT_IDS.set(seatIds);
         CURRENT_TICKET_COUNT.set(ticketCount);
+        CURRENT_REQUEST_ID.set(requestId);
         CARD_BUFFER.set(new ArrayList<>());
     }
 
@@ -70,6 +76,7 @@ public class TicketTools {
         CURRENT_SCHEDULE_ID.remove();
         CURRENT_SEAT_IDS.remove();
         CURRENT_TICKET_COUNT.remove();
+        CURRENT_REQUEST_ID.remove();
         CARD_BUFFER.remove();
     }
 
@@ -102,6 +109,14 @@ public class TicketTools {
             throw new IllegalStateException("用户上下文未初始化");
         }
         return uid;
+    }
+
+    /**
+     * 获取前端透传的幂等 requestId，缺失时兜底生成（不保证重试幂等）。
+     */
+    private String getRequestId() {
+        String rid = CURRENT_REQUEST_ID.get();
+        return rid != null && !rid.isBlank() ? rid : UUID.randomUUID().toString();
     }
 
     // ========== 业务工具 ==========
@@ -328,18 +343,26 @@ public class TicketTools {
                 .build());
     }
 
-    @Tool("锁座并创建订单。前端选座后由 Agent 调用，传入 userId+scheduleId+seatIds+ticketCount+requestId。返回订单确认卡片。")
+    @Tool("锁座并创建订单。前端选座后由 Agent 调用，传入 scheduleId+seatIds+ticketCount。返回订单确认卡片。")
     public CardPayload lockAndCreateOrder(
             @P("场次 ID（前端选场次后直接提供）") Long scheduleId,
             @P("座位 ID 列表（前端选座后直接提供，无需 LLM 提取）") List<Long> seatIds,
-            @P("购票数量（=座位数）") Integer ticketCount,
-            @P("幂等请求ID，UUID 格式，前端生成") String requestId
+            @P("购票数量（=座位数）") Integer ticketCount
     ) {
         Long userId = requireUserId();
         // P1-a 修复：优先使用前端传入的 ticketCount，LLM 未提供时回退到上下文中的值
         Integer effectiveTicketCount = ticketCount != null ? ticketCount : CURRENT_TICKET_COUNT.get();
+        String requestId = getRequestId();
         log.info("[Tool:lockAndCreateOrder] userId={}, scheduleId={}, seatIds={}, count={}, requestId={}",
                 userId, scheduleId, seatIds, effectiveTicketCount, requestId);
+
+        // agent 层幂等校验
+        CardPayload cached = idempotentService.getIfPresent(requestId, CardPayload.class);
+        if (cached != null) {
+            log.info("[Tool:lockAndCreateOrder] 幂等命中缓存: requestId={}", requestId);
+            return emitCard(cached);
+        }
+
         Result<Object> result = ticketClient.lockSeat(userId, scheduleId, seatIds, effectiveTicketCount, requestId);
         if (result.getCode() != 0) {
             log.warn("[Tool:lockAndCreateOrder] 锁座失败: {}", result.getMessage());
@@ -349,10 +372,12 @@ public class TicketTools {
                     .build());
         }
         Map<String, Object> data = toMap(result.getData());
-        return emitCard(CardPayload.builder()
+        CardPayload card = CardPayload.builder()
                 .cardType("order_confirm")
                 .cardData(data)
-                .build());
+                .build();
+        idempotentService.put(requestId, card);
+        return emitCard(card);
     }
 
     @Tool("查询订单详情。用户询问订单状态或发起退票前调用。")
@@ -375,13 +400,21 @@ public class TicketTools {
                 .build());
     }
 
-    @Tool("支付订单。用户确认支付待支付订单时调用，需要订单ID和幂等请求ID。返回支付结果（含取票码）。")
+    @Tool("支付订单。用户确认支付待支付订单时调用。返回支付结果（含取票码）。")
     public CardPayload payOrder(
-            @P("订单 ID（由 queryOrders 或 lockAndCreateOrder 返回）") Long orderId,
-            @P("幂等请求ID，UUID 格式，前端生成") String requestId
+            @P("订单 ID（由 queryOrders 或 lockAndCreateOrder 返回）") Long orderId
     ) {
         Long userId = requireUserId();
+        String requestId = getRequestId();
         log.info("[Tool:payOrder] userId={}, orderId={}, requestId={}", userId, orderId, requestId);
+
+        // agent 层幂等校验
+        CardPayload cached = idempotentService.getIfPresent(requestId, CardPayload.class);
+        if (cached != null) {
+            log.info("[Tool:payOrder] 幂等命中缓存: requestId={}", requestId);
+            return emitCard(cached);
+        }
+
         Result<Object> result = ticketClient.payOrder(userId, orderId, requestId);
         if (result.getCode() != 0) {
             log.warn("[Tool:payOrder] 支付失败: {}", result.getMessage());
@@ -390,19 +423,29 @@ public class TicketTools {
                     .cardData(Map.of("error", result.getMessage()))
                     .build());
         }
-        return emitCard(CardPayload.builder()
+        CardPayload card = CardPayload.builder()
                 .cardType("order_success")
                 .cardData(result.getData())
-                .build());
+                .build();
+        idempotentService.put(requestId, card);
+        return emitCard(card);
     }
 
     @Tool("取消待支付订单。用户要求取消未支付订单时调用，释放锁定座位。仅待支付订单可取消。")
     public CardPayload cancelOrder(
-            @P("订单 ID（由 queryOrders 返回）") Long orderId,
-            @P("幂等请求ID，UUID 格式，前端生成") String requestId
+            @P("订单 ID（由 queryOrders 返回）") Long orderId
     ) {
         Long userId = requireUserId();
+        String requestId = getRequestId();
         log.info("[Tool:cancelOrder] userId={}, orderId={}, requestId={}", userId, orderId, requestId);
+
+        // agent 层幂等校验
+        CardPayload cached = idempotentService.getIfPresent(requestId, CardPayload.class);
+        if (cached != null) {
+            log.info("[Tool:cancelOrder] 幂等命中缓存: requestId={}", requestId);
+            return emitCard(cached);
+        }
+
         Result<Object> result = ticketClient.cancelOrder(userId, orderId, requestId);
         if (result.getCode() != 0) {
             log.warn("[Tool:cancelOrder] 取消失败: {}", result.getMessage());
@@ -411,19 +454,29 @@ public class TicketTools {
                     .cardData(Map.of("error", result.getMessage()))
                     .build());
         }
-        return emitCard(CardPayload.builder()
+        CardPayload card = CardPayload.builder()
                 .cardType("order_success")
                 .cardData(Map.of("orderId", orderId, "status", "cancelled"))
-                .build());
+                .build();
+        idempotentService.put(requestId, card);
+        return emitCard(card);
     }
 
     @Tool("退票。用户要求退已支付订单时调用，释放已售座位并退款。仅已出票且未放映的订单可退。")
     public CardPayload refundOrder(
-            @P("订单 ID（由 queryOrders 返回）") Long orderId,
-            @P("幂等请求ID，UUID 格式，前端生成") String requestId
+            @P("订单 ID（由 queryOrders 返回）") Long orderId
     ) {
         Long userId = requireUserId();
+        String requestId = getRequestId();
         log.info("[Tool:refundOrder] userId={}, orderId={}, requestId={}", userId, orderId, requestId);
+
+        // agent 层幂等校验
+        CardPayload cached = idempotentService.getIfPresent(requestId, CardPayload.class);
+        if (cached != null) {
+            log.info("[Tool:refundOrder] 幂等命中缓存: requestId={}", requestId);
+            return emitCard(cached);
+        }
+
         Result<Object> result = ticketClient.refundOrder(userId, orderId, requestId);
         if (result.getCode() != 0) {
             log.warn("[Tool:refundOrder] 退票失败: {}", result.getMessage());
@@ -432,10 +485,12 @@ public class TicketTools {
                     .cardData(Map.of("error", result.getMessage()))
                     .build());
         }
-        return emitCard(CardPayload.builder()
+        CardPayload card = CardPayload.builder()
                 .cardType("order_success")
                 .cardData(Map.of("orderId", orderId, "status", "refunded"))
-                .build());
+                .build();
+        idempotentService.put(requestId, card);
+        return emitCard(card);
     }
 
     // ========== 内部工具方法 ==========
