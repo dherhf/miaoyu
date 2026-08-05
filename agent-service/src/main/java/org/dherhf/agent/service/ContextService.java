@@ -41,6 +41,9 @@ public class ContextService {
     private static final String CONTEXT_KEY_PREFIX = "chat:context:";
     private static final String COLLECTION_NAME = "chat_sessions";
 
+    // 用于缓存查询结果的键前缀
+    private static final String QUERY_CACHE_PREFIX = "chat:query_cache:";
+
     /**
      * 从 Redis 加载槽位状态，缓存未命中时从 MongoDB 回填。
      *
@@ -161,7 +164,25 @@ public class ContextService {
             if ("negate_slot".equals(key) || "negateCount".equals(key)) {
                 continue;
             }
-            // 合并嵌套对象（如 film {name, movieId}）
+
+            // 特别处理 film 和 cinema 槽位的完整更新逻辑
+            if ("film".equals(key) && value instanceof Map<?, ?> newFilmMap) {
+                merged.computeIfAbsent(key, k -> new HashMap<>());
+                @SuppressWarnings("unchecked")
+                Map<String, Object> existingFilm = (Map<String, Object>) merged.get(key);
+                existingFilm.putAll((Map<String, Object>) newFilmMap);
+                continue;
+            }
+
+            if ("cinema".equals(key) && value instanceof Map<?, ?> newCinemaMap) {
+                merged.computeIfAbsent(key, k -> new HashMap<>());
+                @SuppressWarnings("unchecked")
+                Map<String, Object> existingCinema = (Map<String, Object>) merged.get(key);
+                existingCinema.putAll((Map<String, Object>) newCinemaMap);
+                continue;
+            }
+
+            // 对于其他普通槽位
             if (value instanceof Map<?, ?> newMap && merged.get(key) instanceof Map<?, ?> oldMap) {
                 Map<String, Object> mergedNested = new HashMap<>((Map<String, Object>) oldMap);
                 mergedNested.putAll((Map<String, Object>) newMap);
@@ -220,5 +241,40 @@ public class ContextService {
         } catch (Exception ex) {
             log.error("[saveToRedis] 序列化失败: sessionId={}, error={}", sessionId, ex.getMessage());
         }
+    }
+
+    /**
+     * 缓存查询结果
+     */
+    public void cacheQueryResult(String key, Object result, Duration duration) {
+        try {
+            String json = objectMapper.writeValueAsString(result);
+            redisTemplate.opsForValue().set(QUERY_CACHE_PREFIX + key, json, duration);
+        } catch (Exception ex) {
+            log.error("[cacheQueryResult] 序列化失败: key={}, error={}", key, ex.getMessage());
+        }
+    }
+
+    /**
+     * 获取缓存的查询结果
+     */
+    @SuppressWarnings("unchecked")
+    public <T> T getCachedQueryResult(String key, Class<T> clazz) {
+        String cached = redisTemplate.opsForValue().get(QUERY_CACHE_PREFIX + key);
+        if (cached != null) {
+            try {
+                return objectMapper.readValue(cached, clazz);
+            } catch (Exception ex) {
+                log.warn("[getCachedQueryResult] Redis 反序列化失败: {}", ex.getMessage());
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 清除特定查询缓存
+     */
+    public void clearQueryCache(String key) {
+        redisTemplate.delete(QUERY_CACHE_PREFIX + key);
     }
 }
