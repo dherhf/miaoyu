@@ -1,7 +1,7 @@
-import { Toast } from 'antd-mobile'
+import { Button, Toast } from 'antd-mobile'
 import type { BaseCardProps, OrderSuccessCardData } from '../../types'
 
-const st = {
+const S: Record<string, React.CSSProperties> = {
   wrap: { width: '100%', background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' as const },
   hero: { background: 'linear-gradient(180deg, #f0fdf4, #fff)', padding: '32px 16px 24px', textAlign: 'center' as const },
   checkmark: {
@@ -24,8 +24,6 @@ const st = {
   bars: { display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: 1, height: 40, overflow: 'hidden' },
   barCodeText: { fontSize: 11, fontFamily: 'monospace', color: '#9ca3af', letterSpacing: 3, textAlign: 'center' as const, marginTop: 4 },
   actions: { padding: '12px 16px', display: 'flex', flexDirection: 'column' as const, gap: 8 },
-  primaryBtn: { width: '100%', padding: '10px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#1677ff', color: '#fff', fontSize: 15, fontWeight: 500 },
-  secondaryBtn: { width: '100%', padding: '10px 16px', borderRadius: 8, border: '1px solid #d1d5db', cursor: 'pointer', background: '#fff', color: '#6b7280', fontSize: 15, fontWeight: 500 },
 }
 
 const BAR_WIDTHS = [2, 4, 2, 6, 2, 8, 2, 4, 2, 6, 2, 4, 2, 8, 2, 4, 2, 6, 2, 4, 2, 8, 2, 4, 2, 6, 2, 4, 2, 8, 2, 4]
@@ -59,54 +57,54 @@ export default function OrderSuccessCard({ data, onAction }: BaseCardProps<Order
   }
 
   return (
-    <div style={st.wrap}>
+    <div style={S.wrap}>
       {/* 成功头部 */}
-      <div style={st.hero}>
-        <div style={st.checkmark}>
+      <div style={S.hero}>
+        <div style={S.checkmark}>
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="5 12 10 17 19 7" />
           </svg>
         </div>
-        <div style={st.title}>支付成功！</div>
-        <div style={st.subtitle}>您的电影票已预订成功</div>
+        <div style={S.title}>支付成功！</div>
+        <div style={S.subtitle}>您的电影票已预订成功</div>
       </div>
 
       {/* 取票码 */}
-      <div style={st.codeSection}>
-        <div style={st.codeLabel}>取票码</div>
-        <div style={st.code} onClick={copyCode}>{code}</div>
-        <div style={st.codeHint}>长按或点击复制</div>
+      <div style={S.codeSection}>
+        <div style={S.codeLabel}>取票码</div>
+        <div style={S.code} onClick={copyCode}>{code}</div>
+        <div style={S.codeHint}>长按或点击复制</div>
       </div>
 
       {/* 详情 */}
-      <div style={st.detailSection}>
-        <div style={st.detailBg}>
-          <div style={st.row}><span>影片</span><span style={st.rowBold}>{movieName}</span></div>
-          <div style={st.row}><span>影院</span><span>{cinemaName}</span></div>
-          <div style={st.row}><span>地址</span><span style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cinemaAddress}</span></div>
+      <div style={S.detailSection}>
+        <div style={S.detailBg}>
+          <div style={S.row}><span>影片</span><span style={S.rowBold}>{movieName}</span></div>
+          <div style={S.row}><span>影院</span><span>{cinemaName}</span></div>
+          <div style={S.row}><span>地址</span><span style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cinemaAddress}</span></div>
           <div style={{ borderTop: '1px solid #e5e7eb', margin: '6px 0' }} />
-          <div style={st.row}><span>影厅</span><span>{hallName}</span></div>
-          <div style={st.row}><span>时间</span><span>{fmtTime()}</span></div>
-          <div style={st.row}><span>座位</span><span>{seatInfo}</span></div>
+          <div style={S.row}><span>影厅</span><span>{hallName}</span></div>
+          <div style={S.row}><span>时间</span><span>{fmtTime()}</span></div>
+          <div style={S.row}><span>座位</span><span>{seatInfo}</span></div>
           <div style={{ borderTop: '1px solid #e5e7eb', margin: '6px 0' }} />
-          <div style={st.row}><span>金额</span><span style={st.amount}>¥{totalAmount}</span></div>
+          <div style={S.row}><span>金额</span><span style={S.amount}>¥{totalAmount}</span></div>
         </div>
       </div>
 
       {/* 条形码 */}
-      <div style={st.barcodeSection}>
-        <div style={st.bars}>
+      <div style={S.barcodeSection}>
+        <div style={S.bars}>
           {BAR_WIDTHS.map((w, i) => (
             <div key={i} style={{ width: w, height: '100%', background: '#1f2937', borderRadius: 1 }} />
           ))}
         </div>
-        <div style={st.barCodeText}>{orderNo}</div>
+        <div style={S.barCodeText}>{orderNo}</div>
       </div>
 
       {/* 按钮 */}
-      <div style={st.actions}>
-        <button style={st.primaryBtn} onClick={() => onAction('查看我的订单')}>查看我的订单</button>
-        <button style={st.secondaryBtn} onClick={() => onAction('我想看其他电影')}>继续购票</button>
+      <div style={S.actions}>
+        <Button color="primary" block onClick={() => onAction('查看我的订单')}>查看我的订单</Button>
+        <Button color="default" fill="outline" block onClick={() => onAction('我想看其他电影')}>继续购票</Button>
       </div>
     </div>
   )

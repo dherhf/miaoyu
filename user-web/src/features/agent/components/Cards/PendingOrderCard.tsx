@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { Button } from 'antd-mobile'
 import type { BaseCardProps, PendingOrderCardData } from '../../types'
 
 function fmtTime(totalSec: number) {
@@ -7,7 +8,7 @@ function fmtTime(totalSec: number) {
   return `${m}:${s}`
 }
 
-const sp = {
+const S: Record<string, React.CSSProperties> = {
   wrap: { width: '100%', background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' as const, position: 'relative' as const },
   overlay: {
     position: 'absolute' as const, inset: 0, background: 'rgba(255,255,255,0.95)', zIndex: 10,
@@ -22,9 +23,6 @@ const sp = {
   amount: { fontSize: 20, fontWeight: 700, color: '#dc2626' },
   timerRow: { padding: '6px 16px', background: '#fef2f2', borderTop: '1px solid #fecaca', borderBottom: '1px solid #fecaca', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   actions: { padding: '12px 16px', display: 'flex', flexDirection: 'column' as const, gap: 8 },
-  payBtn: { width: '100%', padding: '10px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#dc2626', color: '#fff', fontSize: 15, fontWeight: 500 },
-  cancelBtn: { width: '100%', padding: '8px 16px', borderRadius: 8, border: '1px solid #d1d5db', cursor: 'pointer', background: '#fff', color: '#6b7280', fontSize: 14, fontWeight: 500 },
-  disabledBtn: { background: '#e5e7eb', color: '#9ca3af', cursor: 'not-allowed' },
 }
 
 export default function PendingOrderCard({ data, onAction }: BaseCardProps<PendingOrderCardData>) {
@@ -46,46 +44,46 @@ export default function PendingOrderCard({ data, onAction }: BaseCardProps<Pendi
   }, [expired])
 
   return (
-    <div style={sp.wrap}>
+    <div style={S.wrap}>
       {expired && (
-        <div style={sp.overlay}>
+        <div style={S.overlay}>
           <div style={{ fontSize: 14, fontWeight: 700, color: '#6b7280' }}>订单已超时释放</div>
           <div style={{ fontSize: 13, color: '#9ca3af', marginTop: 4 }}>请重新选座购票</div>
         </div>
       )}
 
-      <div style={sp.header}>
+      <div style={S.header}>
         <span style={{ fontSize: 18 }}>⏰</span>
-        <span style={sp.headerTitle}>您有一笔待支付的订单</span>
+        <span style={S.headerTitle}>您有一笔待支付的订单</span>
       </div>
 
-      <div style={sp.body}>
-        <div style={sp.tag}>
-          <span style={sp.tagLabel}>影片</span>
+      <div style={S.body}>
+        <div style={S.tag}>
+          <span style={S.tagLabel}>影片</span>
           <span style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>🎬 {movieName}</span>
         </div>
-        <div style={sp.tag}>
-          <span style={sp.tagLabel}>影院</span>
+        <div style={S.tag}>
+          <span style={S.tagLabel}>影院</span>
           <span style={{ fontSize: 14, color: '#374151' }}>{cinemaName}</span>
         </div>
-        <div style={sp.tag}>
-          <span style={sp.tagLabel}>座位</span>
+        <div style={S.tag}>
+          <span style={S.tagLabel}>座位</span>
           <span style={{ fontSize: 14, color: '#374151' }}>{seatInfo}</span>
         </div>
-        <div style={sp.amountRow}>
+        <div style={S.amountRow}>
           <span style={{ fontSize: 14, color: '#6b7280' }}>订单金额</span>
-          <span style={sp.amount}>¥{totalAmount}</span>
+          <span style={S.amount}>¥{totalAmount}</span>
         </div>
       </div>
 
-      <div style={sp.timerRow}>
+      <div style={S.timerRow}>
         <span style={{ fontSize: 13, fontWeight: 500, color: '#b91c1c' }}>剩余时间</span>
         <span style={{ fontFamily: 'monospace', fontSize: 16, fontWeight: 700, color: '#dc2626' }}>{fmtTime(seconds)}</span>
       </div>
 
-      <div style={sp.actions}>
-        <button disabled={expired} style={{ ...sp.payBtn, ...(expired ? sp.disabledBtn : {}) }} onClick={() => onAction(`支付订单${id}`)}>继续支付</button>
-        <button disabled={expired} style={{ ...sp.cancelBtn, ...(expired ? sp.disabledBtn : {}) }} onClick={() => onAction(`取消订单${id}`)}>放弃订单</button>
+      <div style={S.actions}>
+        <Button color="danger" block disabled={expired} onClick={() => onAction(`支付订单${id}`)}>继续支付</Button>
+        <Button color="default" fill="outline" block disabled={expired} onClick={() => onAction(`取消订单${id}`)}>放弃订单</Button>
       </div>
     </div>
   )

@@ -1,3 +1,4 @@
+import { ErrorBlock } from 'antd-mobile'
 import type { BaseCardProps } from '../../types'
 
 export default function FallbackCard({ data }: BaseCardProps<unknown>) {
@@ -26,7 +27,7 @@ export default function FallbackCard({ data }: BaseCardProps<unknown>) {
         overflowY: 'auto',
       }}
     >
-      <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 6 }}>未知卡片类型（原始数据）</div>
+      <ErrorBlock status="default" title="未知卡片类型（原始数据）" style={{ fontSize: 12 }} />
       {jsonStr}
     </div>
   )

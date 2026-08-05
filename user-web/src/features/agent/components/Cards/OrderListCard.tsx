@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Button, Tag, ErrorBlock, Dialog } from 'antd-mobile'
 import type { BaseCardProps, OrderListCardData } from '../../types'
 
 const S: Record<string, React.CSSProperties> = {
@@ -9,14 +10,7 @@ const S: Record<string, React.CSSProperties> = {
   filterBar: {
     display: 'flex', gap: 8, padding: '12px 16px',
     borderBottom: '1px solid #f3f4f6', overflowX: 'auto' as const,
-  },
-  filterTag: {
-    padding: '4px 14px', borderRadius: 999, fontSize: 13, fontWeight: 500,
-    border: '1px solid #e5e7eb', background: '#fff', color: '#6b7280',
-    cursor: 'pointer', whiteSpace: 'nowrap' as const,
-  },
-  filterTagActive: {
-    background: '#1677ff', color: '#fff', borderColor: '#1677ff',
+    alignItems: 'center',
   },
   list: {
     padding: '8px 12px', display: 'flex', flexDirection: 'column' as const, gap: 8,
@@ -29,9 +23,6 @@ const S: Record<string, React.CSSProperties> = {
     padding: '10px 14px', borderBottom: '1px solid #f9fafb',
   },
   movieName: { fontWeight: 700, fontSize: 15, color: '#111' },
-  statusTag: {
-    padding: '2px 10px', borderRadius: 999, fontSize: 12, fontWeight: 500,
-  },
   itemBody: {
     padding: '8px 14px 12px',
   },
@@ -43,39 +34,6 @@ const S: Record<string, React.CSSProperties> = {
   actions: {
     display: 'flex', gap: 8, padding: '8px 14px 12px',
   },
-  primaryBtn: {
-    flex: 1, padding: '8px 12px', borderRadius: 8,
-    border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500,
-    background: '#1677ff', color: '#fff',
-  },
-  dangerBtn: {
-    flex: 1, padding: '8px 12px', borderRadius: 8,
-    border: '1px solid #d1d5db', cursor: 'pointer', fontSize: 13, fontWeight: 500,
-    background: '#fff', color: '#6b7280',
-  },
-  empty: {
-    textAlign: 'center' as const, padding: '32px 16px', color: '#9ca3af', fontSize: 14,
-  },
-  modalOverlay: {
-    position: 'fixed' as const, inset: 0, zIndex: 60,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    padding: 16, background: 'rgba(0,0,0,0.5)',
-  },
-  modalBox: {
-    background: '#fff', borderRadius: 12, padding: 20,
-    maxWidth: 320, width: '100%',
-  },
-  modalTitle: { margin: '0 0 8px', fontSize: 16, fontWeight: 700 },
-  modalText: { margin: '0 0 16px', fontSize: 14, color: '#6b7280' },
-  modalActions: { display: 'flex', gap: 8, justifyContent: 'flex-end' },
-  modalCancelBtn: {
-    padding: '6px 16px', borderRadius: 8, border: 'none',
-    background: '#f3f4f6', color: '#6b7280', fontSize: 14, cursor: 'pointer',
-  },
-  modalConfirmBtn: {
-    padding: '6px 16px', borderRadius: 8, border: 'none',
-    background: '#ef4444', color: '#fff', fontSize: 14, cursor: 'pointer',
-  },
 }
 
 const FILTERS = [
@@ -85,11 +43,11 @@ const FILTERS = [
   { key: 'refunded', label: '已退票' },
 ] as const
 
-const STATUS_MAP: Record<string, { label: string; bg: string; color: string; border: string }> = {
-  pending: { label: '待支付', bg: '#fffbeb', color: '#b45309', border: '#fde68a' },
-  paid: { label: '已出票', bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
-  cancelled: { label: '已取消', bg: '#f3f4f6', color: '#6b7280', border: '#e5e7eb' },
-  refunded: { label: '已退票', bg: '#fef2f2', color: '#dc2626', border: '#fecaca' },
+const STATUS_MAP: Record<string, { label: string; color: string }> = {
+  pending: { label: '待支付', color: 'warning' },
+  paid: { label: '已出票', color: 'success' },
+  cancelled: { label: '已取消', color: 'default' },
+  refunded: { label: '已退票', color: 'danger' },
 }
 
 function fmtDate(dateStr: string, timeStr: string) {
@@ -103,7 +61,6 @@ function fmtDate(dateStr: string, timeStr: string) {
 export default function OrderListCard({ data, onAction }: BaseCardProps<OrderListCardData>) {
   const { orders, total } = data || {}
   const [activeFilter, setActiveFilter] = useState('')
-  const [refundTarget, setRefundTarget] = useState<{ id: number; orderNo: string } | null>(null)
 
   const filtered = activeFilter
     ? (orders || []).filter((o) => o.status === activeFilter)
@@ -115,14 +72,16 @@ export default function OrderListCard({ data, onAction }: BaseCardProps<OrderLis
     onAction(`显示${label}订单`)
   }
 
-  const handleRefund = (id: number, orderNo: string) => {
-    setRefundTarget({ id, orderNo })
-  }
-
-  const confirmRefund = () => {
-    if (!refundTarget) return
-    onAction(`退票${refundTarget.orderNo}`)
-    setRefundTarget(null)
+  const handleRefund = (orderNo: string) => {
+    Dialog.confirm({
+      title: '确认退票',
+      content: '确认退票？放映前可退，将释放座位。款项将原路返还。',
+      confirmText: '确认退票',
+      cancelText: '取消',
+      onConfirm: () => {
+        onAction(`退票${orderNo}`)
+      },
+    })
   }
 
   return (
@@ -130,18 +89,17 @@ export default function OrderListCard({ data, onAction }: BaseCardProps<OrderLis
       {/* 筛选栏 */}
       <div style={S.filterBar}>
         {FILTERS.map((f) => (
-          <button
+          <Tag
             key={f.key}
-            style={{
-              ...S.filterTag,
-              ...(activeFilter === f.key ? S.filterTagActive : {}),
-            }}
+            color={activeFilter === f.key ? 'primary' : 'default'}
+            fill={activeFilter === f.key ? 'solid' : 'outline'}
+            round
             onClick={() => handleFilter(f.key)}
           >
             {f.label}
-          </button>
+          </Tag>
         ))}
-        <span style={{ marginLeft: 'auto', fontSize: 12, color: '#9ca3af', whiteSpace: 'nowrap', lineHeight: '30px' }}>
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: '#9ca3af', whiteSpace: 'nowrap' }}>
           共{total ?? (orders || []).length}条
         </span>
       </div>
@@ -149,10 +107,7 @@ export default function OrderListCard({ data, onAction }: BaseCardProps<OrderLis
       {/* 订单列表 */}
       <div style={S.list}>
         {filtered.length === 0 ? (
-          <div style={S.empty}>
-            <div style={{ fontSize: 40, marginBottom: 8 }}>📋</div>
-            <div>暂无订单</div>
-          </div>
+          <ErrorBlock status="empty" description="暂无订单" />
         ) : (
           filtered.map((order) => {
             const st = STATUS_MAP[order.status] || STATUS_MAP.pending
@@ -167,14 +122,9 @@ export default function OrderListCard({ data, onAction }: BaseCardProps<OrderLis
                 {/* 头部：影片名 + 状态标签 */}
                 <div style={S.itemHeader}>
                   <span style={S.movieName}>🎬 {order.movieName}</span>
-                  <span style={{
-                    ...S.statusTag,
-                    background: st.bg,
-                    color: st.color,
-                    border: `1px solid ${st.border}`,
-                  }}>
+                  <Tag color={st.color} fill="outline" round>
                     {st.label}
-                  </span>
+                  </Tag>
                 </div>
 
                 {/* 详情 */}
@@ -206,22 +156,40 @@ export default function OrderListCard({ data, onAction }: BaseCardProps<OrderLis
                 {/* 操作按钮 */}
                 {order.status === 'pending' && (
                   <div style={S.actions}>
-                    <button style={S.primaryBtn} onClick={() => onAction(`支付订单${order.orderNo}`)}>
+                    <Button
+                      color="primary"
+                      style={{ flex: 1 }}
+                      onClick={() => onAction(`支付订单${order.orderNo}`)}
+                    >
                       去支付
-                    </button>
-                    <button style={S.dangerBtn} onClick={() => onAction(`取消订单${order.orderNo}`)}>
+                    </Button>
+                    <Button
+                      color="default"
+                      fill="outline"
+                      style={{ flex: 1 }}
+                      onClick={() => onAction(`取消订单${order.orderNo}`)}
+                    >
                       取消订单
-                    </button>
+                    </Button>
                   </div>
                 )}
                 {order.status === 'paid' && (
                   <div style={S.actions}>
-                    <button style={S.primaryBtn} onClick={() => onAction(`查看订单${order.orderNo}取票码`)}>
+                    <Button
+                      color="primary"
+                      style={{ flex: 1 }}
+                      onClick={() => onAction(`查看订单${order.orderNo}取票码`)}
+                    >
                       查看取票码
-                    </button>
-                    <button style={{ ...S.dangerBtn, color: '#ef4444', borderColor: '#fecaca' }} onClick={() => handleRefund(order.id, order.orderNo)}>
+                    </Button>
+                    <Button
+                      color="danger"
+                      fill="outline"
+                      style={{ flex: 1 }}
+                      onClick={() => handleRefund(order.orderNo)}
+                    >
                       退票
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>
@@ -229,26 +197,6 @@ export default function OrderListCard({ data, onAction }: BaseCardProps<OrderLis
           })
         )}
       </div>
-
-      {/* 退票确认弹窗 */}
-      {refundTarget && (
-        <div style={S.modalOverlay} onClick={() => setRefundTarget(null)}>
-          <div style={S.modalBox} onClick={(e) => e.stopPropagation()}>
-            <h3 style={S.modalTitle}>确认退票</h3>
-            <p style={S.modalText}>
-              确认退票？放映前可退，将释放座位。款项将原路返还。
-            </p>
-            <div style={S.modalActions}>
-              <button style={S.modalCancelBtn} onClick={() => setRefundTarget(null)}>
-                取消
-              </button>
-              <button style={S.modalConfirmBtn} onClick={confirmRefund}>
-                确认退票
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

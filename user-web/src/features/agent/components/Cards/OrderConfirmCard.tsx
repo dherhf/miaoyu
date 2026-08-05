@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { Button, Tag, Dialog } from 'antd-mobile'
 import type { BaseCardProps, OrderConfirmCardData } from '../../types'
 
 /** HH:mm 格式化秒数 */
@@ -8,7 +9,7 @@ function fmtTime(totalSec: number) {
   return `${m}:${s}`
 }
 
-const so = {
+const S: Record<string, React.CSSProperties> = {
   wrap: {
     width: '100%', background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb',
     overflow: 'hidden', position: 'relative' as const,
@@ -23,7 +24,6 @@ const so = {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
   },
   orderNo: { fontSize: 12, fontFamily: 'monospace', color: '#9ca3af' },
-  badge: { padding: '2px 10px', borderRadius: 999, fontSize: 12, fontWeight: 500, border: '1px solid #fde68a', background: '#fef3c7', color: '#b45309' },
   body: { padding: '12px 16px' },
   movieRow: { display: 'flex', alignItems: 'flex-start', gap: 12 },
   movieIcon: {
@@ -43,15 +43,6 @@ const so = {
   },
   timerLabel: { fontSize: 13, color: '#b45309' },
   actions: { padding: '8px 16px 12px', display: 'flex', flexDirection: 'column' as const, gap: 8 },
-  payBtn: {
-    width: '100%', padding: '10px 16px', borderRadius: 8, fontSize: 15, fontWeight: 500,
-    border: 'none', cursor: 'pointer', background: '#dc2626', color: '#fff',
-  },
-  cancelBtn: {
-    width: '100%', padding: '8px 16px', borderRadius: 8, fontSize: 14, fontWeight: 500,
-    border: '1px solid #d1d5db', cursor: 'pointer', background: '#fff', color: '#6b7280',
-  },
-  disabledBtn: { background: '#e5e7eb', color: '#9ca3af', cursor: 'not-allowed' },
   doneBanner: {
     padding: '12px 16px', textAlign: 'center' as const, fontWeight: 500, fontSize: 14,
     borderRadius: 8, margin: '0 16px 16px',
@@ -67,7 +58,6 @@ export default function OrderConfirmCard({ data, onAction }: BaseCardProps<Order
   }
 
   const [seconds, setSeconds] = useState(calcInitial)
-  const [showConfirm, setShowConfirm] = useState(false)
   const [paying, setPaying] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
   const expired = seconds <= 0
@@ -98,8 +88,16 @@ export default function OrderConfirmCard({ data, onAction }: BaseCardProps<Order
 
   const handleCancel = useCallback(() => {
     if (expired) return
-    setShowConfirm(true)
-  }, [expired])
+    Dialog.confirm({
+      title: '取消订单',
+      content: '确定放弃这些座位吗？取消后座位将被释放。',
+      confirmText: '确认取消',
+      cancelText: '关闭',
+      onConfirm: () => {
+        onAction(`取消订单${orderNo}`)
+      },
+    })
+  }, [expired, orderNo, onAction])
 
   const isPaid = status === 'paid'
   const isCancelled = status === 'cancelled'
@@ -109,59 +107,44 @@ export default function OrderConfirmCard({ data, onAction }: BaseCardProps<Order
 
   if (isPaid) {
     return (
-      <div style={so.wrap}>
-        <div style={{ ...so.doneBanner, background: '#f0fdf4', color: '#16a34a' }}>支付成功，祝您观影愉快！</div>
+      <div style={S.wrap}>
+        <div style={{ ...S.doneBanner, background: '#f0fdf4', color: '#16a34a' }}>支付成功，祝您观影愉快！</div>
       </div>
     )
   }
 
   if (isCancelled) {
     return (
-      <div style={so.wrap}>
-        <div style={{ ...so.doneBanner, background: '#f3f4f6', color: '#6b7280' }}>订单已取消</div>
+      <div style={S.wrap}>
+        <div style={{ ...S.doneBanner, background: '#f3f4f6', color: '#6b7280' }}>订单已取消</div>
       </div>
     )
   }
 
   return (
-    <div style={so.wrap}>
+    <div style={S.wrap}>
       {/* 超时遮罩 */}
       {expired && (
-        <div style={so.overlay}>
+        <div style={S.overlay}>
           <div style={{ fontSize: 40, marginBottom: 8 }}>⏰</div>
           <div style={{ fontSize: 16, fontWeight: 700, color: '#6b7280' }}>订单已超时</div>
           <div style={{ fontSize: 13, color: '#9ca3af', marginTop: 4 }}>请重新选座</div>
         </div>
       )}
 
-      {/* 确认弹窗 */}
-      {showConfirm && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} onClick={() => setShowConfirm(false)} />
-          <div style={{ position: 'relative', background: '#fff', borderRadius: 12, padding: 20, maxWidth: 320, width: '100%' }}>
-            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>取消订单</h3>
-            <p style={{ margin: '0 0 16px', fontSize: 14, color: '#6b7280' }}>确定放弃这些座位吗？取消后座位将被释放。</p>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowConfirm(false)} style={{ padding: '6px 16px', borderRadius: 8, border: 'none', background: '#f3f4f6', color: '#6b7280', fontSize: 14, cursor: 'pointer' }}>关闭</button>
-              <button onClick={() => { setShowConfirm(false); onAction(`取消订单${orderNo}`) }} style={{ padding: '6px 16px', borderRadius: 8, border: 'none', background: '#ef4444', color: '#fff', fontSize: 14, cursor: 'pointer' }}>确认取消</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* 头部 */}
-      <div style={so.header}>
-        <span style={so.orderNo}>{orderNo}</span>
-        <span style={so.badge}>待支付</span>
+      <div style={S.header}>
+        <span style={S.orderNo}>{orderNo}</span>
+        <Tag color="warning" fill="outline" round>待支付</Tag>
       </div>
 
       {/* 影片信息 */}
-      <div style={so.body}>
-        <div style={so.movieRow}>
-          <div style={so.movieIcon}>🎬</div>
+      <div style={S.body}>
+        <div style={S.movieRow}>
+          <div style={S.movieIcon}>🎬</div>
           <div>
-            <div style={so.movieName}>{movieName}</div>
-            <div style={so.cinemaRow}>
+            <div style={S.movieName}>{movieName}</div>
+            <div style={S.cinemaRow}>
               <span>{cinemaName}</span>
               <span>|</span>
               <span>{hallName}</span>
@@ -170,23 +153,23 @@ export default function OrderConfirmCard({ data, onAction }: BaseCardProps<Order
         </div>
 
         {/* 详细信息 */}
-        <div style={so.detailBg}>
-          <div style={so.detailRow}><span>放映时间</span><span>{fmtShowTime}</span></div>
-          <div style={so.detailRow}><span>座位信息</span><span>{seatInfo}</span></div>
-          <div style={so.detailRow}><span>票数</span><span>{ticketCount}张</span></div>
+        <div style={S.detailBg}>
+          <div style={S.detailRow}><span>放映时间</span><span>{fmtShowTime}</span></div>
+          <div style={S.detailRow}><span>座位信息</span><span>{seatInfo}</span></div>
+          <div style={S.detailRow}><span>票数</span><span>{ticketCount}张</span></div>
         </div>
       </div>
 
       {/* 金额 */}
-      <div style={so.amountRow}>
+      <div style={S.amountRow}>
         <span style={{ fontSize: 14, color: '#6b7280' }}>订单金额</span>
-        <span style={so.amount}>¥{totalAmount}</span>
+        <span style={S.amount}>¥{totalAmount}</span>
       </div>
 
       {/* 倒计时 */}
       {!expired && (
-        <div style={so.timerRow}>
-          <span style={so.timerLabel}>支付倒计时</span>
+        <div style={S.timerRow}>
+          <span style={S.timerLabel}>支付倒计时</span>
           <span style={{
             fontFamily: 'monospace', fontSize: 16, fontWeight: 700,
             color: urgent ? '#dc2626' : '#6b7280',
@@ -198,21 +181,25 @@ export default function OrderConfirmCard({ data, onAction }: BaseCardProps<Order
       )}
 
       {/* 操作按钮 */}
-      <div style={so.actions}>
-        <button
+      <div style={S.actions}>
+        <Button
+          color="danger"
+          block
           disabled={disabled || paying}
-          style={{ ...so.payBtn, ...(disabled ? so.disabledBtn : {}) }}
+          loading={paying}
           onClick={handlePay}
         >
-          {expired ? '订单已失效' : paying ? '支付中...' : `立即支付 ¥${totalAmount}`}
-        </button>
-        <button
+          {expired ? '订单已失效' : `立即支付 ¥${totalAmount}`}
+        </Button>
+        <Button
+          color="default"
+          fill="outline"
+          block
           disabled={disabled}
-          style={{ ...so.cancelBtn, ...(disabled ? so.disabledBtn : {}) }}
           onClick={handleCancel}
         >
           取消订单
-        </button>
+        </Button>
       </div>
     </div>
   )

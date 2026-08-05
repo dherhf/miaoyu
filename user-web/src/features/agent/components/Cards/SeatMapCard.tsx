@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
+import { Button, Tag } from 'antd-mobile'
 import type { BaseCardProps, SeatMapCardData, Seat } from '../../types'
 
 const STATUS_COLORS: Record<string, { bg: string; border: string; text: string; cursor: string }> = {
@@ -113,7 +114,6 @@ export default function SeatMapCard({ data, onAction }: BaseCardProps<SeatMapCar
                         position: 'absolute', top: -4, right: -4,
                         width: 16, height: 16, borderRadius: '50%',
                         fontSize: 9, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: cat.ring === 'none' ? '#e5e7eb' : undefined,
                         color: '#fff',
                         backgroundColor: seat.seatCategory === 'vip' ? '#fbbf24' : seat.seatCategory === 'couple' ? '#f472b6' : '#60a5fa',
                       }}>
@@ -134,9 +134,7 @@ export default function SeatMapCard({ data, onAction }: BaseCardProps<SeatMapCar
         <div style={{ padding: '8px 16px', background: '#eff6ff', borderTop: '1px solid #bfdbfe', borderBottom: '1px solid #bfdbfe', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>已选：</span>
           {selectedSeats.map((s) => (
-            <span key={s.seatIndex} style={{ padding: '2px 8px', background: '#3b82f6', color: '#fff', borderRadius: 6, fontSize: 12 }}>
-              {s.seatLabel} ¥{price}
-            </span>
+            <Tag key={s.seatIndex} color="primary" fill="solid">{s.seatLabel} ¥{price}</Tag>
           ))}
           <span style={{ marginLeft: 'auto', fontSize: 14, fontWeight: 700, color: '#dc2626' }}>合计：¥{totalPrice}</span>
         </div>
@@ -150,14 +148,10 @@ export default function SeatMapCard({ data, onAction }: BaseCardProps<SeatMapCar
 
       {/* 确认按钮 */}
       <div style={{ padding: 12 }}>
-        <button
+        <Button
+          block
+          color="primary"
           disabled={selectedSeats.length === 0}
-          style={{
-            width: '100%', padding: '10px 16px', borderRadius: 8,
-            fontSize: 15, fontWeight: 500, border: 'none', cursor: selectedSeats.length > 0 ? 'pointer' : 'not-allowed',
-            background: selectedSeats.length > 0 ? '#3b82f6' : '#e5e7eb',
-            color: selectedSeats.length > 0 ? '#fff' : '#9ca3af',
-          }}
           onClick={() => {
             if (selectedSeats.length === 0) return
             const labels = selectedSeats.map((s) => s.seatLabel).join(', ')
@@ -167,7 +161,7 @@ export default function SeatMapCard({ data, onAction }: BaseCardProps<SeatMapCar
           {selectedSeats.length > 0
             ? `确认选座（${selectedSeats.length}张 ¥${totalPrice}）`
             : '请先选择座位'}
-        </button>
+        </Button>
       </div>
 
       {/* 图例 */}
