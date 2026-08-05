@@ -2,8 +2,6 @@ package org.dherhf.auth.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.dherhf.common.config.WebMvcConfig;
-import org.dherhf.common.interceptor.AuthInterceptor;
 import org.dherhf.auth.dto.LoginDTO;
 import org.dherhf.auth.vo.LoginVO;
 import org.dherhf.auth.dto.RegisterDTO;
@@ -18,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 /**
  * 用户端认证控制器,提供用户注册、登录、登出及获取当前用户信息接口。
  * <p>
- * 注册和登录接口无需鉴权（由 {@link WebMvcConfig} 排除拦截）,
+ * 注册和登录接口无需鉴权（Gateway 白名单放行）,
  * 登出和获取用户信息接口需携带 {@code Authorization: Bearer {token}} 请求头。
  */
 @Tag(name = "用户认证", description = "注册/登录/登出/用户信息")
@@ -71,13 +69,12 @@ public class AuthController {
     /**
      * 获取当前登录用户信息。
      *
-     * @param userId 当前登录用户 ID（由 {@link AuthInterceptor} 从 JWT
-     *               提取并注入为 request attribute）
+     * @param userId 当前登录用户 ID（由 Gateway 从 JWT 提取并注入为 Header）
      * @return 当前用户信息（手机号脱敏）
      */
     @Operation(summary = "获取当前用户信息")
     @GetMapping("/me")
-    public Result<UserInfoVO> me(@RequestAttribute("userId") Long userId) {
+    public Result<UserInfoVO> me(@RequestHeader("X-User-Id") Long userId) {
         return Result.success(userAuthService.getCurrentUser(userId));
     }
 }

@@ -17,7 +17,7 @@ import java.util.Objects;
 /**
  * 审计日志切面,拦截标注了 @AuditLog 的方法,自动记录操作日志。
  * <p>
- * 操作人信息从请求 attribute 中获取（由 AuthInterceptor 注入）。
+ * 操作人信息从请求 Header 中获取（由 Gateway 注入 X-User-Id / X-User-Type）。
  */
 @Slf4j
 @Aspect
@@ -41,12 +41,13 @@ public class AuditLogAspect {
                 }
             }
 
-            // 从 RequestAttribute 获取操作人信息
+            // 从请求 Header 获取操作人信息（由 Gateway 注入）
             HttpServletRequest request = ((ServletRequestAttributes)
                     Objects.requireNonNull(RequestContextHolder.getRequestAttributes())).getRequest();
 
-            Long operatorId = (Long) request.getAttribute("userId");
-            String operatorType = (String) request.getAttribute("type");
+            String userIdHeader = request.getHeader("X-User-Id");
+            Long operatorId = userIdHeader != null ? Long.valueOf(userIdHeader) : null;
+            String operatorType = request.getHeader("X-User-Type");
 
             auditLogService.record(
                     operatorId,

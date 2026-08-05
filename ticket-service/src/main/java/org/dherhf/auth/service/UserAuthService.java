@@ -2,7 +2,6 @@ package org.dherhf.auth.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
-import org.dherhf.common.interceptor.AuthInterceptor;
 import org.dherhf.common.util.CryptoUtil;
 import org.dherhf.common.util.JwtUtil;
 import org.dherhf.auth.dto.LoginDTO;
@@ -125,8 +124,8 @@ public class UserAuthService {
      * <p>
      * 根据传入的用户 ID 查询数据库,返回脱敏后的用户信息。
      *
-     * @param userId 用户 ID（由 {@link AuthInterceptor} 从 JWT 提取,
-     *               经 {@code @RequestAttribute} 由 Controller 传入）
+     * @param userId 用户 ID（由 Gateway 从 JWT 提取,
+     *               经 {@code @RequestHeader("X-User-Id")} 由 Controller 传入）
      * @return 当前用户信息
      * @throws BusinessException 用户不存在时抛出 404
      */
