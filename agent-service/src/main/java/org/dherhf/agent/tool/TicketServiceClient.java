@@ -234,4 +234,19 @@ public class TicketServiceClient {
             return Result.error(ErrorCodeEnum.TOOL_ERROR, "退票失败：" + ex.getMessage());
         }
     }
+
+    /**
+     * GET /internal/movies/{id}/check-schedules
+     */
+    public Result<Object> checkMovieHasSchedules(Long movieId) {
+        try {
+            return restClient.get()
+                    .uri("/internal/movies/{id}/check-schedules", movieId)
+                    .retrieve()
+                    .body(Result.class);
+        } catch (Exception ex) {
+            log.error("[checkMovieHasSchedules] 调用 ticket-service 失败: movieId={}", movieId, ex);
+            return Result.error(ErrorCodeEnum.TOOL_ERROR, "校验失败：" + ex.getMessage());
+        }
+    }
 }
