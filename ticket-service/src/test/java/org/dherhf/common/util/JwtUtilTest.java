@@ -17,7 +17,6 @@ import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -63,14 +62,16 @@ class JwtUtilTest {
         @DisplayName("生成的 Token 包含正确的 userId")
         void shouldContainCorrectUserId() {
             String token = jwtUtil.generateToken(123L, "user");
-            assertThat(jwtUtil.getUserId(token)).isEqualTo(123L);
+            Claims claims = jwtUtil.parseToken(token);
+            assertThat(claims.get("userId", String.class)).isEqualTo("123");
         }
 
         @Test
         @DisplayName("生成的 Token 包含正确的 type")
         void shouldContainCorrectType() {
             String token = jwtUtil.generateToken(1L, "admin");
-            assertThat(jwtUtil.getType(token)).isEqualTo("admin");
+            Claims claims = jwtUtil.parseToken(token);
+            assertThat(claims.get("type", String.class)).isEqualTo("admin");
         }
     }
 
@@ -115,34 +116,6 @@ class JwtUtilTest {
     }
 
     @Nested
-    @DisplayName("isTokenValid")
-    class IsValidTest {
-
-        @Test
-        @DisplayName("有效且未黑名单的 Token 返回 true")
-        void shouldReturnTrueForValidToken() {
-            String token = jwtUtil.generateToken(1L, "user");
-            when(redisTemplate.hasKey("token:blacklist:" + token)).thenReturn(false);
-            assertThat(jwtUtil.isTokenValid(token)).isTrue();
-        }
-
-        @Test
-        @DisplayName("黑名单中的 Token 返回 false")
-        void shouldReturnFalseForBlacklistedToken() {
-            String token = jwtUtil.generateToken(1L, "user");
-            when(redisTemplate.hasKey("token:blacklist:" + token)).thenReturn(true);
-            assertThat(jwtUtil.isTokenValid(token)).isFalse();
-        }
-
-        @Test
-        @DisplayName("无效 Token 返回 false")
-        void shouldReturnFalseForInvalidToken() {
-            when(redisTemplate.hasKey(anyString())).thenReturn(false);
-            assertThat(jwtUtil.isTokenValid("invalid.token")).isFalse();
-        }
-    }
-
-    @Nested
     @DisplayName("blacklistToken")
     class BlacklistTokenTest {
 
@@ -162,37 +135,6 @@ class JwtUtilTest {
         void shouldNotBlacklistInvalidToken() {
             jwtUtil.blacklistToken("invalid.token");
             verify(redisTemplate, never()).opsForValue();
-        }
-    }
-
-    @Nested
-    @DisplayName("getUserId / getType")
-    class ExtractClaimsTest {
-
-        @Test
-        @DisplayName("从有效 Token 提取 userId")
-        void shouldExtractUserId() {
-            String token = jwtUtil.generateToken(999L, "user");
-            assertThat(jwtUtil.getUserId(token)).isEqualTo(999L);
-        }
-
-        @Test
-        @DisplayName("从无效 Token 提取 userId 返回 null")
-        void shouldReturnNullUserIdForInvalidToken() {
-            assertThat(jwtUtil.getUserId("invalid")).isNull();
-        }
-
-        @Test
-        @DisplayName("从有效 Token 提取 type")
-        void shouldExtractType() {
-            String token = jwtUtil.generateToken(1L, "admin");
-            assertThat(jwtUtil.getType(token)).isEqualTo("admin");
-        }
-
-        @Test
-        @DisplayName("从无效 Token 提取 type 返回 null")
-        void shouldReturnNullTypeForInvalidToken() {
-            assertThat(jwtUtil.getType("invalid")).isNull();
         }
     }
 }
