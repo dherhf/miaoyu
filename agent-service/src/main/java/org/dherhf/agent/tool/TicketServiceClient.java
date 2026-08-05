@@ -172,6 +172,18 @@ public class TicketServiceClient {
     }
 
     /**
+     * GET /internal/movies/{id}/check-schedules
+     */
+    public Result<Object> checkMovieHasSchedules(Long movieId) {
+        try {
+            return feignClient.checkMovieHasSchedules(movieId);
+        } catch (Exception ex) {
+            log.error("[checkMovieHasSchedules] 调用 ticket-service 失败: movieId={}", movieId, ex);
+            return Result.error(ErrorCodeEnum.TOOL_ERROR, "校验失败：" + ex.getMessage());
+        }
+    }
+
+    /**
      * 空白字符串转 null，避免 Feign 发送空串参数。
      */
     private static String blankToNull(String s) {

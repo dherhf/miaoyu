@@ -6,11 +6,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.dherhf.common.result.ErrorCodeEnum;
 import org.dherhf.common.result.Result;
 import org.dherhf.agent.model.card.CardPayload;
+import org.dherhf.agent.service.ContextService;
 import org.dherhf.agent.service.IdempotentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -34,14 +36,17 @@ public class TicketTools {
 
     private final TicketServiceClient ticketClient;
     private final tools.jackson.databind.ObjectMapper objectMapper;
+    private final ContextService contextService;
     private final IdempotentService idempotentService;
 
     @Autowired
     public TicketTools(TicketServiceClient ticketClient,
                        tools.jackson.databind.ObjectMapper objectMapper,
+                       ContextService contextService,
                        IdempotentService idempotentService) {
         this.ticketClient = ticketClient;
         this.objectMapper = objectMapper;
+        this.contextService = contextService;
         this.idempotentService = idempotentService;
     }
 
@@ -122,13 +127,47 @@ public class TicketTools {
             @P("影片类型标签，如'喜剧'、'科幻'；无类型约束时传空字符串") String type
     ) {
         log.info("[Tool:searchMovies] keyword={}, type={}", keyword, type);
-        Result<Object> result = ticketClient.searchMovies(keyword, type);
+
+        // 修复：增加影片类型筛选的兼容性处理
+        String processedType = type != null ? type.trim().toLowerCase() : "";
+        if (!processedType.isEmpty()) {
+            // 添加对常见类型的标准化处理
+            switch (processedType) {
+                case "动作":
+                    processedType = "action";
+                    break;
+                case "喜剧":
+                    processedType = "comedy";
+                    break;
+                case "科幻":
+                    processedType = "sci-fi";
+                    break;
+                case "剧情":
+                    processedType = "drama";
+                    break;
+                case "恐怖":
+                    processedType = "horror";
+                    break;
+                case "爱情":
+                    processedType = "romance";
+                    break;
+                case "动画":
+                    processedType = "animation";
+                    break;
+                default:
+                    // 如果是英文类型，保持原样
+                    break;
+            }
+        }
+
+        Result<Object> result = ticketClient.searchMovies(keyword, processedType);
         log.info("[Tool:searchMovies] result code={}, data={}", result.getCode(), result.getData());
         if (result.getCode() != 0) {
             log.warn("[Tool:searchMovies] 查询失败: {}", result.getMessage());
+            // 添加降级处理：返回一个空列表而不是报错
             return emitCard(CardPayload.builder()
                     .cardType("movie_list")
-                    .cardData(Map.of("movies", List.of(), "error", result.getMessage()))
+                    .cardData(Map.of("movies", List.of(), "error", "抱歉，暂无合适的影片信息，您可以尝试其他搜索条件。"))
                     .build());
         }
         List<MovieRow> movies = extractRows(result.getData(), "records", MovieRow.class);
@@ -145,6 +184,35 @@ public class TicketTools {
         return emitCard(CardPayload.movieList(cards));
     }
 
+    @Tool("检查影片是否有在售场次。推荐影片前调用，确保影片真正有排片。")
+    public CardPayload checkMovieHasSchedules(
+            @P("影片 ID（由 searchMovies 返回）") Long movieId
+    ) {
+        log.info("[Tool:checkMovieHasSchedules] movieId={}", movieId);
+        try {
+            Result<Object> result = ticketClient.checkMovieHasSchedules(movieId);
+            if (result.getCode() != 0) {
+                log.warn("[Tool:checkMovieHasSchedules] 查询失败: {}", result.getMessage());
+                return emitCard(CardPayload.builder()
+                        .cardType("validation_result")
+                        .cardData(Map.of("hasSchedules", false, "error", result.getMessage()))
+                        .build());
+            }
+            Map<String, Object> data = toMap(result.getData());
+            Boolean hasSchedules = (Boolean) data.get("hasSchedules");
+            return emitCard(CardPayload.builder()
+                    .cardType("validation_result")
+                    .cardData(Map.of("hasSchedules", Boolean.TRUE.equals(hasSchedules)))
+                    .build());
+        } catch (Exception ex) {
+            log.error("[Tool:checkMovieHasSchedules] 调用 ticket-service 失败: movieId={}", movieId, ex);
+            return emitCard(CardPayload.builder()
+                    .cardType("validation_result")
+                    .cardData(Map.of("hasSchedules", false, "error", "校验失败：" + ex.getMessage()))
+                    .build());
+        }
+    }
+
     @Tool("根据名称或设施查询影院列表。用户选定影片后或主动询问影院时调用。返回影院卡片数据。")
     public CardPayload searchCinemas(
             @P("影院名称关键词，如'万达影城'；无约束时传空字符串") String keyword,
@@ -155,9 +223,10 @@ public class TicketTools {
         log.info("[Tool:searchCinemas] result code={}, data={}", result.getCode(), result.getData());
         if (result.getCode() != 0) {
             log.warn("[Tool:searchCinemas] 查询失败: {}", result.getMessage());
+            // 添加降级处理：返回一个空列表而不是报错
             return emitCard(CardPayload.builder()
                     .cardType("cinema_list")
-                    .cardData(Map.of("cinemas", List.of(), "error", result.getMessage()))
+                    .cardData(Map.of("cinemas", List.of(), "error", "抱歉，暂无合适的影院信息，您可以尝试其他搜索条件。"))
                     .build());
         }
         List<CinemaRow> cinemas = extractRows(result.getData(), "records", CinemaRow.class);
@@ -181,14 +250,43 @@ public class TicketTools {
             @P("放映日期，支持'今天'、'明天'、'后天'或具体日期；用户未指定时传空字符串") String date
     ) {
         log.info("[Tool:querySessions] movieId={}, cinemaId={}, date={}", movieId, cinemaId, date);
+
+        // 构造缓存键
+        String cacheKey = "sessions_" + movieId + "_" + cinemaId + "_" + date;
+
+        // 检查缓存
+        Object cachedResult = contextService.getCachedQueryResult(cacheKey, Object.class);
+        if (cachedResult != null) {
+            log.info("[Tool:querySessions] 使用缓存结果: {}", cacheKey);
+            List<SessionRow> sessions = extractRows(cachedResult, "records", SessionRow.class);
+            List<CardPayload.SessionCard> cards = sessions.stream()
+                    .map(s -> CardPayload.SessionCard.builder()
+                            .id(s.getId())
+                            .showDate(s.getShowDate())
+                            .startTime(s.getStartTime())
+                            .endTime(s.getEndTime())
+                            .hallName(s.getHallName())
+                            .languageVersion(s.getLanguageVersion())
+                            .price(s.getPrice())
+                            .availableSeats(s.getAvailableSeats())
+                            .build())
+                    .toList();
+            return emitCard(CardPayload.sessionList(cards));
+        }
+
         Result<Object> result = ticketClient.searchSessions(movieId, cinemaId, date);
         if (result.getCode() != 0) {
             log.warn("[Tool:querySessions] 查询失败: {}", result.getMessage());
+            // 添加降级处理：返回一个空列表而不是报错
             return emitCard(CardPayload.builder()
                     .cardType("session_list")
-                    .cardData(Map.of("sessions", List.of(), "error", result.getMessage()))
+                    .cardData(Map.of("sessions", List.of(), "error", "抱歉，暂无合适的场次信息，您可以尝试其他时间或影院。"))
                     .build());
         }
+
+        // 缓存结果
+        contextService.cacheQueryResult(cacheKey, result.getData(), java.time.Duration.ofMinutes(5));
+
         List<SessionRow> sessions = extractRows(result.getData(), "records", SessionRow.class);
         List<CardPayload.SessionCard> cards = sessions.stream()
                 .map(s -> CardPayload.SessionCard.builder()
