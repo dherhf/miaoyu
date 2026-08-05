@@ -167,9 +167,7 @@ public class ContextService {
 
             // 特别处理 film 和 cinema 槽位的完整更新逻辑
             if ("film".equals(key) && value instanceof Map<?, ?> newFilmMap) {
-                if (!merged.containsKey("film") || merged.get("film") == null) {
-                    merged.put(key, new HashMap<>());
-                }
+                merged.computeIfAbsent(key, k -> new HashMap<>());
                 @SuppressWarnings("unchecked")
                 Map<String, Object> existingFilm = (Map<String, Object>) merged.get(key);
                 existingFilm.putAll((Map<String, Object>) newFilmMap);
@@ -177,9 +175,7 @@ public class ContextService {
             }
 
             if ("cinema".equals(key) && value instanceof Map<?, ?> newCinemaMap) {
-                if (!merged.containsKey("cinema") || merged.get("cinema") == null) {
-                    merged.put(key, new HashMap<>());
-                }
+                merged.computeIfAbsent(key, k -> new HashMap<>());
                 @SuppressWarnings("unchecked")
                 Map<String, Object> existingCinema = (Map<String, Object>) merged.get(key);
                 existingCinema.putAll((Map<String, Object>) newCinemaMap);
