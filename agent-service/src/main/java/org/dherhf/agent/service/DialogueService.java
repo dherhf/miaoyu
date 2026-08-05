@@ -15,7 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.dherhf.agent.common.ErrorCodeEnum;
+import org.dherhf.common.result.ErrorCodeEnum;
 import org.dherhf.agent.document.ChatMessage;
 import org.dherhf.agent.enums.IntentEnum;
 import org.dherhf.agent.enums.SessionStatusEnum;

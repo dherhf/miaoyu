@@ -82,7 +82,7 @@ export function Header() {
   ]
 
   return (
-    <header className="flex items-center px-3 py-2 border-b border-border bg-surface sticky top-0 z-40 flex-shrink-0 md:px-6">
+    <header className="flex items-center px-3 py-2 h-12 border-b border-border bg-surface sticky top-0 z-40 flex-shrink-0 md:px-6">
       {handleBack ? (
         <Button
           type="text"
