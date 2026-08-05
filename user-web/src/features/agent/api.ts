@@ -44,9 +44,14 @@ export async function sendMessage(
   sessionId: string,
   content: string,
   callbacks: SseCallbacks,
+  options?: { scheduleId?: string; seatIds?: string[]; ticketCount?: number },
 ): Promise<void> {
   const token = useAuthStore.getState().token
-  const body: SendMessageRequest = { content }
+  const body: SendMessageRequest = {
+    content,
+    requestId: crypto.randomUUID(),
+    ...options,
+  }
 
   const resp = await fetch(`/api/v1/chat/sessions/${sessionId}/messages`, {
     method: 'POST',
