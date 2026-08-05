@@ -1,4 +1,4 @@
-package org.dherhf.agent.common;
+package org.dherhf.common.result;
 
 import lombok.Getter;
 

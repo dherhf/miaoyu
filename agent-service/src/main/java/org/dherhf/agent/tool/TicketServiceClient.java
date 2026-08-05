@@ -1,8 +1,8 @@
 package org.dherhf.agent.tool;
 
 import lombok.extern.slf4j.Slf4j;
-import org.dherhf.agent.common.ErrorCodeEnum;
-import org.dherhf.agent.common.Result;
+import org.dherhf.common.result.ErrorCodeEnum;
+import org.dherhf.common.result.Result;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
