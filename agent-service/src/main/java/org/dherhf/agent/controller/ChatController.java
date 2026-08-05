@@ -82,9 +82,10 @@ public class ChatController {
                 id,
                 userId,
                 request.getContent(),
-                request.getSessionId(),
+                request.getScheduleId(),
                 request.getSeatIds(),
-                request.getTicketCount()
+                request.getTicketCount(),
+                request.getRequestId()
         );
     }
 

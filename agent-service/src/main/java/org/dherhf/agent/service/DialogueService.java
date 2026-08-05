@@ -77,6 +77,7 @@ public class DialogueService {
      * @param scheduleId   前端选场次后直接提供（可 null）
      * @param seatIds      前端选座后直接提供（可 null）
      * @param ticketCount  购票数量（=座位数，前端选座时提供，可 null）
+     * @param requestId    幂等请求 ID（前端生成，写操作幂等控制，可 null）
      * @return SseEmitter
      */
     public SseEmitter handleMessage(
@@ -85,7 +86,8 @@ public class DialogueService {
             String content,
             Long scheduleId,
             List<Long> seatIds,
-            Integer ticketCount
+            Integer ticketCount,
+            String requestId
     ) {
         SseEmitter emitter = new SseEmitter(sseTimeoutSeconds * 1000L);
 
@@ -114,7 +116,7 @@ public class DialogueService {
         // P0 修复：setContext 必须在虚拟线程内调用，ThreadLocal 不跨线程继承
         Thread.startVirtualThread(() -> {
             try {
-                TicketTools.setContext(userId, scheduleId, seatIds, ticketCount);
+                TicketTools.setContext(userId, scheduleId, seatIds, ticketCount, requestId);
                 processDialogue(emitter, sessionId, content, slotState);
             } catch (Exception ex) {
                 log.error("[handleMessage] 对话处理异常: sessionId={}", sessionId, ex);
