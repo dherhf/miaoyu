@@ -34,6 +34,6 @@ jobs:
           post-pr-comment: true
           use-annotations: true
           # 将 Qodana 结果（SARIF、其他产物、日志）作为构建产物上传到当前任务
-          upload-result: false
+          upload-result: true
           # 快速修复功能在 Ultimate 和 Ultimate Plus 订阅计划中可用
           push-fixes: 'none'
