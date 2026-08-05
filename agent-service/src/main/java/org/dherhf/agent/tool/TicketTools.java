@@ -3,7 +3,6 @@ package org.dherhf.agent.tool;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import lombok.extern.slf4j.Slf4j;
-import org.dherhf.common.result.ErrorCodeEnum;
 import org.dherhf.common.result.Result;
 import org.dherhf.agent.model.card.CardPayload;
 import org.dherhf.agent.service.ContextService;
@@ -17,7 +16,6 @@ import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -139,8 +137,6 @@ public class TicketTools {
     ) {
         Long cinemaIdLong = parseLong(cinemaId);
         log.info("[Tool:searchMovies] keyword={}, type={}, cinemaId={}", keyword, type, cinemaIdLong);
-        Result<Object> result = ticketClient.searchMovies(keyword, type, cinemaIdLong);
-        log.info("[Tool:searchMovies] keyword={}, type={}", keyword, type);
 
         // 修复：增加影片类型筛选的兼容性处理
         String processedType = type != null ? type.trim().toLowerCase() : "";
@@ -174,7 +170,7 @@ public class TicketTools {
             }
         }
 
-        Result<Object> result = ticketClient.searchMovies(keyword, processedType);
+        Result<Object> result = ticketClient.searchMovies(keyword, processedType, cinemaIdLong);
         log.info("[Tool:searchMovies] result code={}, data={}", result.getCode(), result.getData());
         if (result.getCode() != 0) {
             log.warn("[Tool:searchMovies] 查询失败: {}", result.getMessage());
@@ -265,8 +261,6 @@ public class TicketTools {
     ) {
         String resolvedDate = resolveRelativeDate(date);
         log.info("[Tool:querySessions] movieId={}, cinemaId={}, date={} -> resolved={}", movieId, cinemaId, date, resolvedDate);
-        Result<Object> result = ticketClient.searchSessions(movieId, cinemaId, resolvedDate);
-        log.info("[Tool:querySessions] movieId={}, cinemaId={}, date={}", movieId, cinemaId, date);
 
         // 构造缓存键
         String cacheKey = "sessions_" + movieId + "_" + cinemaId + "_" + date;
@@ -291,7 +285,7 @@ public class TicketTools {
             return emitCard(CardPayload.sessionList(cards));
         }
 
-        Result<Object> result = ticketClient.searchSessions(movieId, cinemaId, date);
+        Result<Object> result = ticketClient.searchSessions(movieId, cinemaId, resolvedDate);
         if (result.getCode() != 0) {
             log.warn("[Tool:querySessions] 查询失败: {}", result.getMessage());
             // 添加降级处理：返回一个空列表而不是报错
