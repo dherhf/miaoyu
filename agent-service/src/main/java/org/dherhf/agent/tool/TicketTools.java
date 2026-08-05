@@ -10,7 +10,12 @@ import org.dherhf.agent.service.IdempotentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -106,6 +111,11 @@ public class TicketTools {
         return uid;
     }
 
+    private static Long parseLong(String s) {
+        if (s == null || s.isBlank()) return null;
+        try { return Long.parseLong(s.trim()); } catch (NumberFormatException e) { return null; }
+    }
+
     /**
      * 获取前端透传的幂等 requestId，缺失时兜底生成（不保证重试幂等）。
      */
@@ -116,13 +126,15 @@ public class TicketTools {
 
     // ========== 业务工具 ==========
 
-    @Tool("根据影片名称或类型查询影片列表。当用户表达模糊意图（如'想看个喜剧'）或指定片名时调用。返回影片卡片数据。")
+    @Tool("根据影片名称或类型查询影片列表。当用户表达模糊意图（如'想看个喜剧'）或指定片名时调用。也可按影院查影片（如'长沙学院有什么电影'）。返回影片卡片数据。")
     public CardPayload searchMovies(
             @P("影片名称关键词，如'流浪地球3'；用户未指定片名时传空字符串") String keyword,
-            @P("影片类型标签，如'喜剧'、'科幻'；无类型约束时传空字符串") String type
+            @P("影片类型标签，英文枚举值：scifi(科幻)/action(动作)/comedy(喜剧)/romance(爱情)/suspense(悬疑)/animation(动画)/documentary(纪录片)/other(其他)；无类型约束时传空字符串") String type,
+            @P("影院 ID，当用户想查某影院有哪些电影时传入（由 searchCinemas 返回）；无影院约束时传空字符串") String cinemaId
     ) {
-        log.info("[Tool:searchMovies] keyword={}, type={}", keyword, type);
-        Result<Object> result = ticketClient.searchMovies(keyword, type);
+        Long cinemaIdLong = parseLong(cinemaId);
+        log.info("[Tool:searchMovies] keyword={}, type={}, cinemaId={}", keyword, type, cinemaIdLong);
+        Result<Object> result = ticketClient.searchMovies(keyword, type, cinemaIdLong);
         log.info("[Tool:searchMovies] result code={}, data={}", result.getCode(), result.getData());
         if (result.getCode() != 0) {
             log.warn("[Tool:searchMovies] 查询失败: {}", result.getMessage());
@@ -178,10 +190,11 @@ public class TicketTools {
     public CardPayload querySessions(
             @P("影片 ID（由 searchMovies 返回）") Long movieId,
             @P("影院 ID（由 searchCinemas 返回）") Long cinemaId,
-            @P("放映日期，支持'今天'、'明天'、'后天'或具体日期；用户未指定时传空字符串") String date
+            @P("放映日期，支持'今天'、'明天'、'后天'、'大后天'、'周X'、'M月D日'或具体日期；用户未指定时传空字符串") String date
     ) {
-        log.info("[Tool:querySessions] movieId={}, cinemaId={}, date={}", movieId, cinemaId, date);
-        Result<Object> result = ticketClient.searchSessions(movieId, cinemaId, date);
+        String resolvedDate = resolveRelativeDate(date);
+        log.info("[Tool:querySessions] movieId={}, cinemaId={}, date={} -> resolved={}", movieId, cinemaId, date, resolvedDate);
+        Result<Object> result = ticketClient.searchSessions(movieId, cinemaId, resolvedDate);
         if (result.getCode() != 0) {
             log.warn("[Tool:querySessions] 查询失败: {}", result.getMessage());
             return emitCard(CardPayload.builder()
@@ -396,6 +409,82 @@ public class TicketTools {
     }
 
     // ========== 内部工具方法 ==========
+
+    private static final Pattern WEEKDAY_PATTERN = Pattern.compile("周([一二三四五六日天])");
+    private static final Pattern MONTH_DAY_PATTERN = Pattern.compile("(\\d{1,2})月(\\d{1,2})日");
+    private static final Pattern DATE_PATTERN = Pattern.compile("(\\d{4})-(\\d{1,2})-(\\d{1,2})");
+    private static final Map<String, DayOfWeek> WEEKDAY_MAP = Map.of(
+            "一", DayOfWeek.MONDAY, "二", DayOfWeek.TUESDAY, "三", DayOfWeek.WEDNESDAY,
+            "四", DayOfWeek.THURSDAY, "五", DayOfWeek.FRIDAY, "六", DayOfWeek.SATURDAY,
+            "日", DayOfWeek.SUNDAY, "天", DayOfWeek.SUNDAY);
+
+    /**
+     * 将中文相对日期解析为 YYYY-MM-DD 格式。
+     * 支持：今天/明天/后天/大后天/周X/M月D日/YYYY-M-D/YYYY-MM-DD
+     * 支持去掉时段后缀（明天下午→明天）。
+     */
+    private static String resolveRelativeDate(String input) {
+        if (input == null || input.isBlank()) {
+            return null;
+        }
+        String text = input.trim();
+        LocalDate today = LocalDate.now();
+
+        // 去掉时段后缀：上午/下午/晚上/早上/中午/傍晚/夜里
+        text = text.replaceAll("(上午|下午|晚上|早上|中午|傍晚|夜里|晚)$", "").trim();
+
+        switch (text) {
+            case "今天", "今日" -> { return today.toString(); }
+            case "明天", "明日" -> { return today.plusDays(1).toString(); }
+            case "后天" -> { return today.plusDays(2).toString(); }
+            case "大后天" -> { return today.plusDays(3).toString(); }
+            default -> {}
+        }
+
+        // 周X
+        Matcher weekMatcher = WEEKDAY_PATTERN.matcher(text);
+        if (weekMatcher.matches()) {
+            DayOfWeek target = WEEKDAY_MAP.get(weekMatcher.group(1));
+            if (target != null) {
+                int diff = target.getValue() - today.getDayOfWeek().getValue();
+                if (diff <= 0) diff += 7;
+                return today.plusDays(diff).toString();
+            }
+        }
+
+        // M月D日
+        Matcher mdMatcher = MONTH_DAY_PATTERN.matcher(text);
+        if (mdMatcher.matches()) {
+            int month = Integer.parseInt(mdMatcher.group(1));
+            int day = Integer.parseInt(mdMatcher.group(2));
+            int year = today.getYear();
+            LocalDate candidate = LocalDate.of(year, month, day);
+            if (candidate.isBefore(today)) {
+                candidate = candidate.plusYears(1);
+            }
+            return candidate.toString();
+        }
+
+        // YYYY-M-D 或 YYYY-MM-DD
+        Matcher dateMatcher = DATE_PATTERN.matcher(text);
+        if (dateMatcher.matches()) {
+            try {
+                return LocalDate.of(
+                        Integer.parseInt(dateMatcher.group(1)),
+                        Integer.parseInt(dateMatcher.group(2)),
+                        Integer.parseInt(dateMatcher.group(3))).toString();
+            } catch (DateTimeParseException e) {
+                return null;
+            }
+        }
+
+        // 已经是 YYYY-MM-DD 格式
+        try {
+            return LocalDate.parse(text).toString();
+        } catch (DateTimeParseException e) {
+            return null;
+        }
+    }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     private <T> List<T> extractRows(Object data, String key, Class<T> clazz) {

@@ -21,11 +21,12 @@ public class InternalCinemaController {
     @Operation(summary = "内部影院列表")
     @GetMapping("/cinemas")
     public Result<PageResult<CinemaUserListVO>> list(
+            @RequestParam(required = false) Long movieId,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String facilities,
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "100") Integer size) {
-        return Result.success(cinemaService.userList(null, null, null, keyword, page, size));
+        return Result.success(cinemaService.userList(null, null, movieId, keyword, page, size));
     }
 
     @Operation(summary = "内部影院详情")

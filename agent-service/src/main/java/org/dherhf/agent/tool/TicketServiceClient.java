@@ -27,16 +27,17 @@ public class TicketServiceClient {
     }
 
     /**
-     * GET /internal/movies?keyword={}&type={}
+     * GET /internal/movies?keyword={}&type={}&cinemaId={}
      */
-    public Result<Object> searchMovies(String keyword, String type) {
+    public Result<Object> searchMovies(String keyword, String type, Long cinemaId) {
         try {
             return feignClient.searchMovies(
                     blankToNull(keyword),
-                    blankToNull(type)
+                    blankToNull(type),
+                    cinemaId
             );
         } catch (Exception ex) {
-            log.error("[searchMovies] 调用 ticket-service 失败: keyword={}, type={}", keyword, type, ex);
+            log.error("[searchMovies] 调用 ticket-service 失败: keyword={}, type={}, cinemaId={}", keyword, type, cinemaId, ex);
             return Result.error(ErrorCodeEnum.TOOL_ERROR, "影片查询失败：" + ex.getMessage());
         }
     }
