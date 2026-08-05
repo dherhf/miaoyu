@@ -26,7 +26,8 @@ public interface TicketFeignClient {
     @GetMapping("/internal/movies")
     Result<Object> searchMovies(
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) String type
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) Long cinemaId
     );
 
     @GetMapping("/internal/movies/{id}/check-schedules")

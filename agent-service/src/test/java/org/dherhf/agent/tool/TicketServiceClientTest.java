@@ -38,10 +38,10 @@ class TicketServiceClientTest {
     @DisplayName("searchMovies - 成功返回影片列表")
     void searchMovies_success() {
         System.out.println("[TicketServiceClientTest] ▶ searchMovies_success");
-        when(feignClient.searchMovies(any(), any()))
+        when(feignClient.searchMovies(any(), any(), any()))
                 .thenReturn(Result.success(Map.of("total", 1, "records", List.of())));
 
-        Result<Object> result = client.searchMovies("流浪", "");
+        Result<Object> result = client.searchMovies("流浪", "", null);
 
         assertEquals(0, result.getCode());
         System.out.println("[TicketServiceClientTest] ✓ searchMovies_success PASSED");
@@ -51,10 +51,10 @@ class TicketServiceClientTest {
     @DisplayName("searchMovies - 空关键词空类型")
     void searchMovies_emptyParams() {
         System.out.println("[TicketServiceClientTest] ▶ searchMovies_emptyParams");
-        when(feignClient.searchMovies(any(), any()))
+        when(feignClient.searchMovies(any(), any(), any()))
                 .thenReturn(Result.success(Map.of("total", 0, "records", List.of())));
 
-        Result<Object> result = client.searchMovies("", "");
+        Result<Object> result = client.searchMovies("", "", null);
 
         assertEquals(0, result.getCode());
         System.out.println("[TicketServiceClientTest] ✓ searchMovies_emptyParams PASSED");
@@ -64,10 +64,10 @@ class TicketServiceClientTest {
     @DisplayName("searchMovies - HTTP异常返回错误")
     void searchMovies_httpError() {
         System.out.println("[TicketServiceClientTest] ▶ searchMovies_httpError");
-        when(feignClient.searchMovies(any(), any()))
+        when(feignClient.searchMovies(any(), any(), any()))
                 .thenThrow(new RuntimeException("Connection refused"));
 
-        Result<Object> result = client.searchMovies("test", "");
+        Result<Object> result = client.searchMovies("test", "", null);
 
         assertEquals(ErrorCodeEnum.TOOL_ERROR.getCode(), result.getCode());
         assertTrue(result.getMessage().contains("影片查询失败"));
