@@ -204,12 +204,12 @@ public class DialogueService {
             return;
         }
 
-        // 推送工具调用产生的卡片数据
+        // 只推送最后一张卡片（跳步场景下中间卡片对用户无意义）
         List<CardPayload> cards = tools.drainCards();
-        log.info("[processDialogue] 推送卡片数量: {}, types: {}",
-                cards.size(), cards.stream().map(CardPayload::getCardType).toList());
-        for (CardPayload card : cards) {
-            sendSseEvent(emitter, SseEvent.card(card.getCardType(), card.getCardData()));
+        if (!cards.isEmpty()) {
+            CardPayload lastCard = cards.getLast();
+            log.info("[processDialogue] 推送卡片: {}", lastCard.getCardType());
+            sendSseEvent(emitter, SseEvent.card(lastCard.getCardType(), lastCard.getCardData()));
         }
 
         if (!aiContent.isBlank()) {
