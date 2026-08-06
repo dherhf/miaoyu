@@ -20,5 +20,6 @@ public class SeatMapVO {
     private Integer totalCols;
     private Integer totalSeats;
     private Integer availableSeats;
+    private java.math.BigDecimal price;
     private List<SeatVO> seats;
 }
