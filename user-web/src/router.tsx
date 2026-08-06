@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { LoginPage, RegisterPage } from './features/auth'
 import { HomePage } from './home'
 import { MovieListPage, MovieDetailPage } from './features/movie'
+import { OrderListPage } from './features/order'
 import { ChatPage } from './features/agent'
 import ProtectedRoute from './shared/ProtectedRoute'
 import { MainLayout } from './layouts'
@@ -39,6 +40,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <MovieDetailPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/orders',
+        element: (
+          <ProtectedRoute>
+            <OrderListPage />
           </ProtectedRoute>
         ),
       },
