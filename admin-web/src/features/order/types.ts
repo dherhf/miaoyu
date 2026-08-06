@@ -23,7 +23,6 @@ export interface OrderRecord {
 
 /** 订单详情 */
 export interface OrderDetail extends OrderRecord {
-  cinemaAddress?: string;
   pickupCode?: string;
   cancelledAt?: string;
   seats?: OrderSeatRecord[];
@@ -32,7 +31,7 @@ export interface OrderDetail extends OrderRecord {
 /** 订单详情中的座位记录 */
 export interface OrderSeatRecord {
   seatLabel: string;
-  status: 'sold' | 'available';
+  status: string;
 }
 
 /** 订单列表查询参数 */
@@ -55,7 +54,7 @@ export type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded';
 /** 订单座位 */
 export interface OrderSeat {
   seatLabel: string;
-  status: 'sold' | 'available';
+  status: string;
 }
 
 /** 订单条目（Store / 页面展示用） */
@@ -63,10 +62,8 @@ export interface OrderItem {
   id: string;
   orderNo: string;
   userPhone: string;
-  userId?: string;
   movieName: string;
   cinemaName: string;
-  cinemaAddress?: string;
   hallName: string;
   showDate: string;
   startTime: string;
@@ -80,7 +77,6 @@ export interface OrderItem {
   cancelledAt?: string;
   cancelReason?: string;
   seats?: OrderSeat[];
-  scheduleId?: string;
 }
 
 // ---------- 映射函数 ----------
@@ -103,7 +99,6 @@ export function mapOrderRecord(record: OrderRecord): OrderItem {
     createdAt: record.createdAt,
     paidAt: record.paidAt,
     cancelReason: record.cancelReason,
-    cinemaAddress: (record as OrderDetail).cinemaAddress,
     pickupCode: (record as OrderDetail).pickupCode,
     cancelledAt: (record as OrderDetail).cancelledAt,
     seats: (record as OrderDetail).seats?.map((s) => ({
