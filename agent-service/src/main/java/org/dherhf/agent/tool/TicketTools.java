@@ -131,13 +131,15 @@ public class TicketTools {
         return toJson(result);
     }
 
-    @Tool("根据名称或设施查询影院列表。用户选定影片后或主动询问影院时调用。返回后端原始 JSON 数据。")
+    @Tool("根据影片id,名称或设施查询影院列表。用户选定影片或主动询问影院时调用。返回后端原始 JSON 数据。")
     public String searchCinemas(
+            @P("影片 ID（由 searchMovies 返回）；无影片约束时传空字符串") String movieId,
             @P("影院名称关键词，如'万达影城'；无约束时传空字符串") String keyword,
             @P("设施要求，如'IMAX'；无要求时传空字符串") String facilities
     ) {
-        log.info("[Tool:searchCinemas] keyword={}, facilities={}", keyword, facilities);
-        Result<Object> result = ticketClient.searchCinemas(keyword, facilities);
+        Long movieIdLong = parseLong(movieId);
+        log.info("[Tool:searchCinemas] movieId={}, keyword={}, facilities={}", movieIdLong, keyword, facilities);
+        Result<Object> result = ticketClient.searchCinemas(movieIdLong, keyword, facilities);
         if (result.getCode() == 0) {
             emitCard("cinema_list", result.getData());
         }

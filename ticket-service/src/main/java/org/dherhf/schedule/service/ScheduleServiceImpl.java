@@ -440,6 +440,7 @@ public class ScheduleServiceImpl implements ScheduleService {
                 .totalCols(hall != null ? hall.getTotalCols() : 0)
                 .totalSeats(schedule.getTotalSeats())
                 .availableSeats(availableCount)
+                .price(schedule.getPrice())
                 .seats(seats)
                 .build();
     }

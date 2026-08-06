@@ -80,10 +80,10 @@ class TicketServiceClientTest {
     @DisplayName("searchCinemas - 成功返回影院列表")
     void searchCinemas_success() {
         System.out.println("[TicketServiceClientTest] ▶ searchCinemas_success");
-        when(feignClient.searchCinemas(any(), any()))
+        when(feignClient.searchCinemas(any(), any(), any()))
                 .thenReturn(Result.success(Map.of("total", 1, "records", List.of())));
 
-        Result<Object> result = client.searchCinemas("万达", "");
+        Result<Object> result = client.searchCinemas(null, "万达", "");
 
         assertEquals(0, result.getCode());
         System.out.println("[TicketServiceClientTest] ✓ searchCinemas_success PASSED");

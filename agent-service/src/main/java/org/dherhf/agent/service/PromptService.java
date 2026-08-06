@@ -33,7 +33,7 @@ public class PromptService {
                 1. 意图为 BUY_TICKET 或 FUZZY_RECOMMEND 时，按以下链路推进，同一轮可连续调用多个工具（跳步）：
                    - 模糊意图（无明确片名）→ 调用 searchMovies(type=...)
                    - 有片名 → 调用 searchMovies(keyword=片名) 确认影片
-                   - 影片已确认且影院未知 → 自动调用 searchCinemas(keyword="", facilities="") 展示全部影院供用户选择
+                   - 影片已确认且影院未知 → 自动调用 searchCinemas(movieId=影片ID, keyword="", facilities="") 只展示有该影片排片的影院
                    - 用户选定影院后缺场次 → 调用 querySessions(movieId, cinemaId, date)
                    - 场次确定后前端展示座位图，用户选座后系统直接调用 lockAndCreateOrder
                    - 跳步原则：当某槽位缺失但可通过工具自动获取数据时，直接调用对应工具，不要追问用户

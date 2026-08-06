@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import org.dherhf.cinema.vo.SeatVO;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -20,5 +21,6 @@ public class SeatMapVO {
     private Integer totalCols;
     private Integer totalSeats;
     private Integer availableSeats;
+    private BigDecimal price;
     private List<SeatVO> seats;
 }
