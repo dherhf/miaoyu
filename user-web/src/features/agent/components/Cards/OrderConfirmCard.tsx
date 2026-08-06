@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Button, Tag, Modal } from 'antd'
+import { Button, Tag, App } from 'antd'
 import type { BaseCardProps, OrderConfirmCardData } from '../../types'
 
 /** HH:mm 格式化秒数 */
@@ -50,6 +50,7 @@ const S: Record<string, React.CSSProperties> = {
 }
 
 export default function OrderConfirmCard({ data, onAction }: BaseCardProps<OrderConfirmCardData>) {
+  const { modal } = App.useApp()
   const { status, movieName, cinemaName, hallName, showDate, startTime, seatInfo, ticketCount, totalAmount, orderNo, remainingTime, expireAt } = data || {}
   const calcInitial = () => {
     if (!expireAt) return remainingTime ?? 0
@@ -88,7 +89,7 @@ export default function OrderConfirmCard({ data, onAction }: BaseCardProps<Order
 
   const handleCancel = useCallback(() => {
     if (expired) return
-    Modal.confirm({
+    modal.confirm({
       title: '取消订单',
       content: '确定放弃这些座位吗？取消后座位将被释放。',
       okText: '确认取消',
