@@ -68,8 +68,6 @@ export default function OrderListCard({ data, onAction }: BaseCardProps<OrderLis
 
   const handleFilter = (key: string) => {
     setActiveFilter(key)
-    const label = key ? FILTERS.find((f) => f.key === key)?.label : '全部'
-    onAction(`显示${label}订单`)
   }
 
   const handleRefund = (orderNo: string) => {

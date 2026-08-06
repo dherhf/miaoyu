@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Dropdown, Typography } from 'antd'
-import { LeftOutlined, MessageOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons'
+import { LeftOutlined, LogoutOutlined, MessageOutlined, ProfileOutlined, UserOutlined } from '@ant-design/icons'
 import { useAuthStore } from '@/features/auth'
 import { getNotifications, markNotificationRead } from '@/features/notification'
 import type { NotificationVO } from '@/features/notification/types'
@@ -101,6 +101,11 @@ export function Header() {
           <NotificationBell
             items={notifications}
             onRead={handleNotificationRead}
+          />
+          <Button
+            type="text"
+            icon={<ProfileOutlined />}
+            onClick={() => navigate('/orders')}
           />
           <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
             <Button type="text" icon={<UserOutlined />}>
