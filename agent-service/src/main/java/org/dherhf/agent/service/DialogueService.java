@@ -1,9 +1,12 @@
 package org.dherhf.agent.service;
 
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
+import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.service.AiServices;
 import dev.langchain4j.service.MemoryId;
+import dev.langchain4j.service.TokenStream;
 import dev.langchain4j.service.UserMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,11 +17,15 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import org.dherhf.common.result.ErrorCodeEnum;
 import org.dherhf.agent.document.ChatMessage;
+import org.dherhf.agent.enums.IntentEnum;
 import org.dherhf.agent.enums.SessionStatusEnum;
-import org.dherhf.agent.model.AgentResponse;
 import org.dherhf.agent.model.card.CardPayload;
 import org.dherhf.agent.model.sse.SseEvent;
 import org.dherhf.agent.model.ticket.RequestContext;
@@ -26,14 +33,12 @@ import org.dherhf.agent.model.ticket.SlotState;
 import org.dherhf.agent.tool.TicketServiceClient;
 import org.dherhf.agent.tool.TicketTools;
 
-import dev.langchain4j.model.chat.ChatModel;
-
 /**
  * 对话引擎主流程服务。
  * <p>
  * 流程：用户输入 → 输入安全过滤 → 构造 LLM 请求（System Prompt + 上下文 + 历史） →
- * LangChain4j 调用 DeepSeek → 工具调用（自动跳步/缺槽追问/上下文修正） →
- * 输出校验 → SSE 流式推送 → MongoDB 持久化
+ * LangChain4j 流式调用 DeepSeek → 工具调用（自动跳步/缺槽追问/上下文修正） →
+ * 逐 token SSE 推送 → 输出校验 → 元数据解析 → MongoDB 持久化
  * </p>
  */
 @Slf4j
@@ -41,7 +46,7 @@ import dev.langchain4j.model.chat.ChatModel;
 @RequiredArgsConstructor
 public class DialogueService {
 
-    private final ChatModel chatModel;
+    private final StreamingChatModel streamingChatModel;
     private final PromptService promptService;
     private final InputFilterService inputFilterService;
     private final OutputValidatorService outputValidatorService;
@@ -58,18 +63,22 @@ public class DialogueService {
     @Value("${agent.sse-timeout-seconds}")
     private long sseTimeoutSeconds;
 
-    /** LangChain4j AiService 接口，@MemoryId 绑定 sessionId 用于会话隔离。返回结构化响应由框架自动反序列化。 */
+    /** 元数据分隔符，LLM 输出内容后以此标记开头输出 JSON 元数据 */
+    private static final String META_DELIMITER = "<<<META>>>";
+
+    /** LangChain4j AiService 接口，@MemoryId 绑定 sessionId 用于会话隔离。返回 TokenStream 实现流式输出。 */
     public interface ChatAssistant {
-        AgentResponse chat(@MemoryId String sessionId, @UserMessage String userMessage);
+        TokenStream chat(@MemoryId String sessionId, @UserMessage String userMessage);
     }
 
     /**
      * 为每次请求构建独立的 AiServices 实例，绑定 sessionId 和 TicketTools。
+     * 使用 StreamingChatModel 实现 token 级流式输出。
      * 测试时可覆写此方法返回 mock。
      */
     protected ChatAssistant buildChatAssistant(String sessionId, TicketTools tools) {
         return AiServices.builder(ChatAssistant.class)
-                .chatModel(chatModel)
+                .streamingChatModel(streamingChatModel)
                 .tools(tools)
                 .systemMessageProvider(memoryId -> promptService.getSystemPrompt())
                 .chatMemoryProvider(memoryId -> MessageWindowChatMemory.builder()
@@ -165,12 +174,19 @@ public class DialogueService {
         return emitter;
     }
 
+    /**
+     * 流式处理对话：通过 TokenStream 逐 token 推送 SSE，完成后解析元数据并发送 card/done。
+     * <p>
+     * LLM 按提示词约定先输出 markdown 内容，再以 &lt;&lt;&lt;META&gt;&gt;&gt; 分隔输出 JSON 元数据。
+     * 流式阶段仅推送分隔符之前的 token；完成后解析 JSON 提取 intent/slots。
+     * </p>
+     */
     private void processDialogue(
             SseEmitter emitter,
             String sessionId,
             String content,
             SlotState slotState
-    ) throws IOException {
+    ) {
         List<ChatMessage> recentMessages = contextService.getRecentMessages(sessionId);
         String contextPrompt = buildContextPrompt(content, slotState, recentMessages);
 
@@ -184,73 +200,176 @@ public class DialogueService {
 
         contextService.updateContext(sessionId, slotState, userMsg, userMsg.getCreatedAt());
 
-        // 每次请求构建独立的 TicketTools + ChatAssistant，通过 @MemoryId 绑定 sessionId
         TicketTools tools = createTicketTools(sessionId);
         ChatAssistant assistant = buildChatAssistant(sessionId, tools);
 
-        AgentResponse response;
+        StringBuilder fullText = new StringBuilder();
+        int[] sentUpTo = {0};
+        boolean[] metaFound = {false};
+
+        CompletableFuture<Void> streamFuture = new CompletableFuture<>();
+
+        TokenStream tokenStream = assistant.chat(sessionId, contextPrompt);
+        tokenStream
+            .onPartialResponse(token -> {
+                if (metaFound[0]) return;
+
+                fullText.append(token);
+                String current = fullText.toString();
+
+                int metaIdx = current.indexOf(META_DELIMITER);
+                if (metaIdx != -1) {
+                    metaFound[0] = true;
+                    if (metaIdx > sentUpTo[0]) {
+                        String toSend = current.substring(sentUpTo[0], metaIdx);
+                        try {
+                            sendSseEvent(emitter, SseEvent.message(toSend));
+                        } catch (IOException e) {
+                            log.error("[processDialogue] SSE 推送失败: {}", e.getMessage());
+                        }
+                    }
+                    sentUpTo[0] = metaIdx;
+                    return;
+                }
+
+                // 检查 buffer 末尾是否可能是分隔符的前缀（跨 token 边界）
+                int safeEnd = current.length();
+                for (int i = Math.max(sentUpTo[0], current.length() - META_DELIMITER.length()); i < current.length(); i++) {
+                    String suffix = current.substring(i);
+                    if (META_DELIMITER.startsWith(suffix)) {
+                        safeEnd = i;
+                        break;
+                    }
+                }
+
+                if (safeEnd > sentUpTo[0]) {
+                    String toSend = current.substring(sentUpTo[0], safeEnd);
+                    try {
+                        sendSseEvent(emitter, SseEvent.message(toSend));
+                    } catch (IOException e) {
+                        log.error("[processDialogue] SSE 推送失败: {}", e.getMessage());
+                    }
+                }
+                sentUpTo[0] = safeEnd;
+            })
+            .onCompleteResponse(response -> {
+                try {
+                    String full = fullText.toString();
+                    String aiContent;
+                    IntentEnum intent = IntentEnum.OTHER;
+                    SlotState incomingSlots = new SlotState();
+
+                    int metaIdx = full.indexOf(META_DELIMITER);
+                    if (metaIdx != -1) {
+                        aiContent = full.substring(0, metaIdx).trim();
+                        int metaEnd = full.indexOf(META_DELIMITER, metaIdx + META_DELIMITER.length());
+                        String metaJson = metaEnd != -1
+                                ? full.substring(metaIdx + META_DELIMITER.length(), metaEnd).trim()
+                                : full.substring(metaIdx + META_DELIMITER.length()).trim();
+                        try {
+                            JsonNode metaNode = objectMapper.readTree(metaJson);
+                            if (metaNode.has("intent")) {
+                                try {
+                                    intent = IntentEnum.valueOf(metaNode.get("intent").asString());
+                                } catch (IllegalArgumentException e) {
+                                    intent = IntentEnum.OTHER;
+                                }
+                            }
+                            if (metaNode.has("slots") && !metaNode.get("slots").isNull()) {
+                                incomingSlots = objectMapper.treeToValue(metaNode.get("slots"), SlotState.class);
+                            }
+                        } catch (Exception e) {
+                            log.warn("[processDialogue] 元数据解析失败: {}", e.getMessage());
+                        }
+                    } else {
+                        aiContent = full.trim();
+                    }
+
+                    if (!outputValidatorService.validate(aiContent)) {
+                        sendSseEvent(emitter, SseEvent.error("50002", "AI 输出异常，请重试"));
+                        emitter.complete();
+                        streamFuture.complete(null);
+                        return;
+                    }
+
+                    // 只推送最后一张卡片（跳步场景下中间卡片对用户无意义）
+                    List<CardPayload> cards = tools.drainCards();
+                    if (!cards.isEmpty()) {
+                        CardPayload lastCard = cards.getLast();
+                        log.info("[processDialogue] 推送卡片: {}", lastCard.getCardType());
+                        sendSseEvent(emitter, SseEvent.card(lastCard.getCardType(), lastCard.getCardData()));
+                    }
+
+                    SlotState updatedSlotState = contextService.mergeSlots(slotState, incomingSlots);
+
+                    // 标准化 movieName 类型字段（统一小写，用于模糊推荐匹配）
+                    if (updatedSlotState.getMovieName() != null) {
+                        updatedSlotState.setMovieName(updatedSlotState.getMovieName().trim());
+                    }
+
+                    int negateCount = updatedSlotState.getNegateCount() != null ? updatedSlotState.getNegateCount() : 0;
+                    if (negateCount >= negateThreshold) {
+                        String degradeMsg = "看来我的推荐不太对，让我了解得更准确一些——您更偏好哪种类型？预算大概多少？";
+                        sendSseEvent(emitter, SseEvent.message(degradeMsg));
+                        aiContent = aiContent + degradeMsg;
+                    }
+
+                    ChatMessage aiMsg = new ChatMessage();
+                    aiMsg.setMsgId(nextId + 1);
+                    aiMsg.setRole("assistant");
+                    aiMsg.setContent(aiContent);
+                    aiMsg.setIntent(intent.name());
+                    aiMsg.setSlots(updatedSlotState);
+                    aiMsg.setCreatedAt(LocalDateTime.now());
+                    if (!cards.isEmpty()) {
+                        aiMsg.setCardType(cards.getLast().getCardType());
+                        aiMsg.setCardData(cards.getLast().getCardData());
+                    }
+
+                    contextService.updateContext(sessionId, updatedSlotState, aiMsg, aiMsg.getCreatedAt());
+
+                    // 避免重复推送：只推送一次完成状态
+                    sendSseEvent(emitter, SseEvent.done(sessionId,
+                            intent.name(),
+                            updatedSlotState));
+                    emitter.complete();
+                    streamFuture.complete(null);
+                } catch (Exception e) {
+                    log.error("[processDialogue] 完成处理异常: {}", e.getMessage(), e);
+                    try {
+                        sendSseEvent(emitter, SseEvent.error("500", "处理异常，请重试"));
+                    } catch (IOException ignored) {}
+                    emitter.complete();
+                    streamFuture.completeExceptionally(e);
+                }
+            })
+            .onError(error -> {
+                log.error("[processDialogue] LLM 流式响应异常: {}", error.getMessage(), error);
+                try {
+                    sendSseEvent(emitter, SseEvent.error("50001", "AI 响应超时，请重试"));
+                    emitter.complete();
+                } catch (IOException ignored) {}
+                streamFuture.completeExceptionally(error);
+            })
+            .start();
+
+        // 阻塞虚拟线程直到流式响应完成或超时
         try {
-            response = assistant.chat(sessionId, contextPrompt);
-        } catch (Exception ex) {
-            log.error("[processDialogue] LLM 调用失败: {}", ex.getMessage(), ex);
-            sendSseEvent(emitter, SseEvent.error("50001", "AI 响应超时，请重试"));
+            streamFuture.get(sseTimeoutSeconds, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            log.error("[processDialogue] LLM 流式响应超时");
+            try {
+                sendSseEvent(emitter, SseEvent.error("50001", "AI 响应超时，请重试"));
+            } catch (IOException ignored) {}
             emitter.complete();
-            return;
-        }
-
-        String aiContent = response.content() != null ? response.content() : "";
-        if (!outputValidatorService.validate(aiContent)) {
-            sendSseEvent(emitter, SseEvent.error("50002", "AI 输出异常，请重试"));
+        } catch (ExecutionException e) {
+            log.error("[processDialogue] 流式响应异常: {}",
+                    e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
             emitter.complete();
-            return;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            emitter.complete();
         }
-
-        // 只推送最后一张卡片（跳步场景下中间卡片对用户无意义）
-        List<CardPayload> cards = tools.drainCards();
-        if (!cards.isEmpty()) {
-            CardPayload lastCard = cards.getLast();
-            log.info("[processDialogue] 推送卡片: {}", lastCard.getCardType());
-            sendSseEvent(emitter, SseEvent.card(lastCard.getCardType(), lastCard.getCardData()));
-        }
-
-        if (!aiContent.isBlank()) {
-            sendSseEvent(emitter, SseEvent.message(aiContent));
-        }
-
-        SlotState incomingSlots = response.slots() != null ? response.slots() : new SlotState();
-        SlotState updatedSlotState = contextService.mergeSlots(slotState, incomingSlots);
-
-        // 标准化 movieName 类型字段（统一小写，用于模糊推荐匹配）
-        if (updatedSlotState.getMovieName() != null) {
-            updatedSlotState.setMovieName(updatedSlotState.getMovieName().trim());
-        }
-
-        int negateCount = updatedSlotState.getNegateCount() != null ? updatedSlotState.getNegateCount() : 0;
-        if (negateCount >= negateThreshold) {
-            String degradeMsg = "看来我的推荐不太对，让我了解得更准确一些——您更偏好哪种类型？预算大概多少？";
-            sendSseEvent(emitter, SseEvent.message(degradeMsg));
-            aiContent = aiContent + degradeMsg;
-        }
-
-        ChatMessage aiMsg = new ChatMessage();
-        aiMsg.setMsgId(nextId + 1);
-        aiMsg.setRole("assistant");
-        aiMsg.setContent(aiContent);
-        aiMsg.setIntent(response.intent() != null ? response.intent().name() : null);
-        aiMsg.setSlots(updatedSlotState);
-        aiMsg.setCreatedAt(LocalDateTime.now());
-        if (!cards.isEmpty()) {
-            aiMsg.setCardType(cards.getLast().getCardType());
-            aiMsg.setCardData(cards.getLast().getCardData());
-        }
-
-        contextService.updateContext(sessionId, updatedSlotState, aiMsg, aiMsg.getCreatedAt());
-
-        // 避免重复推送：只推送一次完成状态
-        sendSseEvent(emitter, SseEvent.done(sessionId,
-                response.intent() != null ? response.intent().name() : "",
-                updatedSlotState));
-        emitter.complete();
     }
 
     private String buildContextPrompt(
