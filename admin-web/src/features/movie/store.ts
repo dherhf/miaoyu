@@ -5,14 +5,14 @@ import { movieApi } from './api';
 
 // ===================== 常量 =====================
 export const MOVIE_TYPES = [
-  { value: 'scifi', label: '科幻' },
-  { value: 'action', label: '动作' },
-  { value: 'comedy', label: '喜剧' },
-  { value: 'romance', label: '爱情' },
-  { value: 'suspense', label: '悬疑' },
-  { value: 'animation', label: '动画' },
-  { value: 'documentary', label: '纪录片' },
-  { value: 'other', label: '其他' },
+  { value: '科幻', label: '科幻' },
+  { value: '动作', label: '动作' },
+  { value: '喜剧', label: '喜剧' },
+  { value: '爱情', label: '爱情' },
+  { value: '悬疑', label: '悬疑' },
+  { value: '动画', label: '动画' },
+  { value: '纪录片', label: '纪录片' },
+  { value: '其他', label: '其他' },
 ];
 
 export type { MovieStatus, MovieItem, MovieListParams, MovieCreateParams, BatchResult } from './types';

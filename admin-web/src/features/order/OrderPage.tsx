@@ -94,9 +94,6 @@ const OrderDetailContent: React.FC<{ order: OrderItem }> = ({ order }) => {
         <Descriptions.Item label="影片名称" span={2}>{order.movieName}</Descriptions.Item>
         <Descriptions.Item label="影院名称">{order.cinemaName}</Descriptions.Item>
         <Descriptions.Item label="影厅">{order.hallName}</Descriptions.Item>
-        {order.cinemaAddress && (
-          <Descriptions.Item label="影院地址" span={2}>{order.cinemaAddress}</Descriptions.Item>
-        )}
         <Descriptions.Item label="放映日期">{order.showDate}</Descriptions.Item>
         <Descriptions.Item label="放映时间">{order.startTime}</Descriptions.Item>
         <Descriptions.Item label="座位信息" span={2}>{order.seatInfo}</Descriptions.Item>
@@ -124,7 +121,7 @@ const OrderDetailContent: React.FC<{ order: OrderItem }> = ({ order }) => {
           <Divider orientation="left" className={styles.sectionDivider}>座位明细</Divider>
           <div className={styles.seatsContainer}>
             {order.seats.map((seat, idx) => (
-              <Tag key={idx} color={seat.status === 'sold' ? 'blue' : 'default'}>
+              <Tag key={idx} color={seat.status === 'sold' || seat.status === 'paid' ? 'blue' : 'default'}>
                 {seat.seatLabel}
               </Tag>
             ))}

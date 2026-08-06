@@ -182,7 +182,22 @@ public class HallServiceImpl implements HallService {
                             .eq(ScheduleSeat::getScheduleId, sch.getId())
                             .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.SOLD.getCode()));
             if (soldCount > 0) {
-                throw new BusinessException(409, "影厅已有未来排片且存在已售座位，不可修改布局");
+                throw new BusinessException(409, "影厅已有未来排片且存在已售座位，不可修改布局。排片ID=" + sch.getId() + "，已售座位数=" + soldCount);
+            }
+        }
+
+        // 检查是否有非已售状态的 schedule_seats 引用了当前 hall_cells（这些记录会阻止删除）
+        List<HallCell> existingCells = hallCellMapper.selectList(
+                new LambdaQueryWrapper<HallCell>().eq(HallCell::getHallId, id));
+        List<Long> existingCellIds = existingCells.stream().map(HallCell::getId).collect(Collectors.toList());
+        if (!existingCellIds.isEmpty()) {
+            Long referencedCount = scheduleSeatMapper.selectCount(
+                    new LambdaQueryWrapper<ScheduleSeat>()
+                            .in(ScheduleSeat::getHallCellId, existingCellIds));
+            if (referencedCount > 0) {
+                throw new BusinessException(409, "影厅座位已被排片引用，无法删除重建。引用记录数=" + referencedCount
+                        + "，被引用的座位格数=" + existingCellIds.size()
+                        + "，hallCellIds=" + existingCellIds);
             }
         }
 

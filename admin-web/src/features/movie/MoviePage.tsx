@@ -209,7 +209,7 @@ export function MovieManage() {
           <div>
             <div className={styles.movieName}>{record.name}</div>
             <div className={styles.movieTypes}>
-              {record.types.map((t) => MOVIE_TYPES.find((mt) => mt.value === t)?.label).join('、')}
+              {record.types.join('、')}
             </div>
           </div>
         </Space>

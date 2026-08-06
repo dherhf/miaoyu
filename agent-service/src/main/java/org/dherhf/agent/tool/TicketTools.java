@@ -119,7 +119,7 @@ public class TicketTools {
     @Tool("根据影片名称或类型查询影片列表。当用户表达模糊意图（如'想看个喜剧'）或指定片名时调用。也可按影院查影片（如'长沙学院有什么电影'）。返回后端原始 JSON 数据。")
     public String searchMovies(
             @P("影片名称关键词，如'流浪地球3'；用户未指定片名时传空字符串") String keyword,
-            @P("影片类型标签，英文枚举值：scifi(科幻)/action(动作)/comedy(喜剧)/romance(爱情)/suspense(悬疑)/animation(动画)/documentary(纪录片)/other(其他)；无类型约束时传空字符串") String type,
+            @P("影片类型标签，中文枚举值：科幻/动作/喜剧/爱情/悬疑/动画/纪录片/其他；无类型约束时传空字符串") String type,
             @P("影院 ID，当用户想查某影院有哪些电影时传入（由 searchCinemas 返回）；无影院约束时传空字符串") String cinemaId
     ) {
         Long cinemaIdLong = parseLong(cinemaId);
