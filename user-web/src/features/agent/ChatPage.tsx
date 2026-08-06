@@ -88,7 +88,6 @@ export default function ChatPage() {
             next[lastIndex] = {
               ...next[lastIndex],
               content: next[lastIndex].content + event.content,
-              pending: false,
             }
           }
           return next
