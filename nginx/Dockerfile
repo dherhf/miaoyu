@@ -7,13 +7,13 @@ RUN npm ci
 COPY user-web/ .
 RUN npm run build
 
-# ====== 构建 web-admin-front ======
+# ====== 构建 admin-web ======
 FROM node:22-alpine AS admin-builder
 
 WORKDIR /build
-COPY web-admin-front/package*.json ./
+COPY admin-web/package*.json ./
 RUN npm ci
-COPY web-admin-front/ .
+COPY admin-web/ .
 RUN npm run build
 
 # ====== Nginx 运行阶段 ======
