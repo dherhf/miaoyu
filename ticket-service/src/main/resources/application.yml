@@ -3,7 +3,9 @@ server:
 
 spring:
   config:
-    import: "optional:file:.env[.properties]"
+    import:
+      - "optional:file:../.env[.properties]"
+      - "optional:file:.env[.properties]"
   servlet:
     multipart:
       max-file-size: 10MB
@@ -54,6 +56,27 @@ login:
   max-fail-count: 5
   # 锁定时长:15 分钟
   lock-duration: 900
+
+# 图形验证码配置
+captcha:
+  # 验证码过期时间（秒）
+  expire-seconds: 60
+  # 验证码字符数
+  length: 4
+
+# 短信验证码配置（阿里云号码认证服务）
+sms:
+  access-key-id: ${SMS_ACCESS_KEY_ID}
+  access-key-secret: ${SMS_ACCESS_KEY_SECRET}
+  sign-name: ${SMS_SIGN_NAME:速通互联验证码}
+  # 注册/登录模板 CODE
+  template-code-register: ${SMS_TEMPLATE_CODE_REGISTER:100001}
+  # 重置密码模板 CODE
+  template-code-reset-password: ${SMS_TEMPLATE_CODE_RESET_PASSWORD:100003}
+  endpoint: dypnsapi.aliyuncs.com
+  region: cn-beijing
+  # 发送间隔限制（秒）
+  send-interval: 60
 
 # 内部接口 Token（agent-service 调用 /internal/** 时需携带）
 internal:
