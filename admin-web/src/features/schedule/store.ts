@@ -34,6 +34,7 @@ interface ScheduleState {
   addSchedule: (payload: ScheduleCreateParams) => Promise<void>;
   updateSchedule: (id: string, payload: ScheduleUpdateParams) => Promise<void>;
   cancelSchedule: (id: string) => Promise<void>;
+  restoreSchedule: (id: string) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
 }
 
@@ -69,6 +70,11 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
 
   cancelSchedule: async (id: string): Promise<void> => {
     await scheduleApi.cancel(id);
+    await get().fetchSchedules();
+  },
+
+  restoreSchedule: async (id: string): Promise<void> => {
+    await scheduleApi.restore(id);
     await get().fetchSchedules();
   },
 

@@ -63,4 +63,12 @@ public class HallController {
     public Result<LayoutResultVO> saveLayout(@PathVariable Long id, @Valid @RequestBody HallLayoutDTO dto) {
         return Result.success(hallService.saveLayout(id, dto));
     }
+
+    @Operation(summary = "删除影厅")
+    @DeleteMapping("/{id}")
+    @AuditLog(action = "DELETE", targetType = "hall")
+    public Result<Void> delete(@PathVariable Long id) {
+        hallService.deleteHall(id);
+        return Result.success();
+    }
 }

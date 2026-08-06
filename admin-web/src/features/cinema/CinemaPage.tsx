@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Button, Modal, Tag, Space, message } from 'antd';
+import { Button, Modal, Tag, Space, App } from 'antd';
 import type { FormProps } from 'antd';
 import {
   PlusOutlined,
@@ -20,6 +20,7 @@ import styles from './CinemaPage.module.css';
 
 export function CinemaManage() {
   const actionRef = useRef<ActionType>(null);
+  const { message, modal } = App.useApp();
   const { fetchCinemas, addCinema, updateCinema, toggleCinemaStatus } = useCinemaStore();
   const { schedules } = useScheduleStore();
 
@@ -108,7 +109,7 @@ export function CinemaManage() {
       (s) => String(s.cinemaId) === String(record.id) && s.status !== 'cancelled' && s.status !== 'ended',
     );
     if (targetStatus === CINEMA_STATUS.CLOSED && hasUnFinishSchedule) {
-      Modal.confirm({
+      modal.confirm({
         title: '确认停业',
         content: '该影院存在未结束场次，停业后将暂停售票，确认继续？',
         okText: '确认停业',

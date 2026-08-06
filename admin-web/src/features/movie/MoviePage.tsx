@@ -7,7 +7,7 @@ import {
   Film,
   AlertTriangle,
 } from 'lucide-react';
-import { Modal, Button, Space, Tag, message, Form } from 'antd';
+import { Modal, Button, Space, Tag, App, Form } from 'antd';
 import { ProTable } from '@ant-design/pro-components';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import dayjs from 'dayjs';
@@ -35,6 +35,7 @@ const EMPTY_FORM: MovieFormValues = {
 //主页面 Movie 影片管理
 export function MovieManage() {
   const actionRef = useRef<ActionType>(null);
+  const { message, modal } = App.useApp();
   const { fetchMovies, addMovie, editMovie, toggleStatus } = useMovieStore();
   const { hasMovieSchedule } = useScheduleStore();
 
@@ -98,7 +99,7 @@ export function MovieManage() {
   const handleToggle = async (row: MovieItem, targetStatus: MovieStatus) => {
     const action = targetStatus === 'showing' ? '上架' : '下架';
     if (targetStatus === 'offline' && hasMovieSchedule(row.id)) {
-      Modal.confirm({
+      modal.confirm({
         title: '确认下架',
         content: '该影片存在关联场次，下架后相关场次将不再展示，是否继续？',
         okText: '确认下架',
@@ -122,7 +123,7 @@ export function MovieManage() {
     const action = targetStatus === 'showing' ? '上架' : '下架';
     const hasRelated = selectedIds.some((id) => hasMovieSchedule(id));
     if (targetStatus === 'offline' && hasRelated) {
-      Modal.confirm({
+      modal.confirm({
         title: '批量下架',
         content: '选中部分影片存在关联场次，下架后场次隐藏，确认执行？',
         okText: '确认',
@@ -364,8 +365,7 @@ export function MovieManage() {
         )}
       />
 
-      <Modal
-        title={editingMovie ? '编辑影片' : '新增影片'}
+      <Modal        title={editingMovie ? '编辑影片' : '新增影片'}
         open={modalOpen}
         width={620}
         maskClosable={false}

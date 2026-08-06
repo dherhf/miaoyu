@@ -20,4 +20,6 @@ public interface HallService {
     HallVO updateHall(Long id, HallUpdateDTO dto);
 
     LayoutResultVO saveLayout(Long id, HallLayoutDTO dto);
+
+    void deleteHall(Long id);
 }

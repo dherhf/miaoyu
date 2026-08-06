@@ -45,6 +45,14 @@ public class ScheduleController {
         return Result.success();
     }
 
+    @Operation(summary = "恢复场次")
+    @PutMapping("/{id}/restore")
+    @AuditLog(action = "UPDATE", targetType = "schedule")
+    public Result<Void> restore(@PathVariable Long id) {
+        scheduleService.restoreSchedule(id);
+        return Result.success();
+    }
+
     @Operation(summary = "结束场次")
     @PutMapping("/{id}/end")
     @AuditLog(action = "UPDATE", targetType = "schedule")

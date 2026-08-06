@@ -86,15 +86,13 @@ const router = createBrowserRouter([
 
 function App() {
   return (
-    <React.StrictMode>
-      {/* antd全局配置：中文、主色调 */}
-      <ConfigProvider
-        locale={zhCN}
-        theme={{
-          token: {
-            colorPrimary: '#1677ff',
-            borderRadius: 6,
-          }}}
+    <ConfigProvider
+      locale={zhCN}
+      theme={{
+        token: {
+          colorPrimary: '#1677ff',
+          borderRadius: 6,
+        }}}
       >
         <AntApp>
           <GlobalMessageSetup />
@@ -103,7 +101,6 @@ function App() {
           <RouterProvider router={router} />
         </AntApp>
       </ConfigProvider>
-    </React.StrictMode>
   );
 }
 

@@ -9,7 +9,7 @@ import {
   TeamOutlined,
   ArrowLeftOutlined,
 } from '@ant-design/icons';
-import { Table, Modal, Input, Button, Select, Tag, Space, Typography, Card, Form, message } from 'antd';
+import { Table, Modal, Input, Button, Select, Tag, Space, Typography, Card, Form, App } from 'antd';
 import type { TableProps } from 'antd';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCinemaStore } from '../cinema';
@@ -28,6 +28,7 @@ import styles from './HallPage.module.css';
 
 export function HallPage() {
   const navigate = useNavigate();
+  const { message, modal } = App.useApp();
   const [searchParams] = useSearchParams();
   const cinemaIdParam = searchParams.get('cinemaId');
   const { cinemas } = useCinemaStore();
@@ -151,7 +152,7 @@ export function HallPage() {
   const handleDelete = (hall: HallItem) => {
     const hasSchedule = schedules.some(s => String(s.hallId) === String(hall.id) && s.status !== 'cancelled' && s.status !== 'ended');
     if (hasSchedule) return message.error('该影厅有排期，无法删除');
-    Modal.confirm({ title: '删除确认', content: `确定删除【${hall.name}】？删除不可恢复`, okText: '确认删除', okButtonProps: { danger: true }, onOk: async () => { await deleteHall(hall.id); message.success('删除成功'); setSelectedIds(prev => prev.filter(id => id !== hall.id)); } });
+    modal.confirm({ title: '删除确认', content: `确定删除【${hall.name}】？删除不可恢复`, okText: '确认删除', okButtonProps: { danger: true }, onOk: async () => { await deleteHall(hall.id); message.success('删除成功'); setSelectedIds(prev => prev.filter(id => id !== hall.id)); } });
   };
   const backCinema = () => { setSelectedCinemaId(''); navigate('/halls'); };
 
