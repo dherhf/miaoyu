@@ -1,10 +1,12 @@
 package org.dherhf.agent.tool;
 
 import lombok.extern.slf4j.Slf4j;
+import org.dherhf.common.result.ErrorCodeEnum;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -12,6 +14,7 @@ import java.util.Map;
  * <p>
  * 代理地址: https://www.weavefox.cn/api/v1/amap
  * 返回原始 JSON 字符串，不做解析，交给 LLM 理解。
+ * 错误时返回与 {@link org.dherhf.common.result.Result} 一致的 JSON 结构。
  * </p>
  */
 @Slf4j
@@ -20,7 +23,6 @@ public class AmapClient {
 
     private final RestClient restClient;
     private final String basePath;
-    private final String token;
 
     public AmapClient(
             @Value("${amap.endpoint}") String endpoint,
@@ -28,7 +30,6 @@ public class AmapClient {
             @Value("${amap.token}") String token
     ) {
         this.basePath = basePath;
-        this.token = token;
         this.restClient = RestClient.builder()
                 .baseUrl(endpoint)
                 .defaultHeader("Authorization", "Bearer " + token)
@@ -51,18 +52,23 @@ public class AmapClient {
             default -> "/route/driving";
         };
         try {
-            var builder = restClient.get()
-                    .uri(basePath + path + "?origin={origin}&destination={destination}",
-                            Map.of("origin", origin, "destination", destination));
+            Map<String, String> params = new HashMap<>();
+            params.put("origin", origin);
+            params.put("destination", destination);
             if ("transit".equals(mode) && city != null && !city.isBlank()) {
-                builder = restClient.get()
-                        .uri(basePath + path + "?origin={origin}&destination={destination}&city={city}",
-                                Map.of("origin", origin, "destination", destination, "city", city));
+                params.put("city", city);
             }
-            return builder.retrieve().body(String.class);
+            String query = params.entrySet().stream()
+                    .map(e -> e.getKey() + "={" + e.getKey() + "}")
+                    .reduce((a, b) -> a + "&" + b)
+                    .orElse("");
+            return restClient.get()
+                    .uri(basePath + path + "?" + query, params)
+                    .retrieve()
+                    .body(String.class);
         } catch (Exception e) {
             log.warn("[AmapClient] 路径规划失败: mode={}, origin={}, dest={}, err={}", mode, origin, destination, e.getMessage());
-            return "{\"code\":500,\"message\":\"路径规划失败：" + e.getMessage() + "\"}";
+            return errorJson(ErrorCodeEnum.TOOL_ERROR, "路径规划失败：" + e.getMessage());
         }
     }
 
@@ -85,7 +91,7 @@ public class AmapClient {
                     .body(String.class);
         } catch (Exception e) {
             log.warn("[AmapClient] 周边搜索失败: location={}, keywords={}, err={}", location, keywords, e.getMessage());
-            return "{\"code\":500,\"message\":\"周边搜索失败：" + e.getMessage() + "\"}";
+            return errorJson(ErrorCodeEnum.TOOL_ERROR, "周边搜索失败：" + e.getMessage());
         }
     }
 
@@ -98,13 +104,13 @@ public class AmapClient {
     public String getWeather(String city) {
         try {
             return restClient.get()
-                    .uri(basePath + "/weather?city={city}&extensions=base",
+                    .uri(basePath + "/weather?city={city}&extensions=all",
                             Map.of("city", city))
                     .retrieve()
                     .body(String.class);
         } catch (Exception e) {
             log.warn("[AmapClient] 天气查询失败: city={}, err={}", city, e.getMessage());
-            return "{\"code\":500,\"message\":\"天气查询失败：" + e.getMessage() + "\"}";
+            return errorJson(ErrorCodeEnum.TOOL_ERROR, "天气查询失败：" + e.getMessage());
         }
     }
 
@@ -125,7 +131,14 @@ public class AmapClient {
                     .body(String.class);
         } catch (Exception e) {
             log.warn("[AmapClient] 地理编码失败: address={}, err={}", address, e.getMessage());
-            return "{\"code\":500,\"message\":\"地理编码失败：" + e.getMessage() + "\"}";
+            return errorJson(ErrorCodeEnum.TOOL_ERROR, "地理编码失败：" + e.getMessage());
         }
+    }
+
+    /**
+     * 构建与 {@link org.dherhf.common.result.Result#error(int, String)} 一致的 JSON 错误响应。
+     */
+    private static String errorJson(ErrorCodeEnum code, String message) {
+        return "{\"code\":" + code.getCode() + ",\"message\":\"" + message + "\"}";
     }
 }

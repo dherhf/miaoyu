@@ -95,6 +95,20 @@ public class TicketTools {
         }
     }
 
+    /**
+     * 将 JSON 字符串解析为对象后推入卡片缓冲区。
+     * 避免 emitCard 传入 String 导致前端收到转义字符串而非 JSON 对象。
+     */
+    private void emitParsedCard(String cardType, String json) {
+        try {
+            Object parsed = objectMapper.readValue(json, Object.class);
+            emitCard(cardType, parsed);
+        } catch (Exception e) {
+            log.warn("[emitParsedCard] 解析失败，回退原始字符串: cardType={}", cardType);
+            emitCard(cardType, json);
+        }
+    }
+
     private static Long parseLong(String s) {
         if (s == null || s.isBlank()) return null;
         try { return Long.parseLong(s.trim()); } catch (NumberFormatException e) { return null; }
@@ -312,13 +326,13 @@ public class TicketTools {
 
     // ========== 行程规划工具 ==========
 
-    @Tool("路径规划。用户问怎么去影院/导航/路线时调用。先通过地理编码将地名转为坐标，再调用高德路径规划。返回原始 JSON 数据。")
+    @Tool("路径规划。用户问怎么去影院/导航/路线时调用。同时查询驾车和公交两种方案，返回原始 JSON 数据。")
     public String planRoute(
             @P("出发地点名称或地址，如'湖南大学'、'长沙南站'") String origin,
             @P("目的地名称或地址，如'长沙学院'或影院名称") String destination,
-            @P("出行方式：driving(驾车)/transit(公交)/walking(步行)；默认 driving") String mode
+            @P("出行方式：driving(驾车)/transit(公交)/walking(步行)；用户未指定时传空字符串，将同时查询驾车和公交") String mode
     ) {
-        String travelMode = (mode == null || mode.isBlank()) ? "driving" : mode.trim().toLowerCase();
+        String travelMode = (mode == null || mode.isBlank()) ? "all" : mode.trim().toLowerCase();
         log.info("[Tool:planRoute] origin={}, destination={}, mode={}", origin, destination, travelMode);
 
         // 先将出发地和目的地地理编码为坐标
@@ -331,13 +345,55 @@ public class TicketTools {
             return "{\"code\":500,\"message\":\"无法解析目的地坐标：" + destination + "\"}";
         }
 
-        String city = null;
-        if ("transit".equals(travelMode)) {
-            city = "长沙";
+        // 查询单一模式或全部模式
+        java.util.List<String> modes;
+        if ("all".equals(travelMode)) {
+            modes = java.util.List.of("driving", "transit");
+        } else {
+            modes = java.util.List.of(travelMode);
         }
-        String result = amapClient.getRoute(originCoords, destCoords, travelMode, city);
-        emitCard("route_info", result);
-        return result;
+
+        // 并行调用多种出行方式（虚拟线程）
+        var results = new java.util.concurrent.ConcurrentHashMap<String, String>();
+        var threads = new java.util.ArrayList<Thread>();
+        for (String m : modes) {
+            final String modeKey = m;
+            var t = Thread.startVirtualThread(() -> {
+                String city = "transit".equals(modeKey) ? "长沙" : null;
+                results.put(modeKey, amapClient.getRoute(originCoords, destCoords, modeKey, city));
+            });
+            threads.add(t);
+        }
+        for (Thread t : threads) {
+            try { t.join(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        }
+
+        // 按固定顺序聚合（driving 优先于 transit）
+        String combined;
+        if (results.size() == 1) {
+            combined = results.values().iterator().next();
+        } else {
+            try {
+                var combinedObj = new java.util.LinkedHashMap<String, Object>();
+                combinedObj.put("code", 200);
+                for (String m : modes) {
+                    String r = results.get(m);
+                    if (r == null) continue;
+                    try {
+                        var parsed = objectMapper.readTree(r);
+                        combinedObj.put(m, parsed.has("data") ? parsed.get("data") : parsed);
+                    } catch (Exception e) {
+                        combinedObj.put(m, r);
+                    }
+                }
+                combined = objectMapper.writeValueAsString(combinedObj);
+            } catch (Exception e) {
+                log.warn("[Tool:planRoute] 聚合结果失败，返回驾车结果: {}", e.getMessage());
+                combined = results.get("driving");
+            }
+        }
+        emitParsedCard("route_info", combined);
+        return combined;
     }
 
     @Tool("周边搜索。用户问影院附近有什么（餐饮/停车/地铁等）时调用。先通过地理编码将地名转为坐标，再调用高德周边搜索。返回原始 JSON 数据。")
@@ -351,17 +407,20 @@ public class TicketTools {
             return "{\"code\":500,\"message\":\"无法解析地点坐标：" + location + "\"}";
         }
         String result = amapClient.searchNearby(coords, keywords, 1000);
-        emitCard("nearby_poi", result);
+        emitParsedCard("nearby_poi", result);
         return result;
     }
 
     @Tool("天气查询。用户问观影当天天气时调用。返回原始 JSON 数据。")
     public String getWeather(
-            @P("城市名称，如'长沙'") String city
+            @P("城市名称，如'长沙'。用户未指定城市时，根据上下文影院所在城市推断；无上下文时默认'长沙'") String city
     ) {
+        if (city == null || city.isBlank()) {
+            city = "长沙";
+        }
         log.info("[Tool:getWeather] city={}", city);
         String result = amapClient.getWeather(city);
-        emitCard("weather_info", result);
+        emitParsedCard("weather_info", result);
         return result;
     }
 
