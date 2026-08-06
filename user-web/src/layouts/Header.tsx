@@ -74,12 +74,6 @@ export function Header() {
     },
     { type: 'divider' as const },
     {
-      key: 'orders',
-      label: '我的订单',
-      icon: <ProfileOutlined />,
-      onClick: () => navigate('/orders'),
-    },
-    {
       key: 'logout',
       label: '退出登录',
       icon: <LogoutOutlined />,
@@ -107,6 +101,11 @@ export function Header() {
           <NotificationBell
             items={notifications}
             onRead={handleNotificationRead}
+          />
+          <Button
+            type="text"
+            icon={<ProfileOutlined />}
+            onClick={() => navigate('/orders')}
           />
           <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
             <Button type="text" icon={<UserOutlined />}>
