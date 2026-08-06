@@ -38,18 +38,18 @@ export default function MovieDetailPage() {
 
   return (
     <div className="flex-1 p-3 sm:p-4 md:p-6 lg:max-w-[960px] lg:mx-auto lg:w-full lg:px-6 lg:py-8 xl:max-w-[1200px] xl:p-8">
-      <div className="flex flex-col gap-4 md:flex-row md:gap-6">
+      <div className="flex flex-wrap gap-4 md:flex-nowrap md:gap-6">
         {movie.posterUrl && (
-          <div className="text-center md:shrink-0 md:w-[280px] md:text-left">
+          <div className="w-[110px] shrink-0 text-left sm:w-[140px] md:w-[280px] md:shrink-0">
             <img
               src={movie.posterUrl}
               alt={movie.name}
-              className="max-w-full max-h-[320px] rounded-xl object-cover"
+              className="w-full h-auto rounded-xl object-cover"
             />
           </div>
         )}
 
-        <div className="md:flex-1 md:min-w-0">
+        <div className="flex-1 min-w-0">
           <h1 className="text-2xl m-0 mb-2">{movie.name}</h1>
 
           {movie.rating > 0 && (
@@ -73,16 +73,16 @@ export default function MovieDetailPage() {
             {movie.actors && <div className="mb-1">主演：{movie.actors}</div>}
           </div>
         </div>
-      </div>
 
-      {movie.description && (
-        <div className="mt-6">
-          <h2 className="text-lg mb-2">剧情简介</h2>
-          <p className="text-[15px] leading-[1.6] text-muted whitespace-pre-wrap">
-            {movie.description}
-          </p>
-        </div>
-      )}
+        {movie.description && (
+          <div className="w-full md:flex-1 md:min-w-0">
+            <h2 className="text-lg mb-2">剧情简介</h2>
+            <p className="text-[15px] leading-[1.6] text-muted whitespace-pre-wrap">
+              {movie.description}
+            </p>
+          </div>
+        )}
+      </div>
 
       <ScheduleTable movieId={id!} />
     </div>
