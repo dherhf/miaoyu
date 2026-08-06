@@ -260,6 +260,34 @@ public class ScheduleServiceImpl implements ScheduleService {
 
     @Override
     @Transactional
+    public void restoreSchedule(Long id) {
+        Schedule schedule = scheduleMapper.selectById(id);
+        if (schedule == null) {
+            throw new BusinessException(404, "场次不存在");
+        }
+        if (!ScheduleStatus.CANCELLED.getCode().equals(schedule.getStatus())) {
+            throw new BusinessException(409, "仅已取消场次可恢复");
+        }
+
+        // 检查放映日期是否已过期
+        if (schedule.getShowDate().isBefore(LocalDate.now())) {
+            throw new BusinessException(409, "放映日期已过期，不可恢复");
+        }
+
+        // 检查影厅在该时段是否有冲突的在售场次
+        checkConflict(schedule.getHallId(), schedule.getShowDate(), schedule.getStartTime(), schedule.getEndTime(), id);
+
+        schedule.setStatus(ScheduleStatus.ON_SALE.getCode());
+        scheduleMapper.updateById(schedule);
+
+        // 恢复 Redis Bitmap
+        List<ScheduleSeat> seats = scheduleSeatMapper.selectList(
+                new LambdaQueryWrapper<ScheduleSeat>().eq(ScheduleSeat::getScheduleId, id));
+        seatBitmapService.rebuildBitmap(id, seats);
+    }
+
+    @Override
+    @Transactional
     public void endSchedule(Long id) {
         Schedule schedule = scheduleMapper.selectById(id);
         if (schedule == null) {

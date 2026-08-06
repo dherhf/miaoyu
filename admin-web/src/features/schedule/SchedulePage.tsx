@@ -10,6 +10,7 @@ import {
   Armchair,
   ArrowLeft,
   Ban,
+  RotateCcw,
 } from 'lucide-react';
 import {
   Table,
@@ -21,7 +22,7 @@ import {
   Space,
   Tag,
   Card,
-  message,
+  App,
 } from 'antd';
 import type { TableProps } from 'antd';
 import dayjs from 'dayjs';
@@ -46,6 +47,7 @@ export function SchedulePage() {
   const cinemaStore = useCinemaStore();
   const movieStore = useMovieStore();
   const hallStore = useHallStore();
+  const { message, modal } = App.useApp();
   const scheduleStore = useScheduleStore();
   const { schedules: allSchedules, loading: scheduleLoading, fetchSchedules } = scheduleStore;
   const { fetchCinemas } = cinemaStore;
@@ -236,7 +238,7 @@ export function SchedulePage() {
   // 取消场次
   const handleCancelSchedule = (row: ScheduleItem) => {
     if (row.soldSeats > 0) return message.error('该场次存在订单，不可取消');
-    Modal.confirm({
+    modal.confirm({
       title: '确认取消排期',
       content: `确定取消【${row.movieName} ${row.showDate}】？`,
       okButtonProps: { danger: true },
@@ -251,10 +253,26 @@ export function SchedulePage() {
     });
   };
 
+  // 恢复场次
+  const handleRestoreSchedule = (row: ScheduleItem) => {
+    modal.confirm({
+      title: '确认恢复排期',
+      content: `确定恢复【${row.movieName} ${row.showDate}】为在售状态？`,
+      onOk: async () => {
+        try {
+          await scheduleStore.restoreSchedule(row.id);
+          message.success('场次已恢复');
+        } catch (e: any) {
+          message.error(e.message || '操作失败');
+        }
+      },
+    });
+  };
+
   // 删除场次
   const handleDeleteSchedule = (row: ScheduleItem) => {
     if (row.soldSeats > 0) return message.error('该场次存在订单，无法删除');
-    Modal.confirm({
+    modal.confirm({
       title: '删除确认',
       content: `删除【${row.movieName}】后无法恢复`,
       okButtonProps: { danger: true },
@@ -366,11 +384,14 @@ export function SchedulePage() {
             {!isEnd && !isCancel && (
               <Button size="small" icon={<Edit2 size={14} />} disabled={hasSold} onClick={() => openEdit(row)}>编辑</Button>
             )}
-            {!isEnd && !isCancel && !hasSold && (
-              <Button size="small" danger ghost icon={<Ban size={14} />} onClick={() => handleCancelSchedule(row)}>取消</Button>
+            {!isEnd && !isCancel && (
+              <Button size="small" danger ghost icon={<Ban size={14} />} disabled={hasSold} onClick={() => handleCancelSchedule(row)}>取消</Button>
             )}
-            {(isEnd || isCancel) && !hasSold && (
-              <Button size="small" danger icon={<Trash2 size={14} />} onClick={() => handleDeleteSchedule(row)}>删除</Button>
+            {isCancel && (
+              <Button size="small" type="primary" ghost icon={<RotateCcw size={14} />} onClick={() => handleRestoreSchedule(row)}>恢复</Button>
+            )}
+            {(isEnd || isCancel) && (
+              <Button size="small" danger icon={<Trash2 size={14} />} disabled={hasSold} onClick={() => handleDeleteSchedule(row)}>删除</Button>
             )}
           </Space>
         );
@@ -472,8 +493,7 @@ export function SchedulePage() {
       )}
 
       {/* 新增/编辑弹窗 */}
-      <Modal
-        open={modalOpen}
+      <Modal        open={modalOpen}
         title={editSchedule ? '编辑排期' : '新增排期'}
         width={580}
         maskClosable={false}

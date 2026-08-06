@@ -16,6 +16,8 @@ public interface ScheduleService {
 
     void cancelSchedule(Long id);
 
+    void restoreSchedule(Long id);
+
     void endSchedule(Long id);
 
     PageResult<ScheduleListVO> adminList(Long movieId, Long cinemaId, Long hallId, String showDate, String status, Integer page, Integer size);

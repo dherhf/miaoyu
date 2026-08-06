@@ -1,4 +1,4 @@
-import { Form, Input, InputNumber, DatePicker, Radio, Checkbox, Upload, Space, message } from 'antd';
+import { Form, Input, InputNumber, DatePicker, Radio, Checkbox, Upload, Space, App } from 'antd';
 import type { FormInstance, UploadProps } from 'antd';
 import { Film } from 'lucide-react';
 import dayjs from 'dayjs';
@@ -13,6 +13,7 @@ interface MovieFormProps {
 }
 
 export function MovieForm({ form, onFileSelect }: MovieFormProps) {
+  const { message } = App.useApp();
   const [selectedFileName, setSelectedFileName] = useState<string>('');
 
   const uploadConfig: UploadProps = {

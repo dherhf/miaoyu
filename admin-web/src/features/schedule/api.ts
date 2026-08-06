@@ -38,6 +38,10 @@ export const scheduleApi = {
   cancel: (id: string): Promise<null> =>
     request.put(`/schedules/${id}/cancel`),
 
+  /** 恢复场次 */
+  restore: (id: string): Promise<null> =>
+    request.put(`/schedules/${id}/restore`),
+
   /** 删除场次 */
   delete: (id: string): Promise<null> =>
     request.delete(`/schedules/${id}`),
