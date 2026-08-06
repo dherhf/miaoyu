@@ -130,7 +130,7 @@ export default function MovieListPage() {
         <Empty description="暂无影片" className="py-12" />
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 lg:grid-cols-6">
             {movies.map((movie) => (
               <MovieCard
                 key={movie.id}
