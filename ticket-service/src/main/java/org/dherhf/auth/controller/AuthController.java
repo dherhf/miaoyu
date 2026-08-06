@@ -5,8 +5,14 @@ import lombok.RequiredArgsConstructor;
 import org.dherhf.auth.dto.LoginDTO;
 import org.dherhf.auth.vo.LoginVO;
 import org.dherhf.auth.dto.RegisterDTO;
+import org.dherhf.auth.dto.ResetPasswordDTO;
+import org.dherhf.auth.dto.SendSmsCodeDTO;
+import org.dherhf.auth.vo.CaptchaVO;
 import org.dherhf.auth.vo.UserInfoVO;
+import org.dherhf.auth.service.CaptchaService;
+import org.dherhf.auth.service.SmsService;
 import org.dherhf.auth.service.UserAuthService;
+import org.dherhf.common.exception.BusinessException;
 import org.dherhf.common.result.Result;
 import org.dherhf.common.util.JwtUtil;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,12 +32,51 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final UserAuthService userAuthService;
+    private final CaptchaService captchaService;
+    private final SmsService smsService;
     private final JwtUtil jwtUtil;
+
+    /**
+     * 获取图形验证码。
+     *
+     * @return 验证码视图对象,包含 captchaId 和 Base64 图片
+     */
+    @Operation(summary = "获取图形验证码")
+    @GetMapping("/captcha")
+    public Result<CaptchaVO> captcha() {
+        return Result.success(captchaService.generate());
+    }
+
+    /**
+     * 发送短信验证码。
+     * <p>
+     * 先校验图形验证码,再根据场景校验手机号注册状态（注册场景要求未注册,
+     * 重置密码场景要求已注册）,通过后调用阿里云号码认证服务发送短信验证码。
+     *
+     * @param request 发送短信验证码请求,包含手机号、场景和图形验证码
+     * @return 发送成功的统一响应
+     */
+    @Operation(summary = "发送短信验证码")
+    @PostMapping("/sms-code")
+    public Result<Void> sendSmsCode(@Valid @RequestBody SendSmsCodeDTO request) {
+        if (!captchaService.validate(request.getCaptchaId(), request.getCaptchaCode())) {
+            throw new BusinessException(400, "图形验证码错误或已过期");
+        }
+        boolean registered = userAuthService.isPhoneRegistered(request.getPhone());
+        if ("register".equals(request.getScene()) && registered) {
+            throw new BusinessException(409, "该手机号已注册");
+        }
+        if ("reset-password".equals(request.getScene()) && !registered) {
+            throw new BusinessException(404, "该手机号未注册");
+        }
+        smsService.sendVerifyCode(request.getPhone(), request.getScene());
+        return Result.success();
+    }
 
     /**
      * 用户注册。
      *
-     * @param request 注册请求,包含手机号和密码
+     * @param request 注册请求,包含手机号、密码和短信验证码
      * @return 注册成功的用户信息
      */
     @Operation(summary = "用户注册")
@@ -50,6 +95,19 @@ public class AuthController {
     @PostMapping("/login")
     public Result<LoginVO> login(@Valid @RequestBody LoginDTO request) {
         return Result.success(userAuthService.login(request));
+    }
+
+    /**
+     * 重置密码。
+     *
+     * @param request 重置密码请求,包含手机号、新密码和短信验证码
+     * @return 重置成功的统一响应
+     */
+    @Operation(summary = "重置密码")
+    @PostMapping("/reset-password")
+    public Result<Void> resetPassword(@Valid @RequestBody ResetPasswordDTO request) {
+        userAuthService.resetPassword(request);
+        return Result.success();
     }
 
     /**

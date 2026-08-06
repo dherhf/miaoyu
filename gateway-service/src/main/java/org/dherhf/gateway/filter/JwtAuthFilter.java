@@ -39,6 +39,9 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     private static final Set<String> PUBLIC_PATHS = Set.of(
             "/api/v1/auth/register",
             "/api/v1/auth/login",
+            "/api/v1/auth/captcha",
+            "/api/v1/auth/sms-code",
+            "/api/v1/auth/reset-password",
             "/api/v1/admin/auth/login"
     );
 
