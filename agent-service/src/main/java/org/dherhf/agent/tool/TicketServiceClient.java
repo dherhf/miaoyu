@@ -50,7 +50,7 @@ public class TicketServiceClient {
     /**
      * 查询影院列表。
      *
-     * @param movieId    影片 ID（由 searchMovies 返回），按影片过滤有排片的影院；无约束时传 null
+     * @param movieId    影片 ID；无约束时传 null
      * @param keyword    影院名称关键词，如 "万达影城"；无约束时传空字符串
      * @param facilities 设施要求，如 "IMAX"；无要求时传空字符串
      * @return {@code Result<Object>}，data 为分页影院数据；调用失败时 code 非 0 并携带错误信息
