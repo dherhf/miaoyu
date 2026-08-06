@@ -21,7 +21,12 @@ spring:
           max-idle: 8
           min-idle: 2
   mongodb:
-    uri: mongodb://${MONGODB_USERNAME}:${MONGODB_PASSWORD}@${MONGODB_HOST}:${MONGODB_PORT}/${MONGODB_DATABASE}?authSource=${MONGODB_DATABASE}
+    host: ${MONGODB_HOST}
+    port: ${MONGODB_PORT}
+    database: ${MONGODB_DATABASE}
+    username: ${MONGODB_USERNAME}
+    password: ${MONGODB_PASSWORD}
+    auto-index-creation: true
 
 
 
@@ -35,7 +40,7 @@ ticket-service:
 amap:
   endpoint: https://www.weavefox.cn
   base-path: /api/v1/amap
-  token: wfat_app_da4740a3349ac22860cc6a3cd7394ae0d27778a8fb21c9adc6e9a6b320201922
+  token: ${AMAP_TOKEN:wfat_app_da4740a3349ac22860cc6a3cd7394ae0d27778a8fb21c9adc6e9a6b320201922}
 
 # DeepSeek LLM 配置
 langchain4j:
@@ -46,7 +51,7 @@ langchain4j:
       model-name: deepseek-chat
       temperature: 0.3
       max-tokens: 2048
-      timeout: 60s
+      timeout: 90s
       log-requests: false
       log-responses: true
 # Agent 对话配置
@@ -54,7 +59,7 @@ agent:
   # Redis 会话上下文 TTL（秒）- 24h
   context-ttl-seconds: 86400
   # SSE 连接超时（秒）
-  sse-timeout-seconds: 60
+  sse-timeout-seconds: 90
   # 会话自动过期天数
   session-expire-days: 30
   # 连续否定阈值（达此值后降级为结构化追问）

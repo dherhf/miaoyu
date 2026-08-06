@@ -280,12 +280,24 @@ export interface WeatherData {
   city: string
   adcode?: string
   province?: string
-  weather: string
-  temperature: string
+  weather?: string
+  temperature?: string
   windDirection?: string
   windPower?: string
   humidity?: string
   reportTime?: string
+  casts?: WeatherCast[]
+  forecasts?: WeatherCast[]
+}
+export interface WeatherCast {
+  date: string
+  week?: string
+  dayweather: string
+  nightweather?: string
+  daytemp: string
+  nighttemp?: string
+  daywind?: string
+  daypower?: string
 }
 
 // 卡片统一回调（点击选择后发送对话消息）
