@@ -23,7 +23,17 @@ FROM nginx:1.27-alpine
 COPY --from=user-web-builder /build/dist /usr/share/nginx/html/user-web
 COPY --from=admin-builder /build/dist /usr/share/nginx/html/admin
 
+# 生成自签 SSL 证书
+RUN apk add --no-cache openssl && \
+    mkdir -p /etc/nginx/ssl && \
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+      -keyout /etc/nginx/ssl/selfsigned.key \
+      -out /etc/nginx/ssl/selfsigned.crt \
+      -subj "/CN=47.99.152.56" \
+      -addext "subjectAltName=IP:47.99.152.56" && \
+    apk del openssl
+
 # 复制 Nginx 配置
 COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
 
-EXPOSE 80
+EXPOSE 80 443
