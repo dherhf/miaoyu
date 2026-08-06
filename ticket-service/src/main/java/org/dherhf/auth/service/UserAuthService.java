@@ -7,6 +7,7 @@ import org.dherhf.common.util.JwtUtil;
 import org.dherhf.auth.dto.LoginDTO;
 import org.dherhf.auth.vo.LoginVO;
 import org.dherhf.auth.dto.RegisterDTO;
+import org.dherhf.auth.dto.ResetPasswordDTO;
 import org.dherhf.auth.vo.UserInfoVO;
 import org.dherhf.common.exception.BusinessException;
 import org.dherhf.auth.entity.User;
@@ -29,20 +30,26 @@ public class UserAuthService {
     private final UserMapper userMapper;
     private final JwtUtil jwtUtil;
     private final AuthHelper authHelper;
+    private final SmsService smsService;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     /**
      * 用户注册。
      * <p>
-     * 校验手机号唯一性后,使用 BCrypt 哈希密码、AES-256-GCM 加密手机号、SHA-256 哈希手机号,
+     * 先通过阿里云号码认证服务核验短信验证码,再校验手机号唯一性,
+     * 使用 BCrypt 哈希密码、AES-256-GCM 加密手机号、SHA-256 哈希手机号,
      * 写入 user 表并返回脱敏后的用户信息。
      *
-     * @param request 注册请求,包含手机号和密码
+     * @param request 注册请求,包含手机号、密码和短信验证码
      * @return 注册成功的用户信息
-     * @throws BusinessException 手机号已注册时抛出 409
+     * @throws BusinessException 短信验证码错误时抛出 400,手机号已注册时抛出 409
      */
     public UserInfoVO register(RegisterDTO request) {
+        if (!smsService.checkVerifyCode(request.getPhone(), request.getSmsCode())) {
+            throw new BusinessException(400, "短信验证码错误或已过期");
+        }
+
         String phone = request.getPhone();
         String phoneHash = CryptoUtil.sha256(phone);
 
@@ -117,6 +124,43 @@ public class UserAuthService {
                 .token(token)
                 .userInfo(userInfo)
                 .build();
+    }
+
+    /**
+     * 检查手机号是否已注册。
+     *
+     * @param phone 手机号
+     * @return 已注册返回 {@code true},否则 {@code false}
+     */
+    public boolean isPhoneRegistered(String phone) {
+        String phoneHash = CryptoUtil.sha256(phone);
+        Long count = userMapper.selectCount(
+                new LambdaQueryWrapper<User>().eq(User::getPhoneHash, phoneHash));
+        return count > 0;
+    }
+
+    /**
+     * 重置密码。
+     * <p>
+     * 先通过阿里云号码认证服务核验短信验证码,通过后查找用户并更新密码。
+     *
+     * @param request 重置密码请求,包含手机号、新密码和短信验证码
+     * @throws BusinessException 短信验证码错误时抛出 400,用户不存在时抛出 404
+     */
+    public void resetPassword(ResetPasswordDTO request) {
+        if (!smsService.checkVerifyCode(request.getPhone(), request.getSmsCode())) {
+            throw new BusinessException(400, "短信验证码错误或已过期");
+        }
+
+        String phoneHash = CryptoUtil.sha256(request.getPhone());
+        User user = userMapper.selectOne(
+                new LambdaQueryWrapper<User>().eq(User::getPhoneHash, phoneHash));
+        if (user == null) {
+            throw new BusinessException(404, "该手机号未注册");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userMapper.updateById(user);
     }
 
     /**
