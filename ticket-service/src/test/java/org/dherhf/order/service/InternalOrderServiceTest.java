@@ -74,6 +74,8 @@ class InternalOrderServiceTest {
     @Mock
     private org.dherhf.schedule.service.SeatBitmapService seatBitmapService;
     @Mock
+    private PickupCodeService pickupCodeService;
+    @Mock
     private RLock rLock;
 
     @InjectMocks
@@ -188,6 +190,8 @@ class InternalOrderServiceTest {
 
         Cinema cinema = Cinema.builder().address("北京市朝阳区").build();
         when(cinemaMapper.selectById(1L)).thenReturn(cinema);
+
+        when(pickupCodeService.getOrCreateCode(1L)).thenReturn("AB3K9X");
 
         PayResultVO result = orderService.internalPayOrder(1L, 1L, "req-internal-pay-001");
 
@@ -334,14 +338,14 @@ class InternalOrderServiceTest {
 
         Order order = Order.builder()
                 .id(1L).userId(1L).status("paid")
-                .pickupCode("ABC123")
                 .movieName("流浪地球3")
                 .build();
         when(orderMapper.selectById(1L)).thenReturn(order);
+        when(pickupCodeService.getOrCreateCode(1L)).thenReturn("AB3K9X");
 
         OrderDetailVO result = orderService.detail(1L, 1L);
 
-        assertEquals("ABC123", result.getPickupCode());
+        assertEquals("AB3K9X", result.getPickupCode());
         assertEquals("流浪地球3", result.getMovieName());
         System.out.println("[InternalOrderServiceTest] ✓ internalDetail_success PASSED");
     }

@@ -11,4 +11,8 @@ export const orderApi = {
   /** 查询订单详情 */
   getOrderDetail: (id: string): Promise<OrderDetail> =>
     request.get(`/orders/${id}`),
+
+  /** 检票 */
+  checkTicket: (pickupCode: string): Promise<OrderDetail> =>
+    request.post('/orders/check-ticket', { pickupCode }),
 };
