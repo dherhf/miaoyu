@@ -90,4 +90,12 @@ public class OrderController {
             @PathVariable Long id) {
         return Result.success(orderService.remainingTime(userId, id));
     }
+
+    @Operation(summary = "获取取票码(动态刷新)")
+    @GetMapping("/{id}/pickup-code")
+    public Result<PickupCodeVO> pickupCode(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable Long id) {
+        return Result.success(orderService.getPickupCode(userId, id));
+    }
 }

@@ -47,8 +47,6 @@ public class Order {
 
     private String status;
 
-    private String pickupCode;
-
     private String cancelReason;
 
     private LocalDateTime createdAt;
@@ -56,6 +54,8 @@ public class Order {
     private LocalDateTime paidAt;
 
     private LocalDateTime cancelledAt;
+
+    private LocalDateTime checkedAt;
 
     private LocalDateTime updatedAt;
 }

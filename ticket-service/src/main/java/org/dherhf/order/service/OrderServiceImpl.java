@@ -40,7 +40,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
+
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -62,6 +62,7 @@ public class OrderServiceImpl implements OrderService {
     private final HallCellMapper hallCellMapper;
     private final IdempotentService idempotentService;
     private final OrderTimeoutService orderTimeoutService;
+    private final PickupCodeService pickupCodeService;
     private final RedissonClient redissonClient;
     private final org.dherhf.notification.service.NotificationService notificationService;
     private final org.dherhf.schedule.service.SeatBitmapService seatBitmapService;
@@ -212,8 +213,10 @@ public class OrderServiceImpl implements OrderService {
         // 模拟支付：直接更新状态
         order.setStatus(OrderStatus.PAID.getCode());
         order.setPaidAt(LocalDateTime.now());
-        order.setPickupCode(UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase());
         orderMapper.updateById(order);
+
+        // 生成动态取票码（Redis, 60秒刷新）
+        String pickupCode = pickupCodeService.getOrCreateCode(order.getId());
 
         // 更新座位状态 locked -> sold
         List<ScheduleSeat> seats = scheduleSeatMapper.selectList(
@@ -239,14 +242,14 @@ public class OrderServiceImpl implements OrderService {
         // 异步发送支付成功通知
         notificationService.sendNotification(
                 userId, "PAY_SUCCESS", "支付成功",
-                "影院地址：" + (cinema != null ? cinema.getAddress() : "") + "，放映时间：" + order.getShowDate() + " " + order.getStartTime() + "，取票码：" + order.getPickupCode(),
+                "影院地址：" + (cinema != null ? cinema.getAddress() : "") + "，放映时间：" + order.getShowDate() + " " + order.getStartTime() + "，取票码：" + pickupCode,
                 orderId);
 
         PayResultVO vo = PayResultVO.builder()
                 .id(order.getId())
                 .orderNo(order.getOrderNo())
                 .status(order.getStatus())
-                .pickupCode(order.getPickupCode())
+                .pickupCode(pickupCode)
                 .movieName(order.getMovieName())
                 .cinemaName(order.getCinemaName())
                 .cinemaAddress(cinema != null ? cinema.getAddress() : null)
@@ -298,6 +301,9 @@ public class OrderServiceImpl implements OrderService {
 
         // 取消延迟队列中的超时取消任务
         orderTimeoutService.cancel(orderId);
+
+        // 清理取票码
+        pickupCodeService.removeCode(orderId);
 
         // SETBIT schedule:seat:occupied:{scheduleId} {seat_index} 0
         for (ScheduleSeat seat : seats) {
@@ -362,6 +368,9 @@ public class OrderServiceImpl implements OrderService {
                 "退票成功，订单已取消，座位已释放。影片：《" + order.getMovieName() + "》，退款金额：¥" + order.getTotalAmount(),
                 orderId);
 
+        // 清理取票码
+        pickupCodeService.removeCode(orderId);
+
         idempotentService.put(requestId, "ok");
     }
 
@@ -394,6 +403,8 @@ public class OrderServiceImpl implements OrderService {
         BeanUtils.copyProperties(order, vo);
         if (!OrderStatus.PAID.getCode().equals(order.getStatus())) {
             vo.setPickupCode(null);
+        } else {
+            vo.setPickupCode(pickupCodeService.getOrCreateCode(order.getId()));
         }
         return vo;
     }
@@ -457,6 +468,20 @@ public class OrderServiceImpl implements OrderService {
                 .expired(remaining <= 0)
                 .build();
         return vo;
+    }
+
+    @Override
+    public PickupCodeVO getPickupCode(Long userId, Long orderId) {
+        Order order = orderMapper.selectById(orderId);
+        if (order == null || !order.getUserId().equals(userId)) {
+            throw new BusinessException(404, "订单不存在");
+        }
+        if (!OrderStatus.PAID.getCode().equals(order.getStatus())) {
+            throw new BusinessException(409, "仅已出票订单可获取取票码");
+        }
+        String code = pickupCodeService.getOrCreateCode(orderId);
+        int expiresIn = pickupCodeService.getRemainingTtl(orderId);
+        return PickupCodeVO.builder().pickupCode(code).expiresIn(expiresIn).build();
     }
 
     @Override

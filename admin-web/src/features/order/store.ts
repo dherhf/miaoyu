@@ -11,6 +11,7 @@ interface OrderState {
   loading: boolean;
   fetchOrders: (params: OrderListParams) => Promise<void>;
   fetchOrderDetail: (id: string) => Promise<OrderItem | undefined>;
+  checkTicket: (pickupCode: string) => Promise<OrderItem | undefined>;
 }
 
 export const useOrderStore = create<OrderState>((set) => ({
@@ -30,6 +31,11 @@ export const useOrderStore = create<OrderState>((set) => ({
 
   fetchOrderDetail: async (id: string): Promise<OrderItem | undefined> => {
     const res = await orderApi.getOrderDetail(id);
+    return mapOrderRecord(res);
+  },
+
+  checkTicket: async (pickupCode: string): Promise<OrderItem | undefined> => {
+    const res = await orderApi.checkTicket(pickupCode);
     return mapOrderRecord(res);
   },
 }));
