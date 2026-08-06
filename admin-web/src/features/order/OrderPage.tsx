@@ -3,7 +3,6 @@ import {
   Search,
   Eye,
   Receipt,
-  QrCode,
 } from 'lucide-react';
 import {
   Table,
@@ -78,16 +77,13 @@ const OrderDetailContent: React.FC<{ order: OrderItem }> = ({ order }) => {
             <div className={styles.pickupCode}>
               {order.pickupCode}
             </div>
-            <div className={styles.qrCodeWrapper}>
-              <QrCode size={80} color="#1677ff" />
-            </div>
           </div>
         )}
       </div>
 
       <Descriptions column={2} size="small" bordered>
         <Descriptions.Item label="订单编号" span={2}>
-          <Typography.Text code>{order.orderNo}</Typography.Text>
+          <Typography.Text>{order.orderNo}</Typography.Text>
         </Descriptions.Item>
         <Descriptions.Item label="用户手机号">{order.userPhone}</Descriptions.Item>
         <Descriptions.Item label="票数">{order.ticketCount} 张</Descriptions.Item>
@@ -96,7 +92,7 @@ const OrderDetailContent: React.FC<{ order: OrderItem }> = ({ order }) => {
         <Descriptions.Item label="影厅">{order.hallName}</Descriptions.Item>
         <Descriptions.Item label="放映日期">{order.showDate}</Descriptions.Item>
         <Descriptions.Item label="放映时间">{order.startTime}</Descriptions.Item>
-        <Descriptions.Item label="座位信息" span={2}>{order.seatInfo}</Descriptions.Item>
+        <Descriptions.Item label="座位信息" span={2}>{order.seatInfo || '--'}</Descriptions.Item>
         <Descriptions.Item label="订单金额">
           <Typography.Text strong className={styles.amountText}>
             ¥{order.totalAmount.toFixed(2)}
@@ -211,7 +207,7 @@ const OrderManage: React.FC = () => {
       width: 200,
       render: (text: string, record) => (
         <Button type="link" size="small" onClick={() => openDetail(record)} className={styles.orderNoButton}>
-          <Typography.Text code className={styles.cellText}>{text}</Typography.Text>
+          <span className={styles.cellText}>{text}</span>
         </Button>
       ),
     },
@@ -256,7 +252,7 @@ const OrderManage: React.FC = () => {
       width: 160,
       ellipsis: true,
       render: (text: string) => (
-        <Typography.Text className={styles.cellText}>{text}</Typography.Text>
+        <Typography.Text className={styles.cellText}>{text || '--'}</Typography.Text>
       ),
     },
     {
@@ -292,7 +288,7 @@ const OrderManage: React.FC = () => {
       dataIndex: 'createdAt',
       width: 170,
       render: (text: string) => (
-        <Typography.Text className={styles.cellText}>{text}</Typography.Text>
+        <Typography.Text className={styles.cellText}>{text || '--'}</Typography.Text>
       ),
     },
     {
