@@ -1,5 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
-import { LoginPage, RegisterPage } from './features/auth'
+import { LoginPage, RegisterPage, ResetPasswordPage } from './features/auth'
 import { HomePage } from './home'
 import { MovieListPage, MovieDetailPage } from './features/movie'
 import { OrderListPage } from './features/order'
@@ -18,6 +18,10 @@ export const router = createBrowserRouter([
       {
         path: '/register',
         element: <RegisterPage />,
+      },
+      {
+        path: '/reset-password',
+        element: <ResetPasswordPage />,
       },
       {
         path: '/',
