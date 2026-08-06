@@ -28,16 +28,17 @@ export default function ScheduleTable({ movieId }: { movieId: string }) {
       width: 110,
     },
     {
-      title: '开场',
+      title: '放映时间',
       dataIndex: 'startTime',
-      key: 'startTime',
-      width: 70,
-    },
-    {
-      title: '散场',
-      dataIndex: 'endTime',
-      key: 'endTime',
-      width: 70,
+      key: 'showTime',
+      width: 90,
+      render: (v: string, record) => (
+        <>
+          <span>{v.slice(0, 5)}</span>
+          <br />
+          <span>{record.endTime?.slice(0, 5)}散场</span>
+        </>
+      ),
     },
     {
       title: '影院',

@@ -2,7 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { LoginPage, RegisterPage } from './features/auth'
 import { HomePage } from './home'
 import { MovieListPage, MovieDetailPage } from './features/movie'
-import { ChatListPage, ChatPage } from './features/agent'
+import { ChatPage } from './features/agent'
 import ProtectedRoute from './shared/ProtectedRoute'
 import { MainLayout } from './layouts'
 
@@ -46,7 +46,7 @@ export const router = createBrowserRouter([
         path: '/chat',
         element: (
           <ProtectedRoute>
-            <ChatListPage />
+            <ChatPage />
           </ProtectedRoute>
         ),
       },
