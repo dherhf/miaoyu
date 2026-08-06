@@ -14,8 +14,8 @@ const TYPE_OPTIONS = [
   { label: '科幻', value: '科幻' },
   { label: '悬疑', value: '悬疑' },
   { label: '动画', value: '动画' },
-  { label: '恐怖', value: '恐怖' },
   { label: '纪录片', value: '纪录片' },
+  { label: '其他', value: '其他' },
 ]
 
 const SORT_OPTIONS = [

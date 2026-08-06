@@ -4,7 +4,6 @@ import type {
   TrendRecord,
   MovieRankItem,
   CinemaRow,
-  CinemaDistItem,
   YesterdayCompare,
 } from './types';
 import {
@@ -20,7 +19,6 @@ export type {
   TrendRecord,
   MovieRankItem,
   CinemaRow,
-  CinemaDistItem,
   YesterdayCompare,
 } from './types';
 
@@ -30,7 +28,6 @@ interface DashboardState {
   trendData: TrendRecord[];
   movieRanking: MovieRankItem[];
   cinemaStats: CinemaRow[];
-  cinemaTypeDistribution: CinemaDistItem[];
   loading: boolean;
   refreshDashboard: () => Promise<void>;
 }
@@ -52,14 +49,13 @@ export const useDashboardStore = create<DashboardState>((set) => ({
   trendData: [],
   movieRanking: [],
   cinemaStats: [],
-  cinemaTypeDistribution: [],
   loading: false,
 
   refreshDashboard: async (): Promise<void> => {
     set({ loading: true });
     try {
       const [transactions, moviesRanking, cinemasAnalysis] = await Promise.all([
-        dashboardApi.getTransactions('7d'),
+        dashboardApi.getTransactions('7'),
         dashboardApi.getMoviesRanking(),
         dashboardApi.getCinemasAnalysis(),
       ]);
@@ -69,7 +65,6 @@ export const useDashboardStore = create<DashboardState>((set) => ({
         trendData: mapTrendData(transactions),
         movieRanking: mapMovieRanking(moviesRanking),
         cinemaStats: mapCinemasAnalysis(cinemasAnalysis),
-        cinemaTypeDistribution: [],
       });
     } finally {
       set({ loading: false });

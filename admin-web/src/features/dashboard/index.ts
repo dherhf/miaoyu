@@ -5,5 +5,4 @@ export type {
   TrendRecord,
   MovieRankItem,
   CinemaRow,
-  CinemaDistItem,
 } from './types';
