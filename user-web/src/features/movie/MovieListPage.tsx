@@ -14,8 +14,8 @@ const TYPE_OPTIONS = [
   { label: '科幻', value: '科幻' },
   { label: '悬疑', value: '悬疑' },
   { label: '动画', value: '动画' },
-  { label: '恐怖', value: '恐怖' },
   { label: '纪录片', value: '纪录片' },
+  { label: '其他', value: '其他' },
 ]
 
 const SORT_OPTIONS = [
@@ -130,7 +130,7 @@ export default function MovieListPage() {
         <Empty description="暂无影片" className="py-12" />
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 lg:grid-cols-6">
             {movies.map((movie) => (
               <MovieCard
                 key={movie.id}

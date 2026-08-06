@@ -2,6 +2,7 @@ package org.dherhf.agent.document;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
+import org.dherhf.agent.model.ticket.SlotState;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -10,16 +11,14 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * 对话会话 MongoDB 文档（对应 chat_sessions 集合）。
  * <p>
  * 每个会话包含：
  * <ul>
- *   <li>slotState：当前槽位状态（film/cinema/time/hall/count/sessionId/seatIds/negate_slot/negateCount）</li>
- *   <li>messages：全部对话消息（按 createdAt 正序追加）</li>
+ *   <li>slotState：当前槽位状态（movieId/movieName/cinemaId/cinemaName/hallId/hallType/hallName/time/count/schedulesId/seatIds/priceMax/negateSlot/negateCount）</li>
+ *   <li>消息列表存储于独立的 chat_messages 集合，通过 sessionId 关联</li>
  * </ul>
  * </p>
  */
@@ -46,25 +45,9 @@ public class ChatSessionDocument implements Serializable {
     private String status;
 
     /**
-     * 槽位状态（嵌套对象）。
-     * <pre>
-     * {
-     *   "film": {"name": "流浪地球3", "movieId": 101},
-     *   "cinema": {"name": "万达影城", "cinemaId": 5},
-     *   "time": "明天下午",
-     *   "hall": "IMAX",
-     *   "count": 2,
-     *   "sessionId": 8848,
-     *   "seatIds": [10241, 10242],
-     *   "negateCount": 1,
-     *   "priceMax": 40
-     * }
-     * </pre>
+     * 槽位状态。
      */
-    private Object slotState;
-
-    /** 嵌套消息数组 */
-    private List<ChatMessage> messages;
+    private SlotState slotState;
 
     /** 最后消息时间（用于列表排序与过期清理） */
     @Indexed
@@ -78,14 +61,4 @@ public class ChatSessionDocument implements Serializable {
     @LastModifiedDate
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime updatedAt;
-
-    /**
-     * 安全获取 messages 列表（懒初始化）。
-     */
-    public List<ChatMessage> getMessages() {
-        if (messages == null) {
-            messages = new ArrayList<>();
-        }
-        return messages;
-    }
 }

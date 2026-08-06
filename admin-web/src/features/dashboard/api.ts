@@ -1,8 +1,8 @@
 import request from '../../shared/utils/request';
 import type {
   TransactionsResult,
-  MoviesRankingResult,
-  CinemasAnalysisResult,
+  MovieRankingItem,
+  CinemaAnalysisItem,
 } from './types';
 
 export type {
@@ -11,23 +11,21 @@ export type {
   TrendItem,
   TransactionsResult,
   MovieRankingItem,
-  MoviesRankingResult,
   CinemaAnalysisItem,
-  CinemasAnalysisResult,
 } from './types';
 
 export const dashboardApi = {
-  /** 交易概览 */
-  getTransactions: (period: '7d' | '30d' = '7d'): Promise<TransactionsResult> =>
+  /** 交易概览（period: "7" 或 "30"） */
+  getTransactions: (period: '7' | '30' = '7'): Promise<TransactionsResult> =>
     request.get('/dashboard/transactions', { params: { period } }),
 
-  /** 影片热度排行 TOP 10 */
+  /** 影片排行（后端返回裸数组 List<MovieRankingVO>） */
   getMoviesRanking: (
-    sortBy: 'ticketCount' | 'boxOffice' | 'occupancyRate' = 'ticketCount',
-  ): Promise<MoviesRankingResult> =>
+    sortBy: 'boxOffice' | 'ticketCount' | 'orderCount' = 'boxOffice',
+  ): Promise<MovieRankingItem[]> =>
     request.get('/dashboard/movies-ranking', { params: { sortBy } }),
 
-  /** 影院运营分析 */
-  getCinemasAnalysis: (): Promise<CinemasAnalysisResult> =>
+  /** 影院运营分析（后端返回裸数组 List<CinemaAnalysisVO>） */
+  getCinemasAnalysis: (): Promise<CinemaAnalysisItem[]> =>
     request.get('/dashboard/cinemas'),
 };

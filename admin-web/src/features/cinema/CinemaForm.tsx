@@ -40,7 +40,7 @@ interface CinemaFormProps {
   isEdit: boolean;
   onChange: (vals: CinemaFormValues) => void;
 }
-export function CinemaForm({ data, isEdit: _isEdit, onChange }: CinemaFormProps) {
+export function CinemaForm({ data, onChange }: CinemaFormProps) {
   const handleFieldChange = (field: keyof CinemaFormValues, val: unknown) => {
     onChange({ ...data, [field]: val });
   };

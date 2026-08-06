@@ -10,6 +10,7 @@ import org.dherhf.agent.model.dto.CreateSessionResponse;
 import org.dherhf.agent.model.dto.SendMessageRequest;
 import org.dherhf.agent.model.dto.SessionDetailResponse;
 import org.dherhf.agent.model.dto.SessionListResponse;
+import org.dherhf.agent.document.ChatMessage;
 import org.dherhf.agent.document.ChatSessionDocument;
 import org.dherhf.agent.service.ChatSessionService;
 import org.dherhf.agent.service.DialogueService;
@@ -45,7 +46,7 @@ public class ChatController {
     private final DialogueService dialogueService;
 
     /**
-     * 1. 创建对话会话
+     * 创建对话会话
      * POST /api/v1/chat/sessions
      */
     @PostMapping("/sessions")
@@ -56,17 +57,18 @@ public class ChatController {
         String title = request == null ? null : request.getTitle();
         ChatSessionDocument session = chatSessionService.createSession(userId, title);
 
-        CreateSessionResponse resp = new CreateSessionResponse();
-        resp.setSessionId(session.getSessionId());
-        resp.setTitle(session.getTitle());
-        resp.setStatus(session.getStatus());
-        resp.setSlotState(session.getSlotState());
-        resp.setCreatedAt(session.getCreatedAt());
+        CreateSessionResponse resp = CreateSessionResponse.builder()
+                .sessionId(session.getSessionId())
+                .title(session.getTitle())
+                .status(session.getStatus())
+                .slotState(session.getSlotState())
+                .createdAt(session.getCreatedAt())
+                .build();
         return Result.success(resp);
     }
 
     /**
-     * 2. 发送对话消息（SSE 流式响应）
+     * 发送对话消息
      * POST /api/v1/chat/sessions/{id}/messages
      */
     @PostMapping("/sessions/{id}/messages")
@@ -75,16 +77,16 @@ public class ChatController {
             @Valid @RequestBody SendMessageRequest request,
             @RequestHeader("X-User-Id") Long userId
     ) {
-        log.info("[sendMessage] sessionId={}, userId={}, content={}",
-                id, userId, request.getContent());
+        log.info("[发送对话消息] sessionId={}, userId={}, content={}", id, userId, request.getContent());
 
         return dialogueService.handleMessage(
                 id,
                 userId,
                 request.getContent(),
-                request.getSessionId(),
+                request.getScheduleId(),
                 request.getSeatIds(),
-                request.getTicketCount()
+                request.getTicketCount(),
+                request.getRequestId()
         );
     }
 
@@ -140,7 +142,8 @@ public class ChatController {
         resp.setSlotState(session.getSlotState());
         resp.setCreatedAt(session.getCreatedAt());
 
-        List<SessionDetailResponse.MessageItem> items = session.getMessages().stream()
+        List<ChatMessage> messages = chatSessionService.getMessages(session.getSessionId());
+        List<SessionDetailResponse.MessageItem> items = messages.stream()
                 .map(m -> {
                     SessionDetailResponse.MessageItem item = new SessionDetailResponse.MessageItem();
                     item.setMsgId(m.getMsgId());

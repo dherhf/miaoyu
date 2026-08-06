@@ -124,11 +124,19 @@ export function mapHallCell(cell: HallCell): SeatItem {
 
 /** SeatItem → HallCell */
 export function toHallCell(seat: SeatItem): HallCell {
+  const cellType = seat.status === 'aisle' ? 'void' : 'seat';
   return {
     rowIndex: seat.row,
     colIndex: seat.col,
-    cellType: seat.status === 'aisle' ? 'void' : 'seat',
+    cellType,
+    seatLabel: cellType === 'seat' ? generateSeatLabel(seat.row, seat.col) : undefined,
   };
+}
+
+/** 生成座位标签：行1→A, 行2→B... + 列号 */
+function generateSeatLabel(row: number, col: number): string {
+  const rowChar = String.fromCharCode('A'.charCodeAt(0) + row - 1);
+  return `${rowChar}${col}`;
 }
 
 /** HallRecord → HallItem */

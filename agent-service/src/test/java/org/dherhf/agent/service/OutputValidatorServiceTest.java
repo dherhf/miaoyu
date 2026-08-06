@@ -23,9 +23,13 @@ class OutputValidatorServiceTest {
 
         @ParameterizedTest
         @ValueSource(strings = {
-                "system_prompt:角色定义", "## 角色 购票助手", "SYSTEM_PROMPT:xxx"
+                "## 角色 购票助手", "## 槽位定义 movieName", "## 意图分类 BUY_TICKET",
+                "movieId", "movieName", "cinemaId", "cinemaName", "hallId", "hallType", "hallName",
+                "time", "count", "schedulesId", "seatIds",
+                "negateSlot", "priceMax", "negateCount",
+                "影片 ID", "影院 ID", "影片名称"
         })
-        @DisplayName("泄露系统提示拦截返回false")
+        @DisplayName("泄露系统提示/槽位定义拦截返回false")
         void leakBlock(String text) {
             assertThat(validator.validate(text)).isFalse();
         }

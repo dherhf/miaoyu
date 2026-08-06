@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { Row, Col, Button, Typography } from 'antd';
+import { Row, Col, Button, Typography, Table } from 'antd';
+import type { TableProps } from 'antd';
 import {
   ShoppingCartOutlined,
   DollarOutlined,
@@ -10,6 +11,8 @@ import {
   ClockCircleOutlined,
   ExclamationCircleOutlined,
   BarChartOutlined,
+  TrophyOutlined,
+  EnvironmentOutlined,
 } from '@ant-design/icons';
 import {
   LineChart,
@@ -22,16 +25,18 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { useDashboardStore } from './store';
+import type { MovieRankItem, CinemaRow } from './store';
 import { StatCard } from './StatCard';
 import { ChartCard } from './ChartCard';
 import styles from './DashboardPage.module.css';
-
 
 export function DashboardPage() {
   const {
     stats,
     yesterdayCompare,
     trendData,
+    movieRanking,
+    cinemaStats,
     loading,
     refreshDashboard,
   } = useDashboardStore();
@@ -41,7 +46,32 @@ export function DashboardPage() {
   }, [refreshDashboard]);
 
   // 影片排行表格列
+  const movieColumns: TableProps<MovieRankItem>['columns'] = [
+    {
+      title: '排名',
+      dataIndex: 'rank',
+      width: 60,
+      render: (rank: number) => (
+        <div className={`${styles.rankBadge} ${rank <= 3 ? styles.rankBadgeTop : styles.rankBadgeNormal}`}>
+          {rank}
+        </div>
+      ),
+    },
+    { title: '影片', dataIndex: 'movieName', ellipsis: true },
+    { title: '票房(¥)', dataIndex: 'boxOffice', width: 110, align: 'right' as const, render: (v: number) => v?.toLocaleString() },
+    { title: '票数', dataIndex: 'ticketCount', width: 80, align: 'right' as const },
+    { title: '订单数', dataIndex: 'orderCount', width: 80, align: 'right' as const },
+  ];
 
+  // 影院分析表格列
+  const cinemaColumns: TableProps<CinemaRow>['columns'] = [
+    { title: '影院', dataIndex: 'cinemaName', ellipsis: true },
+    { title: '票房(¥)', dataIndex: 'boxOffice', width: 110, align: 'right' as const, render: (v: number) => v?.toLocaleString() },
+    { title: '票数', dataIndex: 'ticketCount', width: 70, align: 'right' as const },
+    { title: '订单', dataIndex: 'orderCount', width: 70, align: 'right' as const },
+    { title: '退票率', dataIndex: 'refundRate', width: 80, align: 'right' as const, render: (v: number) => `${(v * 100).toFixed(1)}%` },
+    { title: '票房占比', dataIndex: 'boxOfficeShare', width: 90, align: 'right' as const, render: (v: number) => `${(v * 100).toFixed(1)}%` },
+  ];
 
   return (
     <div className={styles.page}>
@@ -69,7 +99,7 @@ export function DashboardPage() {
           <StatCard title="今日出票量" value={stats.todayTickets} change={yesterdayCompare ? Math.abs(yesterdayCompare.ticketCountChange) : undefined} changeType={yesterdayCompare ? (yesterdayCompare.ticketCountChange >= 0 ? 'up' : 'down') : 'up'} icon={BarcodeOutlined} color="purple" />
         </Col>
         <Col xs={12} sm={6} xl={6}>
-          <StatCard title="今日退票量" value={stats.todayRefunds} icon={RollbackOutlined} color="red" />
+          <StatCard title="今日退票量" value={stats.todayRefunds} change={yesterdayCompare ? Math.abs(yesterdayCompare.refundCountChange) : undefined} changeType={yesterdayCompare ? (yesterdayCompare.refundCountChange >= 0 ? 'up' : 'down') : 'up'} icon={RollbackOutlined} color="red" />
         </Col>
         <Col xs={12} sm={6} xl={6}>
           <StatCard title="订单转化率" value={stats.conversionRate} unit="%" icon={AimOutlined} color="orange" />
@@ -103,6 +133,35 @@ export function DashboardPage() {
         </div>
       </ChartCard>
 
+      {/* 影片排行 & 影院分析 */}
+      <Row gutter={16} className={styles.bottomRow}>
+        <Col xs={24} lg={12}>
+          <ChartCard title="影片票房排行 TOP 10" icon={TrophyOutlined}>
+            <Table<MovieRankItem>
+              rowKey="rank"
+              columns={movieColumns}
+              dataSource={movieRanking}
+              pagination={false}
+              size="small"
+              loading={loading}
+              locale={{ emptyText: '暂无数据' }}
+            />
+          </ChartCard>
+        </Col>
+        <Col xs={24} lg={12}>
+          <ChartCard title="影院运营分析" icon={EnvironmentOutlined}>
+            <Table<CinemaRow>
+              rowKey="cinemaName"
+              columns={cinemaColumns}
+              dataSource={cinemaStats}
+              pagination={false}
+              size="small"
+              loading={loading}
+              locale={{ emptyText: '暂无数据' }}
+            />
+          </ChartCard>
+        </Col>
+      </Row>
     </div>
   );
 }

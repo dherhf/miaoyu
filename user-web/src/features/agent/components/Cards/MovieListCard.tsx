@@ -27,7 +27,7 @@ const S: Record<string, React.CSSProperties> = {
 }
 
 export default function MovieListCard({ data, onAction }: BaseCardProps<MovieListCardData>) {
-  const movies = data?.movies || []
+  const movies = data?.records || []
 
   if (movies.length === 0) {
     return <Empty description="暂无符合条件的影片" />

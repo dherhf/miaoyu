@@ -17,6 +17,7 @@ export interface YesterdayCompare {
   orderCountChange: number;
   transactionAmountChange: number;
   ticketCountChange: number;
+  refundCountChange: number;
 }
 
 /** 趋势数据点 */
@@ -33,7 +34,7 @@ export interface TransactionsResult {
   trend: TrendItem[];
 }
 
-/** 影片排行条目 */
+/** 影片排行条目（后端直接返回 List，非包装对象） */
 export interface MovieRankingItem {
   movieName: string;
   ticketCount: number;
@@ -42,12 +43,7 @@ export interface MovieRankingItem {
   occupancyRate: number;
 }
 
-/** 影片排行响应 */
-export interface MoviesRankingResult {
-  ranking: MovieRankingItem[];
-}
-
-/** 影院运营分析条目 */
+/** 影院运营分析条目（后端直接返回 List，非包装对象） */
 export interface CinemaAnalysisItem {
   cinemaName: string;
   orderCount: number;
@@ -56,11 +52,6 @@ export interface CinemaAnalysisItem {
   occupancyRate: number;
   refundRate: number;
   boxOfficeShare: number;
-}
-
-/** 影院运营分析响应 */
-export interface CinemasAnalysisResult {
-  cinemas: CinemaAnalysisItem[];
 }
 
 // ---------- Store 层 ----------
@@ -87,25 +78,20 @@ export interface TrendRecord {
 /** 影片排名条目（Store / 页面展示用） */
 export interface MovieRankItem {
   rank: number;
-  name: string;
-  type?: string;
+  movieName: string;
+  ticketCount: number;
   boxOffice: number;
-  occupancy: number;
+  orderCount: number;
 }
 
 /** 影院运营行（Store / 页面展示用） */
 export interface CinemaRow {
-  name: string;
-  branch?: string;
-  dailyRevenue: number;
-  occupancy: number;
-}
-
-/** 影院类型分布（Store / 页面展示用） */
-export interface CinemaDistItem {
-  name: string;
-  value: number;
-  count: number;
+  cinemaName: string;
+  orderCount: number;
+  ticketCount: number;
+  boxOffice: number;
+  refundRate: number;
+  boxOfficeShare: number;
 }
 
 // ---------- 映射函数 ----------
@@ -133,21 +119,25 @@ export function mapTrendData(res: TransactionsResult): TrendRecord[] {
   }));
 }
 
-/** MoviesRankingResult → MovieRankItem[] */
-export function mapMovieRanking(res: MoviesRankingResult): MovieRankItem[] {
-  return res.ranking.map((item, idx) => ({
+/** MovieRankingItem[] → MovieRankItem[] */
+export function mapMovieRanking(items: MovieRankingItem[]): MovieRankItem[] {
+  return items.map((item, idx) => ({
     rank: idx + 1,
-    name: item.movieName,
+    movieName: item.movieName,
+    ticketCount: item.ticketCount,
     boxOffice: item.boxOffice,
-    occupancy: item.occupancyRate,
+    orderCount: item.orderCount,
   }));
 }
 
-/** CinemasAnalysisResult → CinemaRow[] */
-export function mapCinemasAnalysis(res: CinemasAnalysisResult): CinemaRow[] {
-  return res.cinemas.map((c) => ({
-    name: c.cinemaName,
-    dailyRevenue: c.boxOffice,
-    occupancy: c.occupancyRate,
+/** CinemaAnalysisItem[] → CinemaRow[] */
+export function mapCinemasAnalysis(items: CinemaAnalysisItem[]): CinemaRow[] {
+  return items.map((c) => ({
+    cinemaName: c.cinemaName,
+    orderCount: c.orderCount,
+    ticketCount: c.ticketCount,
+    boxOffice: c.boxOffice,
+    refundRate: c.refundRate,
+    boxOfficeShare: c.boxOfficeShare,
   }));
 }

@@ -1,8 +1,10 @@
 package org.dherhf.agent.service;
 
 import tools.jackson.databind.ObjectMapper;
+import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.service.AiServices;
-import jakarta.annotation.PostConstruct;
+import dev.langchain4j.service.MemoryId;
+import dev.langchain4j.service.UserMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -11,21 +13,23 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.dherhf.common.result.ErrorCodeEnum;
 import org.dherhf.agent.document.ChatMessage;
-import org.dherhf.agent.enums.IntentEnum;
 import org.dherhf.agent.enums.SessionStatusEnum;
+import org.dherhf.agent.model.AgentResponse;
+import org.dherhf.agent.model.card.CardPayload;
 import org.dherhf.agent.model.sse.SseEvent;
+import org.dherhf.agent.model.ticket.RequestContext;
+import org.dherhf.agent.model.ticket.SlotState;
+import org.dherhf.agent.tool.TicketServiceClient;
 import org.dherhf.agent.tool.TicketTools;
 
 import dev.langchain4j.model.chat.ChatModel;
 
 /**
- * 对话引擎主流程服务（对应系分 §3.9.1 - 对话消息处理全链路）。
+ * 对话引擎主流程服务。
  * <p>
  * 流程：用户输入 → 输入安全过滤 → 构造 LLM 请求（System Prompt + 上下文 + 历史） →
  * LangChain4j 调用 DeepSeek → 工具调用（自动跳步/缺槽追问/上下文修正） →
@@ -43,7 +47,8 @@ public class DialogueService {
     private final OutputValidatorService outputValidatorService;
     private final ContextService contextService;
     private final ChatSessionService chatSessionService;
-    private final TicketTools ticketTools;
+    private final TicketServiceClient ticketClient;
+    private final IdempotentService idempotentService;
     private final ObjectMapper objectMapper;
 
     @Value("${agent.negate-threshold}")
@@ -52,20 +57,29 @@ public class DialogueService {
     @Value("${agent.sse-timeout-seconds}")
     private long sseTimeoutSeconds;
 
-    /** LangChain4j AiService 接口，运行时由 AiServices 构建 */
+    /** LangChain4j AiService 接口，@MemoryId 绑定 sessionId 用于会话隔离。返回结构化响应由框架自动反序列化。 */
     public interface ChatAssistant {
-        String chat(@dev.langchain4j.service.UserMessage String userMessage);
+        AgentResponse chat(@MemoryId String sessionId, @UserMessage String userMessage);
     }
 
-    private ChatAssistant chatAssistant;
-
-    @PostConstruct
-    public void init() {
-        chatAssistant = AiServices.builder(ChatAssistant.class)
+    /**
+     * 为每次请求构建独立的 AiServices 实例，绑定 sessionId 和 TicketTools。
+     * 测试时可覆写此方法返回 mock。
+     */
+    protected ChatAssistant buildChatAssistant(String sessionId, TicketTools tools) {
+        return AiServices.builder(ChatAssistant.class)
                 .chatModel(chatModel)
-                .tools(ticketTools)
-                .systemMessageProvider(chatMemoryId -> promptService.getSystemPrompt())
+                .tools(tools)
+                .systemMessageProvider(memoryId -> promptService.getSystemPrompt())
+                .chatMemoryProvider(memoryId -> MessageWindowChatMemory.builder()
+                        .maxMessages(10)
+                        .id(memoryId)
+                        .build())
                 .build();
+    }
+
+    private TicketTools createTicketTools(String sessionId) {
+        return new TicketTools(ticketClient, objectMapper, contextService, idempotentService, sessionId);
     }
 
     /**
@@ -77,6 +91,7 @@ public class DialogueService {
      * @param scheduleId   前端选场次后直接提供（可 null）
      * @param seatIds      前端选座后直接提供（可 null）
      * @param ticketCount  购票数量（=座位数，前端选座时提供，可 null）
+     * @param requestId    幂等请求 ID（前端生成，写操作幂等控制，可 null）
      * @return SseEmitter
      */
     public SseEmitter handleMessage(
@@ -85,7 +100,8 @@ public class DialogueService {
             String content,
             Long scheduleId,
             List<Long> seatIds,
-            Integer ticketCount
+            Integer ticketCount,
+            String requestId
     ) {
         SseEmitter emitter = new SseEmitter(sseTimeoutSeconds * 1000L);
 
@@ -109,12 +125,30 @@ public class DialogueService {
             return emitter;
         }
 
-        Map<String, Object> slotState = contextService.loadSlotState(sessionId);
+        SlotState slotState = contextService.loadSlotState(sessionId);
 
-        // P0 修复：setContext 必须在虚拟线程内调用，ThreadLocal 不跨线程继承
+        // 将前端传入的场次/座位信息写入槽位
+        if (scheduleId != null) {
+            slotState.setSchedulesId(scheduleId);
+        }
+        if (seatIds != null) {
+            slotState.setSeatIds(seatIds);
+        }
+        if (ticketCount != null) {
+            slotState.setCount(ticketCount);
+        }
+
+        // 将请求上下文存入 Redis，TicketTools 通过 sessionId 查询
+        RequestContext requestCtx = new RequestContext();
+        requestCtx.setUserId(userId);
+        requestCtx.setScheduleId(scheduleId);
+        requestCtx.setSeatIds(seatIds);
+        requestCtx.setTicketCount(ticketCount);
+        requestCtx.setRequestId(requestId);
+
         Thread.startVirtualThread(() -> {
             try {
-                TicketTools.setContext(userId, scheduleId, seatIds, ticketCount);
+                contextService.storeRequestContext(sessionId, requestCtx);
                 processDialogue(emitter, sessionId, content, slotState);
             } catch (Exception ex) {
                 log.error("[handleMessage] 对话处理异常: sessionId={}", sessionId, ex);
@@ -123,7 +157,7 @@ public class DialogueService {
                 } catch (IOException ignored) {}
                 emitter.completeWithError(ex);
             } finally {
-                TicketTools.clearContext();
+                contextService.clearRequestContext(sessionId);
             }
         });
 
@@ -134,12 +168,11 @@ public class DialogueService {
             SseEmitter emitter,
             String sessionId,
             String content,
-            Map<String, Object> slotState
+            SlotState slotState
     ) throws IOException {
-        List<Map<String, Object>> recentMessages = contextService.getRecentMessages(sessionId);
+        List<ChatMessage> recentMessages = contextService.getRecentMessages(sessionId);
         String contextPrompt = buildContextPrompt(content, slotState, recentMessages);
 
-        // P2-a 修复：msgId 基于全量消息数，而非 historyWindow 截断后的 recentMessages
         int totalMsgCount = contextService.getMessageCount(sessionId);
         int nextId = totalMsgCount + 1;
         ChatMessage userMsg = new ChatMessage();
@@ -148,18 +181,15 @@ public class DialogueService {
         userMsg.setContent(content);
         userMsg.setCreatedAt(LocalDateTime.now());
 
-        // 创建一个不包含createdAt的map来避免序列化问题
-        Map<String, Object> userMsgMap = new HashMap<>();
-        userMsgMap.put("msgId", userMsg.getMsgId());
-        userMsgMap.put("role", userMsg.getRole());
-        userMsgMap.put("content", userMsg.getContent());
-        // 不添加createdAt，让MongoDB自动处理
+        contextService.updateContext(sessionId, slotState, userMsg, userMsg.getCreatedAt());
 
-        contextService.updateContext(sessionId, slotState, userMsgMap, userMsg.getCreatedAt());
+        // 每次请求构建独立的 TicketTools + ChatAssistant，通过 @MemoryId 绑定 sessionId
+        TicketTools tools = createTicketTools(sessionId);
+        ChatAssistant assistant = buildChatAssistant(sessionId, tools);
 
-        String aiResponse;
+        AgentResponse response;
         try {
-            aiResponse = chatAssistant.chat(contextPrompt);
+            response = assistant.chat(sessionId, contextPrompt);
         } catch (Exception ex) {
             log.error("[processDialogue] LLM 调用失败: {}", ex.getMessage(), ex);
             sendSseEvent(emitter, SseEvent.error("50001", "AI 响应超时，请重试"));
@@ -167,77 +197,79 @@ public class DialogueService {
             return;
         }
 
-        if (!outputValidatorService.validate(aiResponse)) {
+        String aiContent = response.content() != null ? response.content() : "";
+        if (!outputValidatorService.validate(aiContent)) {
             sendSseEvent(emitter, SseEvent.error("50002", "AI 输出异常，请重试"));
             emitter.complete();
             return;
         }
 
-        ParsedResponse parsed = parseResponse(aiResponse);
-
-        // P1-c 修复：推送工具调用产生的卡片数据
-        List<org.dherhf.agent.model.card.CardPayload> cards = TicketTools.drainCards();
-        for (org.dherhf.agent.model.card.CardPayload card : cards) {
-            sendSseEvent(emitter, SseEvent.card(card.getCardType(), card.getCardData()));
+        // 只推送最后一张卡片（跳步场景下中间卡片对用户无意义）
+        List<CardPayload> cards = tools.drainCards();
+        if (!cards.isEmpty()) {
+            CardPayload lastCard = cards.getLast();
+            log.info("[processDialogue] 推送卡片: {}", lastCard.getCardType());
+            sendSseEvent(emitter, SseEvent.card(lastCard.getCardType(), lastCard.getCardData()));
         }
 
-        if (parsed.content != null && !parsed.content.isBlank()) {
-            sendSseEvent(emitter, SseEvent.message(parsed.content));
+        if (!aiContent.isBlank()) {
+            sendSseEvent(emitter, SseEvent.message(aiContent));
         }
 
-        Map<String, Object> mergedSlots = contextService.mergeSlots(slotState, parsed.slots);
+        SlotState incomingSlots = response.slots() != null ? response.slots() : new SlotState();
+        SlotState updatedSlotState = contextService.mergeSlots(slotState, incomingSlots);
 
-        Object negateCount = mergedSlots.get("negateCount");
-        if (negateCount instanceof Number n && n.intValue() >= negateThreshold) {
+        // 标准化 movieName 类型字段（统一小写，用于模糊推荐匹配）
+        if (updatedSlotState.getMovieName() != null) {
+            updatedSlotState.setMovieName(updatedSlotState.getMovieName().trim());
+        }
+
+        int negateCount = updatedSlotState.getNegateCount() != null ? updatedSlotState.getNegateCount() : 0;
+        if (negateCount >= negateThreshold) {
             String degradeMsg = "看来我的推荐不太对，让我了解得更准确一些——您更偏好哪种类型？预算大概多少？";
             sendSseEvent(emitter, SseEvent.message(degradeMsg));
-            parsed.content = (parsed.content == null ? "" : parsed.content) + degradeMsg;
+            aiContent = aiContent + degradeMsg;
         }
 
         ChatMessage aiMsg = new ChatMessage();
         aiMsg.setMsgId(nextId + 1);
         aiMsg.setRole("assistant");
-        aiMsg.setContent(parsed.content);
-        aiMsg.setIntent(parsed.intent != null ? parsed.intent.name() : null);
-        aiMsg.setSlots(mergedSlots);
+        aiMsg.setContent(aiContent);
+        aiMsg.setIntent(response.intent() != null ? response.intent().name() : null);
+        aiMsg.setSlots(updatedSlotState);
         aiMsg.setCreatedAt(LocalDateTime.now());
+        if (!cards.isEmpty()) {
+            aiMsg.setCardType(cards.getLast().getCardType());
+            aiMsg.setCardData(cards.getLast().getCardData());
+        }
 
-        // 创建一个不包含createdAt的map来避免序列化问题
-        Map<String, Object> aiMsgMap = new HashMap<>();
-        aiMsgMap.put("msgId", aiMsg.getMsgId());
-        aiMsgMap.put("role", aiMsg.getRole());
-        aiMsgMap.put("content", aiMsg.getContent());
-        aiMsgMap.put("cardType", aiMsg.getCardType());
-        aiMsgMap.put("cardData", aiMsg.getCardData());
-        aiMsgMap.put("intent", aiMsg.getIntent());
-        aiMsgMap.put("slots", aiMsg.getSlots());
-        // 不添加createdAt，让MongoDB自动处理
+        contextService.updateContext(sessionId, updatedSlotState, aiMsg, aiMsg.getCreatedAt());
 
-        contextService.updateContext(sessionId, mergedSlots, aiMsgMap, aiMsg.getCreatedAt());
-
+        // 避免重复推送：只推送一次完成状态
         sendSseEvent(emitter, SseEvent.done(sessionId,
-                parsed.intent != null ? parsed.intent.name() : "",
-                mergedSlots));
+                response.intent() != null ? response.intent().name() : "",
+                updatedSlotState));
         emitter.complete();
     }
 
     private String buildContextPrompt(
             String content,
-            Map<String, Object> slotState,
-            List<Map<String, Object>> recentMessages
+            SlotState slotState,
+            List<ChatMessage> recentMessages
     ) {
         StringBuilder sb = new StringBuilder();
         if (!recentMessages.isEmpty()) {
             sb.append("【历史对话】\n");
-            for (Map<String, Object> msg : recentMessages) {
-                String role = (String) msg.get("role");
-                String text = (String) msg.get("content");
+            for (ChatMessage msg : recentMessages) {
+                String role = msg.getRole();
+                String text = msg.getContent();
                 if (role != null && text != null) {
                     sb.append(role.equals("user") ? "用户" : "助手").append(": ").append(text).append("\n");
                 }
             }
         }
-        if (!slotState.isEmpty()) {
+        // 判断 slotState 是否有非 null 字段
+        if (hasSlotData(slotState)) {
             sb.append("【当前槽位状态】\n");
             try {
                 sb.append(objectMapper.writeValueAsString(slotState)).append("\n");
@@ -247,52 +279,21 @@ public class DialogueService {
         return sb.toString();
     }
 
-    private ParsedResponse parseResponse(String aiResponse) {
-        ParsedResponse pr = new ParsedResponse();
-        pr.content = aiResponse;
-
-        String json = extractJson(aiResponse);
-        if (json != null) {
-            try {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> map = objectMapper.readValue(json, Map.class);
-                Object intentObj = map.get("intent");
-                if (intentObj != null) {
-                    try {
-                        pr.intent = IntentEnum.valueOf(intentObj.toString());
-                    } catch (IllegalArgumentException ignored) {}
-                }
-                Object contentObj = map.get("content");
-                if (contentObj instanceof String s && !s.isBlank()) {
-                    pr.content = s;
-                }
-                Object slotsObj = map.get("slots");
-                if (slotsObj instanceof Map<?, ?> sm) {
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> slotsMap = (Map<String, Object>) sm;
-                    pr.slots = slotsMap;
-                }
-            } catch (Exception ex) {
-                log.debug("[parseResponse] JSON 解析失败，按纯文本处理: {}", ex.getMessage());
-            }
-        }
-
-        if (pr.slots == null) {
-            pr.slots = new HashMap<>();
-        }
-        return pr;
-    }
-
-    private String extractJson(String text) {
-        if (text == null) {
-            return null;
-        }
-        int start = text.indexOf('{');
-        int end = text.lastIndexOf('}');
-        if (start >= 0 && end > start) {
-            return text.substring(start, end + 1);
-        }
-        return null;
+    private static boolean hasSlotData(SlotState slotState) {
+        if (slotState == null) return false;
+        return slotState.getMovieId() != null
+                || slotState.getMovieName() != null
+                || slotState.getCinemaId() != null
+                || slotState.getCinemaName() != null
+                || slotState.getHallId() != null
+                || slotState.getHallType() != null
+                || slotState.getHallName() != null
+                || slotState.getTime() != null
+                || slotState.getCount() != null
+                || slotState.getSchedulesId() != null
+                || slotState.getSeatIds() != null
+                || slotState.getPriceMax() != null
+                || slotState.getNegateCount() != null;
     }
 
     private void sendSseEvent(SseEmitter emitter, SseEvent event) throws IOException {
@@ -311,11 +312,5 @@ public class DialogueService {
             sendSseEvent(emitter, SseEvent.error(String.valueOf(code.getCode()), message));
             emitter.complete();
         } catch (IOException ignored) {}
-    }
-
-    private static class ParsedResponse {
-        String content;
-        IntentEnum intent;
-        Map<String, Object> slots;
     }
 }

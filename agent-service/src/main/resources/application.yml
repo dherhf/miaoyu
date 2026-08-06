@@ -24,6 +24,7 @@ spring:
     uri: mongodb://${MONGODB_USERNAME}:${MONGODB_PASSWORD}@${MONGODB_HOST}:${MONGODB_PORT}/${MONGODB_DATABASE}?authSource=${MONGODB_DATABASE}
 
 
+
 # 票务服务内部调用地址
 ticket-service:
   base-url: ${TICKET_SERVICE_URL:http://localhost:8080}
@@ -40,9 +41,8 @@ langchain4j:
       temperature: 0.3
       max-tokens: 2048
       timeout: 60s
-      log-requests: true
+      log-requests: false
       log-responses: true
-
 # Agent 对话配置
 agent:
   # Redis 会话上下文 TTL（秒）- 24h

@@ -1,6 +1,7 @@
 package org.dherhf.agent.model.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.Builder;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -9,9 +10,9 @@ import java.time.LocalDateTime;
  * 创建会话响应。
  */
 @Data
+@Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class CreateSessionResponse {
-
     private String sessionId;
     private String title;
     private String status;

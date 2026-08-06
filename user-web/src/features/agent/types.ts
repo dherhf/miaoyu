@@ -15,8 +15,9 @@ export interface CreateSessionResponse {
 export interface SendMessageRequest {
   content: string
   seatIds?: string[]
-  sessionId?: string
+  scheduleId?: string
   ticketCount?: number
+  requestId?: string
 }
 
 export interface SessionSummary {
@@ -105,7 +106,7 @@ export interface MovieItem {
   types?: string[]
   duration?: number
 }
-export type MovieListCardData = { movies: MovieItem[] }
+export type MovieListCardData = { records: MovieItem[]; total?: number }
 
 // 影院卡片数据
 export interface CinemaItem {
@@ -116,7 +117,7 @@ export interface CinemaItem {
   facilities?: string[]
   rating?: number
 }
-export type CinemaListCardData = { cinemas: CinemaItem[] }
+export type CinemaListCardData = { records: CinemaItem[]; total?: number }
 
 // 场次卡片
 export interface SessionItem {
@@ -130,7 +131,7 @@ export interface SessionItem {
   price: number
   availableSeats: number
 }
-export type SessionListCardData = { sessions: SessionItem[] }
+export type SessionListCardData = { records: SessionItem[]; total?: number }
 
 // 座位卡片
 export interface Seat {
@@ -196,8 +197,8 @@ export interface OrderItem {
   createdAt: string
 }
 export type OrderListCardData = {
-  orders: OrderItem[]
-  total: number
+  records: OrderItem[]
+  total?: number
 }
 
 // 推荐/异常卡片
