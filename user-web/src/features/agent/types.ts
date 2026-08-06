@@ -96,6 +96,9 @@ export type CardType =
   | 'recommendTip'
   | 'pendingOrder'
   | 'orderList'
+  | 'routeInfo'
+  | 'nearbyPoi'
+  | 'weatherInfo'
 
 // 影片卡片数据
 export interface MovieItem {
@@ -235,6 +238,55 @@ export type CardPayload =
   | { type: 'recommendTip'; data: RecommendTipCardData }
   | { type: 'pendingOrder'; data: PendingOrderCardData }
   | { type: 'orderList'; data: OrderListCardData }
+  | { type: 'routeInfo'; data: RouteInfoCardData }
+  | { type: 'nearbyPoi'; data: NearbyPoiCardData }
+  | { type: 'weatherInfo'; data: WeatherInfoCardData }
+
+// 路线信息卡片
+export interface RouteInfoCardData {
+  code?: number
+  data?: RouteData[]
+  message?: string
+}
+export interface RouteData {
+  distance: number
+  duration: number
+  steps?: Record<string, unknown>[]
+}
+
+// 周边POI卡片
+export interface NearbyPoiCardData {
+  code?: number
+  data?: NearbyPoiItem[]
+  message?: string
+}
+export interface NearbyPoiItem {
+  id?: string
+  name: string
+  address?: string
+  location?: string
+  type?: string
+  tel?: string
+  distance?: string
+}
+
+// 天气信息卡片
+export interface WeatherInfoCardData {
+  code?: number
+  data?: WeatherData
+  message?: string
+}
+export interface WeatherData {
+  city: string
+  adcode?: string
+  province?: string
+  weather: string
+  temperature: string
+  windDirection?: string
+  windPower?: string
+  humidity?: string
+  reportTime?: string
+}
 
 // 卡片统一回调（点击选择后发送对话消息）
 export type CardActionCallback = (userInputText: string) => void

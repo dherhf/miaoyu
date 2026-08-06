@@ -30,6 +30,7 @@ import java.util.UUID;
 public class TicketTools {
 
     private final TicketServiceClient ticketClient;
+    private final AmapClient amapClient;
     private final tools.jackson.databind.ObjectMapper objectMapper;
     private final ContextService contextService;
     private final IdempotentService idempotentService;
@@ -38,11 +39,13 @@ public class TicketTools {
     private final List<CardPayload> cardBuffer = new ArrayList<>();
 
     public TicketTools(TicketServiceClient ticketClient,
+                       AmapClient amapClient,
                        tools.jackson.databind.ObjectMapper objectMapper,
                        ContextService contextService,
                        IdempotentService idempotentService,
                        String sessionId) {
         this.ticketClient = ticketClient;
+        this.amapClient = amapClient;
         this.objectMapper = objectMapper;
         this.contextService = contextService;
         this.idempotentService = idempotentService;
@@ -305,5 +308,104 @@ public class TicketTools {
             emitCard("order_success", result.getData());
         }
         return json;
+    }
+
+    // ========== 行程规划工具 ==========
+
+    @Tool("路径规划。用户问怎么去影院/导航/路线时调用。先通过地理编码将地名转为坐标，再调用高德路径规划。返回原始 JSON 数据。")
+    public String planRoute(
+            @P("出发地点名称或地址，如'湖南大学'、'长沙南站'") String origin,
+            @P("目的地名称或地址，如'长沙学院'或影院名称") String destination,
+            @P("出行方式：driving(驾车)/transit(公交)/walking(步行)；默认 driving") String mode
+    ) {
+        String travelMode = (mode == null || mode.isBlank()) ? "driving" : mode.trim().toLowerCase();
+        log.info("[Tool:planRoute] origin={}, destination={}, mode={}", origin, destination, travelMode);
+
+        // 先将出发地和目的地地理编码为坐标
+        String originCoords = resolveCoordinates(origin);
+        String destCoords = resolveCoordinates(destination);
+        if (originCoords == null) {
+            return "{\"code\":500,\"message\":\"无法解析出发地坐标：" + origin + "\"}";
+        }
+        if (destCoords == null) {
+            return "{\"code\":500,\"message\":\"无法解析目的地坐标：" + destination + "\"}";
+        }
+
+        String city = null;
+        if ("transit".equals(travelMode)) {
+            city = "长沙";
+        }
+        String result = amapClient.getRoute(originCoords, destCoords, travelMode, city);
+        emitCard("route_info", result);
+        return result;
+    }
+
+    @Tool("周边搜索。用户问影院附近有什么（餐饮/停车/地铁等）时调用。先通过地理编码将地名转为坐标，再调用高德周边搜索。返回原始 JSON 数据。")
+    public String searchNearby(
+            @P("中心地点名称或地址，如'长沙学院'或影院名称") String location,
+            @P("搜索关键词，如'餐厅'、'停车场'、'地铁站'；无特定要求时传空字符串") String keywords
+    ) {
+        log.info("[Tool:searchNearby] location={}, keywords={}", location, keywords);
+        String coords = resolveCoordinates(location);
+        if (coords == null) {
+            return "{\"code\":500,\"message\":\"无法解析地点坐标：" + location + "\"}";
+        }
+        String result = amapClient.searchNearby(coords, keywords, 1000);
+        emitCard("nearby_poi", result);
+        return result;
+    }
+
+    @Tool("天气查询。用户问观影当天天气时调用。返回原始 JSON 数据。")
+    public String getWeather(
+            @P("城市名称，如'长沙'") String city
+    ) {
+        log.info("[Tool:getWeather] city={}", city);
+        String result = amapClient.getWeather(city);
+        emitCard("weather_info", result);
+        return result;
+    }
+
+    /**
+     * 将地名/地址解析为坐标（经度,纬度）。
+     * 先查影院表（有预存坐标），未命中再调高德地理编码。
+     */
+    private String resolveCoordinates(String placeName) {
+        if (placeName == null || placeName.isBlank()) return null;
+        // 尝试从影院表查坐标
+        Result<Object> cinemaResult = ticketClient.searchCinemas(null, placeName, null);
+        if (cinemaResult.getCode() == 0) {
+            try {
+                var node = objectMapper.readTree(objectMapper.writeValueAsString(cinemaResult.getData()));
+                var records = node.path("records");
+                if (records.isArray() && !records.isEmpty()) {
+                    var cinema = records.get(0);
+                    String lng = cinema.path("longitude").asText(null);
+                    String lat = cinema.path("latitude").asText(null);
+                    if (lng != null && lat != null && !lng.equals("null") && !lat.equals("null")) {
+                        return lng + "," + lat;
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("[resolveCoordinates] 解析影院坐标失败: {}", e.getMessage());
+            }
+        }
+        // 调高德地理编码
+        String geocodeResult = amapClient.geocode(placeName, "长沙");
+        try {
+            var node = objectMapper.readTree(geocodeResult);
+            if (node.path("code").asInt(-1) == 200) {
+                var data = node.path("data");
+                if (data.isArray() && !data.isEmpty()) {
+                    String lng = data.get(0).path("longitude").asText(null);
+                    String lat = data.get(0).path("latitude").asText(null);
+                    if (lng != null && lat != null) {
+                        return lng + "," + lat;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[resolveCoordinates] 地理编码解析失败: {}", e.getMessage());
+        }
+        return null;
     }
 }
