@@ -52,8 +52,9 @@ export default function LoginPage() {
             </Button>
           </Form.Item>
         </Form>
-        <div className="text-center mt-4">
-          还没有账号？<Link to="/register">去注册</Link>
+        <div className="flex justify-between mt-4">
+          <Link to="/reset-password">忘记密码？</Link>
+          <Link to="/register">去注册</Link>
         </div>
       </div>
     </div>

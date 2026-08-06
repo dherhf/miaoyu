@@ -7,7 +7,7 @@ interface AuthState {
   token: string | null
   userInfo: UserInfoVO | null
   login: (phone: string, password: string) => Promise<void>
-  register: (phone: string, password: string) => Promise<UserInfoVO>
+  register: (phone: string, password: string, smsCode: string) => Promise<UserInfoVO>
   logout: () => Promise<void>
   fetchCurrentUser: () => Promise<void>
 }
@@ -21,8 +21,8 @@ export const useAuthStore = create<AuthState>()(
         const data = await authApi.login({ phone, password })
         set({ token: data.token, userInfo: data.userInfo })
       },
-      register: async (phone, password) => {
-        return authApi.register({ phone, password })
+      register: async (phone, password, smsCode) => {
+        return authApi.register({ phone, password, smsCode })
       },
       logout: async () => {
         try {

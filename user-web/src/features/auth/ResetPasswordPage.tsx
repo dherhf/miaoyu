@@ -1,14 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { App, Button, Form, Input } from 'antd'
-import { useAuthStore } from './store'
 import * as authApi from './api'
 import { useHeaderBack } from '@/layouts/navBarStore'
 
-export default function RegisterPage() {
+export default function ResetPasswordPage() {
   const navigate = useNavigate()
   const { message } = App.useApp()
-  const register = useAuthStore((s) => s.register)
   const [loading, setLoading] = useState(false)
   const [captchaId, setCaptchaId] = useState('')
   const [captchaImage, setCaptchaImage] = useState('')
@@ -65,7 +63,7 @@ export default function RegisterPage() {
     }
     setSmsSending(true)
     try {
-      await authApi.sendSmsCode({ phone, captchaId, captchaCode, scene: 'register' })
+      await authApi.sendSmsCode({ phone, captchaId, captchaCode, scene: 'reset-password' })
       message.success('短信验证码已发送')
       startCountdown()
     } catch {
@@ -77,13 +75,17 @@ export default function RegisterPage() {
 
   const handleSubmit = async (values: {
     phone: string
-    password: string
+    newPassword: string
     smsCode: string
   }) => {
     setLoading(true)
     try {
-      await register(values.phone, values.password, values.smsCode)
-      message.success('注册成功')
+      await authApi.resetPassword({
+        phone: values.phone,
+        newPassword: values.newPassword,
+        smsCode: values.smsCode,
+      })
+      message.success('密码重置成功')
       navigate('/login')
     } catch {
       refreshCaptcha()
@@ -105,16 +107,6 @@ export default function RegisterPage() {
             ]}
           >
             <Input placeholder="请输入手机号" allowClear size="large" />
-          </Form.Item>
-          <Form.Item
-            name="password"
-            label="密码"
-            rules={[
-              { required: true, message: '密码不能为空' },
-              { min: 6, max: 20, message: '密码长度需为6-20位' },
-            ]}
-          >
-            <Input.Password placeholder="请输入密码" size="large" />
           </Form.Item>
           <Form.Item
             name="captchaCode"
@@ -163,14 +155,24 @@ export default function RegisterPage() {
               </Button>
             </div>
           </Form.Item>
+          <Form.Item
+            name="newPassword"
+            label="新密码"
+            rules={[
+              { required: true, message: '新密码不能为空' },
+              { min: 6, max: 20, message: '密码长度需为6-20位' },
+            ]}
+          >
+            <Input.Password placeholder="请输入新密码" size="large" />
+          </Form.Item>
           <Form.Item className="mb-0!">
             <Button block type="primary" htmlType="submit" size="large" loading={loading}>
-              注册
+              重置密码
             </Button>
           </Form.Item>
         </Form>
         <div className="text-center mt-4">
-          已有账号？<Link to="/login">去登录</Link>
+          想起密码了？<Link to="/login">去登录</Link>
         </div>
       </div>
     </div>
