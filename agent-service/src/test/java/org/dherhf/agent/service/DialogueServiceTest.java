@@ -1,12 +1,11 @@
 package org.dherhf.agent.service;
 
 import tools.jackson.databind.ObjectMapper;
-import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.StreamingChatModel;
+import dev.langchain4j.service.TokenStream;
 import org.dherhf.agent.document.ChatMessage;
 import org.dherhf.agent.document.ChatSessionDocument;
-import org.dherhf.agent.enums.IntentEnum;
 import org.dherhf.agent.enums.SessionStatusEnum;
-import org.dherhf.agent.model.AgentResponse;
 import org.dherhf.agent.model.ticket.SlotState;
 import org.dherhf.agent.tool.TicketServiceClient;
 import org.dherhf.agent.tool.AmapClient;
@@ -15,7 +14,8 @@ import org.junit.jupiter.api.*;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -25,7 +25,7 @@ import static org.mockito.Mockito.*;
 class DialogueServiceTest {
 
     private DialogueService service;
-    private ChatModel chatModel;
+    private StreamingChatModel streamingChatModel;
     private PromptService promptService;
     private InputFilterService inputFilterService;
     private OutputValidatorService outputValidatorService;
@@ -37,8 +37,8 @@ class DialogueServiceTest {
     private ObjectMapper objectMapper;
 
     @BeforeEach
-    void setUp() throws Exception {
-        chatModel = mock(ChatModel.class);
+    void setUp() {
+        streamingChatModel = mock(StreamingChatModel.class);
         promptService = mock(PromptService.class);
         inputFilterService = mock(InputFilterService.class);
         outputValidatorService = mock(OutputValidatorService.class);
@@ -50,19 +50,21 @@ class DialogueServiceTest {
         objectMapper = new ObjectMapper();
 
         when(promptService.getSystemPrompt()).thenReturn("test prompt");
+        when(outputValidatorService.validate(anyString())).thenReturn(true);
+        when(contextService.mergeSlots(any(), any())).thenReturn(new SlotState());
 
         // 直接通过构造器创建，覆写 buildChatAssistant 返回 mock（替代原 ReflectionTestUtils 注入 chatAssistant）
         service = new DialogueService(
-                chatModel, promptService, inputFilterService,
+                streamingChatModel, promptService, inputFilterService,
                 outputValidatorService, contextService, chatSessionService,
                 ticketClient, amapClient, idempotentService, objectMapper
         ) {
             @Override
             protected DialogueService.ChatAssistant buildChatAssistant(String sessionId, TicketTools tools) {
-                @SuppressWarnings("unchecked")
+                TokenStream testStream = createTestTokenStream();
                 var mockAssistant = mock(DialogueService.ChatAssistant.class);
                 when(mockAssistant.chat(eq(sessionId), anyString()))
-                        .thenReturn(new AgentResponse("test response", IntentEnum.OTHER, new SlotState()));
+                        .thenReturn(testStream);
                 return mockAssistant;
             }
         };
@@ -70,6 +72,33 @@ class DialogueServiceTest {
         // 手动注入 @Value 字段
         ReflectionTestUtils.setField(service, "negateThreshold", 2);
         ReflectionTestUtils.setField(service, "sseTimeoutSeconds", 60L);
+    }
+
+    /**
+     * 创建测试用 TokenStream，在 start() 时同步触发 onPartialResponse + onCompleteResponse。
+     * 模拟 LLM 输出 "test response" + 元数据块。
+     */
+    private TokenStream createTestTokenStream() {
+        TokenStream mockStream = mock(TokenStream.class);
+        AtomicReference<Consumer<String>> partialRef = new AtomicReference<>(s -> {});
+        AtomicReference<Consumer<?>> completeRef = new AtomicReference<>(o -> {});
+
+        when(mockStream.onPartialResponse(any())).thenAnswer(inv -> {
+            partialRef.set(inv.getArgument(0));
+            return mockStream;
+        });
+        when(mockStream.onCompleteResponse(any())).thenAnswer(inv -> {
+            completeRef.set(inv.getArgument(0));
+            return mockStream;
+        });
+        when(mockStream.onError(any())).thenAnswer(inv -> mockStream);
+        doAnswer(inv -> {
+            partialRef.get().accept("test response<<<META>>>{\"intent\":\"OTHER\",\"slots\":{}}<<<META>>>");
+            completeRef.get().accept(null);
+            return null;
+        }).when(mockStream).start();
+
+        return mockStream;
     }
 
     @Nested
