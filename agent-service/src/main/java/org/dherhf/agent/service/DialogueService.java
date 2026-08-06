@@ -48,6 +48,7 @@ public class DialogueService {
     private final ContextService contextService;
     private final ChatSessionService chatSessionService;
     private final TicketServiceClient ticketClient;
+    private final org.dherhf.agent.tool.AmapClient amapClient;
     private final IdempotentService idempotentService;
     private final ObjectMapper objectMapper;
 
@@ -79,7 +80,7 @@ public class DialogueService {
     }
 
     private TicketTools createTicketTools(String sessionId) {
-        return new TicketTools(ticketClient, objectMapper, contextService, idempotentService, sessionId);
+        return new TicketTools(ticketClient, amapClient, objectMapper, contextService, idempotentService, sessionId);
     }
 
     /**

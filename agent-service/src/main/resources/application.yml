@@ -31,6 +31,12 @@ ticket-service:
   # 内部调用 Token（与 ticket-service 约定的静态 Token）
   internal-token: ${INTERNAL_TOKEN:miaoyu-internal-token-2026}
 
+# 高德地图代理配置
+amap:
+  endpoint: https://www.weavefox.cn
+  base-path: /api/v1/amap
+  token: wfat_app_da4740a3349ac22860cc6a3cd7394ae0d27778a8fb21c9adc6e9a6b320201922
+
 # DeepSeek LLM 配置
 langchain4j:
   open-ai:

@@ -13,6 +13,9 @@ const OrderSuccessCard = lazy(() => import('./Cards/OrderSuccessCard'))
 const RecommendTipCard = lazy(() => import('./Cards/RecommendTipCard'))
 const PendingOrderCard = lazy(() => import('./Cards/PendingOrderCard'))
 const OrderListCard = lazy(() => import('./Cards/OrderListCard'))
+const RouteInfoCard = lazy(() => import('./Cards/RouteInfoCard'))
+const NearbyPoiCard = lazy(() => import('./Cards/NearbyPoiCard'))
+const WeatherInfoCard = lazy(() => import('./Cards/WeatherInfoCard'))
 const FallbackCard = lazy(() => import('./Cards/FallbackCard'))
 
 const registry = new Map<CardType, CardComponent>([
@@ -25,6 +28,9 @@ const registry = new Map<CardType, CardComponent>([
   ['recommendTip', RecommendTipCard as CardComponent],
   ['pendingOrder', PendingOrderCard as CardComponent],
   ['orderList', OrderListCard as CardComponent],
+  ['routeInfo', RouteInfoCard as CardComponent],
+  ['nearbyPoi', NearbyPoiCard as CardComponent],
+  ['weatherInfo', WeatherInfoCard as CardComponent],
 ])
 
 interface CardRendererProps {
