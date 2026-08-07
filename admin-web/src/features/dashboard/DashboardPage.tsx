@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
-import { Row, Col, Button, Typography, Table } from 'antd';
-import type { TableProps } from 'antd';
+import { Row, Col, Button, Typography } from 'antd';
+import { ProTable } from '@ant-design/pro-components';
+import type { ProColumns } from '@ant-design/pro-components';
 import {
   ShoppingCartOutlined,
   DollarOutlined,
@@ -46,31 +47,31 @@ export function DashboardPage() {
   }, [refreshDashboard]);
 
   // 影片排行表格列
-  const movieColumns: TableProps<MovieRankItem>['columns'] = [
+  const movieColumns: ProColumns<MovieRankItem>[] = [
     {
       title: '排名',
       dataIndex: 'rank',
       width: 60,
-      render: (rank: number) => (
-        <div className={`${styles.rankBadge} ${rank <= 3 ? styles.rankBadgeTop : styles.rankBadgeNormal}`}>
-          {rank}
+      render: (_, record) => (
+        <div className={`${styles.rankBadge} ${record.rank <= 3 ? styles.rankBadgeTop : styles.rankBadgeNormal}`}>
+          {record.rank}
         </div>
       ),
     },
     { title: '影片', dataIndex: 'movieName', ellipsis: true },
-    { title: '票房(¥)', dataIndex: 'boxOffice', width: 110, align: 'right' as const, render: (v: number) => v?.toLocaleString() },
+    { title: '票房(¥)', dataIndex: 'boxOffice', width: 110, align: 'right' as const, render: (_, record) => record.boxOffice?.toLocaleString() },
     { title: '票数', dataIndex: 'ticketCount', width: 80, align: 'right' as const },
     { title: '订单数', dataIndex: 'orderCount', width: 80, align: 'right' as const },
   ];
 
   // 影院分析表格列
-  const cinemaColumns: TableProps<CinemaRow>['columns'] = [
+  const cinemaColumns: ProColumns<CinemaRow>[] = [
     { title: '影院', dataIndex: 'cinemaName', ellipsis: true },
-    { title: '票房(¥)', dataIndex: 'boxOffice', width: 110, align: 'right' as const, render: (v: number) => v?.toLocaleString() },
+    { title: '票房(¥)', dataIndex: 'boxOffice', width: 110, align: 'right' as const, render: (_, record) => record.boxOffice?.toLocaleString() },
     { title: '票数', dataIndex: 'ticketCount', width: 70, align: 'right' as const },
     { title: '订单', dataIndex: 'orderCount', width: 70, align: 'right' as const },
-    { title: '退票率', dataIndex: 'refundRate', width: 80, align: 'right' as const, render: (v: number) => `${(v * 100).toFixed(1)}%` },
-    { title: '票房占比', dataIndex: 'boxOfficeShare', width: 90, align: 'right' as const, render: (v: number) => `${(v * 100).toFixed(1)}%` },
+    { title: '退票率', dataIndex: 'refundRate', width: 80, align: 'right' as const, render: (_, record) => `${(record.refundRate * 100).toFixed(1)}%` },
+    { title: '票房占比', dataIndex: 'boxOfficeShare', width: 90, align: 'right' as const, render: (_, record) => `${(record.boxOfficeShare * 100).toFixed(1)}%` },
   ];
 
   return (
@@ -137,26 +138,30 @@ export function DashboardPage() {
       <Row gutter={16} className={styles.bottomRow}>
         <Col xs={24} lg={12}>
           <ChartCard title="影片票房排行 TOP 10" icon={TrophyOutlined}>
-            <Table<MovieRankItem>
+            <ProTable<MovieRankItem>
               rowKey="rank"
               columns={movieColumns}
               dataSource={movieRanking}
               pagination={false}
               size="small"
               loading={loading}
+              search={false}
+              options={false}
               locale={{ emptyText: '暂无数据' }}
             />
           </ChartCard>
         </Col>
         <Col xs={24} lg={12}>
           <ChartCard title="影院运营分析" icon={EnvironmentOutlined}>
-            <Table<CinemaRow>
+            <ProTable<CinemaRow>
               rowKey="cinemaName"
               columns={cinemaColumns}
               dataSource={cinemaStats}
               pagination={false}
               size="small"
               loading={loading}
+              search={false}
+              options={false}
               locale={{ emptyText: '暂无数据' }}
             />
           </ChartCard>

@@ -1,27 +1,22 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useRef } from 'react';
 import {
-  Search,
   Eye,
   Receipt,
   TicketCheck,
 } from 'lucide-react';
 import {
-  Table,
   Modal,
   Input,
   Button,
-  Select,
-  Space,
   Tag,
-  DatePicker,
   Descriptions,
   Typography,
   Divider,
-  Card,
   Spin,
   message,
 } from 'antd';
-import type { TableProps } from 'antd';
+import { ProTable } from '@ant-design/pro-components';
+import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import dayjs from 'dayjs';
 import { useOrderStore, type OrderItem, type OrderStatus } from './store';
 import styles from './OrderPage.module.css';
@@ -35,8 +30,6 @@ const ORDER_STATUS_MAP: Record<OrderStatus, { label: string; color: string }> = 
   checked: { label: '已检票', color: 'blue' },
   expired: { label: '已过期', color: 'default' },
 };
-
-const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
 // ===================== 订单详情弹窗 =====================
 interface OrderDetailModalProps {
@@ -177,12 +170,7 @@ const CheckTicketModal: React.FC<CheckTicketModalProps> = ({ open, onClose, onSu
         result ? (
           <Button type="primary" onClick={handleClose}>完成</Button>
         ) : (
-          <Space>
-            <Button onClick={handleClose}>取消</Button>
-            <Button type="primary" loading={submitting} onClick={handleSubmit}>
-              确认检票
-            </Button>
-          </Space>
+          <Button onClick={handleClose}>取消</Button>
         )
       }
       width={480}
@@ -212,6 +200,11 @@ const CheckTicketModal: React.FC<CheckTicketModalProps> = ({ open, onClose, onSu
             onPressEnter={handleSubmit}
             style={{ marginTop: 12, letterSpacing: 4, textAlign: 'center', fontFamily: 'monospace' }}
           />
+          <div style={{ marginTop: 16, textAlign: 'right' }}>
+            <Button type="primary" loading={submitting} onClick={handleSubmit}>
+              确认检票
+            </Button>
+          </div>
         </div>
       )}
     </Modal>
@@ -220,17 +213,8 @@ const CheckTicketModal: React.FC<CheckTicketModalProps> = ({ open, onClose, onSu
 
 // ===================== 主页面 =====================
 const OrderManage: React.FC = () => {
-  const { orders, total, loading, fetchOrders, fetchOrderDetail } = useOrderStore();
-
-  // 筛选状态
-  const [orderNo, setOrderNo] = useState('');
-  const [movieName, setMovieName] = useState('');
-  const [cinemaName, setCinemaName] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>();
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const actionRef = useRef<ActionType>(null);
+  const { fetchOrders, fetchOrderDetail } = useOrderStore();
 
   // 详情弹窗状态
   const [detailOpen, setDetailOpen] = useState(false);
@@ -239,30 +223,6 @@ const OrderManage: React.FC = () => {
 
   // 检票弹窗状态
   const [checkTicketOpen, setCheckTicketOpen] = useState(false);
-
-  // 加载订单列表
-  const loadOrders = useCallback(() => {
-    fetchOrders({
-      orderNo: orderNo.trim() || undefined,
-      movieName: movieName.trim() || undefined,
-      cinemaName: cinemaName.trim() || undefined,
-      status: statusFilter,
-      dateFrom: dateFrom || undefined,
-      dateTo: dateTo || undefined,
-      page,
-      size: pageSize,
-    });
-  }, [fetchOrders, orderNo, movieName, cinemaName, statusFilter, dateFrom, dateTo, page, pageSize]);
-
-  useEffect(() => {
-    loadOrders();
-  }, [loadOrders]);
-
-  // 筛选变更时重置页码
-  const handleFilterChange = <T,>(setter: (v: T) => void, value: T) => {
-    setter(value);
-    setPage(1);
-  };
 
   // 查看详情
   const openDetail = async (order: OrderItem) => {
@@ -279,28 +239,15 @@ const OrderManage: React.FC = () => {
     }
   };
 
-  // 重置筛选
-  const resetFilters = () => {
-    setOrderNo('');
-    setMovieName('');
-    setCinemaName('');
-    setStatusFilter(undefined);
-    setDateFrom('');
-    setDateTo('');
-    setPage(1);
-  };
-
-  const hasFilters = orderNo || movieName || cinemaName || statusFilter || dateFrom || dateTo;
-
   // 表格列配置
-  const columns: TableProps<OrderItem>['columns'] = [
+  const columns: ProColumns<OrderItem>[] = [
     {
       title: '订单编号',
       dataIndex: 'orderNo',
       width: 200,
-      render: (text: string, record) => (
+      render: (_, record) => (
         <Button type="link" size="small" onClick={() => openDetail(record)} className={styles.orderNoButton}>
-          <span className={styles.cellText}>{text}</span>
+          <span className={styles.cellText}>{record.orderNo}</span>
         </Button>
       ),
     },
@@ -326,10 +273,11 @@ const OrderManage: React.FC = () => {
       title: '场次时间',
       key: 'showTime',
       width: 160,
-      render: (_v, row) => (
+      search: false,
+      render: (_, record) => (
         <div className={styles.showTimeCell}>
-          <div>{row.showDate}</div>
-          <div className={styles.showTimeSub}>{row.startTime}</div>
+          <div>{record.showDate}</div>
+          <div className={styles.showTimeSub}>{record.startTime}</div>
         </div>
       ),
     },
@@ -338,14 +286,16 @@ const OrderManage: React.FC = () => {
       dataIndex: 'hallName',
       width: 120,
       align: 'center',
+      search: false,
     },
     {
       title: '座位',
       dataIndex: 'seatInfo',
       width: 160,
       ellipsis: true,
-      render: (text: string) => (
-        <Typography.Text className={styles.cellText}>{text || '--'}</Typography.Text>
+      search: false,
+      render: (_, record) => (
+        <Typography.Text className={styles.cellText}>{record.seatInfo || '--'}</Typography.Text>
       ),
     },
     {
@@ -353,16 +303,18 @@ const OrderManage: React.FC = () => {
       dataIndex: 'ticketCount',
       width: 70,
       align: 'center',
-      render: (v: number) => `${v} 张`,
+      search: false,
+      render: (_, record) => `${record.ticketCount} 张`,
     },
     {
       title: '金额',
       dataIndex: 'totalAmount',
       width: 100,
       align: 'right',
-      render: (v: number) => (
+      search: false,
+      render: (_, record) => (
         <Typography.Text strong className={styles.amountCellText}>
-          ¥{v.toFixed(2)}
+          ¥{record.totalAmount.toFixed(2)}
         </Typography.Text>
       ),
     },
@@ -371,8 +323,12 @@ const OrderManage: React.FC = () => {
       dataIndex: 'status',
       width: 90,
       align: 'center',
-      render: (status: OrderStatus) => {
-        const cfg = ORDER_STATUS_MAP[status];
+      valueType: 'select',
+      valueEnum: Object.fromEntries(
+        Object.entries(ORDER_STATUS_MAP).map(([k, v]) => [k, { text: v.label }]),
+      ),
+      render: (_, record) => {
+        const cfg = ORDER_STATUS_MAP[record.status];
         return <Tag color={cfg.color}>{cfg.label}</Tag>;
       },
     },
@@ -380,17 +336,19 @@ const OrderManage: React.FC = () => {
       title: '下单时间',
       dataIndex: 'createdAt',
       width: 170,
-      render: (text: string) => (
-        <Typography.Text className={styles.cellText}>{text || '--'}</Typography.Text>
+      search: false,
+      render: (_, record) => (
+        <Typography.Text className={styles.cellText}>{record.createdAt || '--'}</Typography.Text>
       ),
     },
     {
       title: '支付时间',
       dataIndex: 'paidAt',
       width: 170,
-      render: (text?: string) => (
-        <Typography.Text className={styles.cellText} style={{ color: text ? undefined : '#ccc' }}>
-          {text || '--'}
+      search: false,
+      render: (_, record) => (
+        <Typography.Text className={styles.cellText} style={{ color: record.paidAt ? undefined : '#ccc' }}>
+          {record.paidAt || '--'}
         </Typography.Text>
       ),
     },
@@ -399,9 +357,10 @@ const OrderManage: React.FC = () => {
       dataIndex: 'cancelReason',
       width: 150,
       ellipsis: true,
-      render: (text?: string) => (
-        <Typography.Text className={styles.cellText} style={{ color: text ? undefined : '#ccc' }}>
-          {text || '--'}
+      search: false,
+      render: (_, record) => (
+        <Typography.Text className={styles.cellText} style={{ color: record.cancelReason ? undefined : '#ccc' }}>
+          {record.cancelReason || '--'}
         </Typography.Text>
       ),
     },
@@ -411,7 +370,8 @@ const OrderManage: React.FC = () => {
       width: 160,
       align: 'center',
       fixed: 'right',
-      render: (_v, record) => (
+      search: false,
+      render: (_, record) => (
         <Button
           type="link"
           size="small"
@@ -443,92 +403,47 @@ const OrderManage: React.FC = () => {
         </Button>
       </div>
 
-      {/* 筛选栏 */}
-      <div className={styles.filterBar}>
-        <Space size={12} wrap align="center">
-          <Input
-            placeholder="订单号精确搜索"
-            allowClear
-            value={orderNo}
-            onChange={(e) => handleFilterChange(setOrderNo, e.target.value)}
-            className={styles.filterInput}
-            prefix={<Search size={14} color="#999" />}
-          />
-          <Input
-            placeholder="影片名称模糊搜索"
-            allowClear
-            value={movieName}
-            onChange={(e) => handleFilterChange(setMovieName, e.target.value)}
-            className={styles.filterInput}
-          />
-          <Input
-            placeholder="影院名称模糊搜索"
-            allowClear
-            value={cinemaName}
-            onChange={(e) => handleFilterChange(setCinemaName, e.target.value)}
-            className={styles.filterInput}
-          />
-          <Select
-            placeholder="全部状态"
-            allowClear
-            value={statusFilter}
-            onChange={(v) => handleFilterChange(setStatusFilter, v)}
-            className={styles.statusSelect}
-          >
-            {Object.entries(ORDER_STATUS_MAP).map(([k, v]) => (
-              <Select.Option key={k} value={k}>{v.label}</Select.Option>
-            ))}
-          </Select>
-          <DatePicker
-            placeholder="起始日期"
-            value={dateFrom ? dayjs(dateFrom) : undefined}
-            onChange={(d) => handleFilterChange(setDateFrom, d?.format('YYYY-MM-DD') || '')}
-          />
-          <span className={styles.dateSeparator}>至</span>
-          <DatePicker
-            placeholder="结束日期"
-            value={dateTo ? dayjs(dateTo) : undefined}
-            onChange={(d) => handleFilterChange(setDateTo, d?.format('YYYY-MM-DD') || '')}
-          />
-          {hasFilters && (
-            <Button onClick={resetFilters}>
-              重置
-            </Button>
-          )}
-        </Space>
-      </div>
-
-      {/* 表格 */}
-      <Card styles={{ body: { padding: 0 } }}>
-        <Table<OrderItem>
-          rowKey="id"
-          columns={columns}
-          dataSource={orders}
-          loading={loading}
-          bordered
-          scroll={{ x: 'max-content' }}
-          pagination={{
-            current: page,
-            pageSize,
-            pageSizeOptions: PAGE_SIZE_OPTIONS,
-            total,
-            showSizeChanger: true,
-            showTotal: (t) => `共 ${t} 条订单`,
-            onChange: (p, ps) => {
-              setPage(p);
-              setPageSize(ps);
-            },
-          }}
-          locale={{
-            emptyText: (
-              <div className={styles.emptyState}>
-                <Receipt size={48} color="#ccc" />
-                <div className={styles.emptyText}>暂无订单数据</div>
-              </div>
-            ),
-          }}
-        />
-      </Card>
+      {/* ProTable */}
+      <ProTable<OrderItem>
+        actionRef={actionRef}
+        rowKey="id"
+        columns={columns}
+        request={async (params) => {
+          await fetchOrders({
+            orderNo: params.orderNo || undefined,
+            movieName: params.movieName || undefined,
+            cinemaName: params.cinemaName || undefined,
+            status: params.status || undefined,
+            dateFrom: params.dateFrom ? dayjs(params.dateFrom as string).format('YYYY-MM-DD') : undefined,
+            dateTo: params.dateTo ? dayjs(params.dateTo as string).format('YYYY-MM-DD') : undefined,
+            page: params.current ?? 1,
+            size: params.pageSize ?? 20,
+          });
+          const state = useOrderStore.getState();
+          return {
+            data: state.orders,
+            success: true,
+            total: state.total,
+          };
+        }}
+        search={{ labelWidth: 'auto', span: 4, defaultCollapsed: false }}
+        pagination={{
+          pageSize: 20,
+          pageSizeOptions: [10, 20, 50],
+          showSizeChanger: true,
+        }}
+        bordered
+        scroll={{ x: 'max-content' }}
+        headerTitle="订单明细"
+        locale={{
+          emptyText: (
+            <div className={styles.emptyState}>
+              <Receipt size={48} color="#ccc" />
+              <div className={styles.emptyText}>暂无订单数据</div>
+            </div>
+          ),
+        }}
+      />
 
       {/* 详情弹窗 */}
       <OrderDetailModal
@@ -542,7 +457,7 @@ const OrderManage: React.FC = () => {
       <CheckTicketModal
         open={checkTicketOpen}
         onClose={() => setCheckTicketOpen(false)}
-        onSuccess={() => loadOrders()}
+        onSuccess={() => actionRef.current?.reload()}
       />
     </div>
   );

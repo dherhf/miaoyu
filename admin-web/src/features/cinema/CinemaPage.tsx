@@ -243,7 +243,7 @@ export function CinemaManage() {
             total: useCinemaStore.getState().total ?? all.length,
           };
         }}
-        search={{ labelWidth: 'auto', span: 6, defaultCollapsed: false }}
+        search={{ labelWidth: 'auto', span: 8, defaultCollapsed: false }}
         pagination={{ pageSize: 10 }}
         bordered
         scroll={{ x: 'max-content' }}

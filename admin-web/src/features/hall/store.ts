@@ -85,6 +85,7 @@ export function removeCol(seats: SeatItem[]): SeatItem[] | { error: string } {
 interface HallState {
   halls: HallItem[];
   loading: boolean;
+  total: number;
   fetchHalls: (params?: HallListParams) => Promise<void>;
   getHallsByCinemaId: (cinemaId: string) => HallItem[];
   addHall: (payload: Omit<HallItem, 'id'>) => Promise<void>;
@@ -95,12 +96,13 @@ interface HallState {
 export const useHallStore = create<HallState>((set, get) => ({
   halls: [],
   loading: false,
+  total: 0,
 
   fetchHalls: async (params?: HallListParams): Promise<void> => {
     set({ loading: true });
     try {
       const res = await hallApi.getHallList(params ?? { page: 1, size: 100 });
-      set({ halls: res.records.map(mapHallRecord) });
+      set({ halls: res.records.map(mapHallRecord), total: res.total });
     } finally {
       set({ loading: false });
     }
