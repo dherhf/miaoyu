@@ -4,9 +4,11 @@ import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import lombok.extern.slf4j.Slf4j;
 import org.dherhf.agent.model.card.CardPayload;
+import org.dherhf.agent.model.dto.PreferenceUpdateDTO;
 import org.dherhf.agent.model.ticket.RequestContext;
 import org.dherhf.agent.service.ContextService;
 import org.dherhf.agent.service.IdempotentService;
+import org.dherhf.agent.service.UserPreferenceService;
 import org.dherhf.common.result.ErrorCodeEnum;
 import org.dherhf.common.result.Result;
 
@@ -36,6 +38,7 @@ public class TicketTools {
     private final tools.jackson.databind.ObjectMapper objectMapper;
     private final ContextService contextService;
     private final IdempotentService idempotentService;
+    private final UserPreferenceService userPreferenceService;
     private final String sessionId;
 
     private final List<CardPayload> cardBuffer = new ArrayList<>();
@@ -47,12 +50,14 @@ public class TicketTools {
                        tools.jackson.databind.ObjectMapper objectMapper,
                        ContextService contextService,
                        IdempotentService idempotentService,
+                       UserPreferenceService userPreferenceService,
                        String sessionId) {
         this.ticketClient = ticketClient;
         this.amapClient = amapClient;
         this.objectMapper = objectMapper;
         this.contextService = contextService;
         this.idempotentService = idempotentService;
+        this.userPreferenceService = userPreferenceService;
         this.sessionId = sessionId;
     }
 
@@ -388,6 +393,52 @@ public class TicketTools {
         cardBuffer.clear();
         cardSuppressed = true;
         return json;
+    }
+
+    // ========== 用户偏好工具 ==========
+
+    @Tool("获取当前用户的偏好设置，包括影厅类型、价格范围、座位区域、影片类型。返回 JSON 数据。")
+    public String getUserPreference() {
+        Long userId = requireUserId();
+        log.info("[Tool:getUserPreference] userId={}", userId);
+        var doc = userPreferenceService.getPreference(userId);
+        return toJson(doc);
+    }
+
+    @Tool("更新用户的偏好设置。当用户在对话中表达偏好时调用（如'我喜欢看喜剧'、'预算50以内'、'想坐中间排'）。仅传入用户明确表达的字段，未提及的字段传空字符串/null。")
+    public String updateUserPreference(
+            @P("偏好的影厅类型，如'IMAX'、'杜比'；未提及传空字符串") String preferredHallType,
+            @P("偏好价格下限（元），如'30'；未提及传空字符串") String priceMin,
+            @P("偏好价格上限（元），如'80'；未提及传空字符串") String priceMax,
+            @P("偏好的座位区域，如'5-8排中间'；未提及传空字符串") String preferredSeatArea,
+            @P("偏好的影片类型，多个用逗号分隔，如'科幻,喜剧'；未提及传空字符串") String preferredMovieTypes
+    ) {
+        Long userId = requireUserId();
+        PreferenceUpdateDTO.PreferenceUpdateDTOBuilder builder = PreferenceUpdateDTO.builder();
+        if (preferredHallType != null && !preferredHallType.isBlank()) {
+            builder.preferredHallType(preferredHallType);
+        }
+        if (priceMin != null && !priceMin.isBlank()) {
+            try { builder.priceMin(new java.math.BigDecimal(priceMin.trim())); }
+            catch (NumberFormatException e) { log.warn("[Tool:updateUserPreference] priceMin 格式无效: {}", priceMin); }
+        }
+        if (priceMax != null && !priceMax.isBlank()) {
+            try { builder.priceMax(new java.math.BigDecimal(priceMax.trim())); }
+            catch (NumberFormatException e) { log.warn("[Tool:updateUserPreference] priceMax 格式无效: {}", priceMax); }
+        }
+        if (preferredSeatArea != null && !preferredSeatArea.isBlank()) {
+            builder.preferredSeatArea(preferredSeatArea);
+        }
+        if (preferredMovieTypes != null && !preferredMovieTypes.isBlank()) {
+            builder.preferredMovieTypes(Arrays.stream(preferredMovieTypes.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .toList());
+        }
+        PreferenceUpdateDTO dto = builder.build();
+        log.info("[Tool:updateUserPreference] userId={}, dto={}", userId, dto);
+        userPreferenceService.mergePreference(userId, dto);
+        return "{\"code\":0,\"message\":\"偏好已更新\"}";
     }
 
     // ========== 行程规划工具 ==========

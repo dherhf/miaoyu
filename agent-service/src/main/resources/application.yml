@@ -58,7 +58,8 @@ langchain4j:
       max-tokens: 2048
       timeout: 60s
       log-requests: false
-      log-responses: false
+      log-responses: true
+
 # Agent 对话配置
 agent:
   # Redis 会话上下文 TTL（秒）- 24h

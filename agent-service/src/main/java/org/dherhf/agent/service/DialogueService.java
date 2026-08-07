@@ -24,6 +24,7 @@ import java.util.concurrent.TimeoutException;
 
 import org.dherhf.common.result.ErrorCodeEnum;
 import org.dherhf.agent.document.ChatMessage;
+import org.dherhf.agent.document.UserPreferenceDocument;
 import org.dherhf.agent.enums.IntentEnum;
 import org.dherhf.agent.enums.SessionStatusEnum;
 import org.dherhf.agent.model.card.CardPayload;
@@ -58,6 +59,7 @@ public class DialogueService {
     private final org.dherhf.agent.tool.AmapClient amapClient;
     private final IdempotentService idempotentService;
     private final ObjectMapper objectMapper;
+    private final UserPreferenceService userPreferenceService;
 
     @Value("${agent.negate-threshold}")
     private int negateThreshold;
@@ -91,7 +93,7 @@ public class DialogueService {
     }
 
     private TicketTools createTicketTools(String sessionId) {
-        return new TicketTools(ticketClient, amapClient, objectMapper, contextService, idempotentService, sessionId);
+        return new TicketTools(ticketClient, amapClient, objectMapper, contextService, idempotentService, userPreferenceService, sessionId);
     }
 
     /**
@@ -173,7 +175,7 @@ public class DialogueService {
         Thread.startVirtualThread(() -> {
             try {
                 contextService.storeRequestContext(sessionId, requestCtx);
-                processDialogue(emitter, sessionId, content, slotState, longitude, latitude, city, needTitle);
+                processDialogue(emitter, sessionId, userId, content, slotState, longitude, latitude, city, needTitle);
             } catch (Exception ex) {
                 log.error("[handleMessage] 对话处理异常: sessionId={}", sessionId, ex);
                 try {
@@ -198,6 +200,7 @@ public class DialogueService {
     private void processDialogue(
             SseEmitter emitter,
             String sessionId,
+            Long userId,
             String content,
             SlotState slotState,
             Double longitude,
@@ -211,7 +214,7 @@ public class DialogueService {
         String recognizedIntent = intentRecognitionService.recognizeIntent(content, recentMessages);
         log.info("[processDialogue] 意图识别结果: sessionId={}, intent={}", sessionId, recognizedIntent);
 
-        String contextPrompt = buildContextPrompt(content, slotState, recentMessages, longitude, latitude, city, recognizedIntent);
+        String contextPrompt = buildContextPrompt(userId, content, slotState, recentMessages, longitude, latitude, city, recognizedIntent);
 
         int totalMsgCount = contextService.getMessageCount(sessionId);
         int nextId = totalMsgCount + 1;
@@ -291,6 +294,7 @@ public class DialogueService {
                                 : full.substring(metaIdx + META_DELIMITER.length()).trim();
                         try {
                             JsonNode metaNode = objectMapper.readTree(metaJson);
+                            log.debug("[processDialogue] META解析: sessionId={}, metaJson={}", sessionId, metaJson);
                             if (metaNode.has("intent")) {
                                 try {
                                     metaIntent = IntentEnum.valueOf(metaNode.get("intent").asString());
@@ -412,6 +416,7 @@ public class DialogueService {
     }
 
     private String buildContextPrompt(
+            Long userId,
             String content,
             SlotState slotState,
             List<ChatMessage> recentMessages,
@@ -423,6 +428,11 @@ public class DialogueService {
         StringBuilder sb = new StringBuilder();
         if (recognizedIntent != null && !recognizedIntent.isBlank()) {
             sb.append("【识别意图】\n").append(recognizedIntent).append("\n");
+        }
+        // 注入用户偏好（自然语言）
+        UserPreferenceDocument pref = userPreferenceService.getPreference(userId);
+        if (hasPreferenceData(pref)) {
+            sb.append(buildPreferenceText(pref));
         }
         if (!recentMessages.isEmpty()) {
             sb.append("【历史对话】\n");
@@ -471,6 +481,44 @@ public class DialogueService {
                 || slotState.getSeatIds() != null
                 || slotState.getPriceMax() != null
                 || slotState.getNegateCount() != null;
+    }
+
+    private static boolean hasPreferenceData(UserPreferenceDocument pref) {
+        if (pref == null) return false;
+        return (pref.getPreferredHallType() != null && !pref.getPreferredHallType().isBlank())
+                || pref.getPriceMin() != null
+                || pref.getPriceMax() != null
+                || (pref.getPreferredSeatArea() != null && !pref.getPreferredSeatArea().isBlank())
+                || (pref.getPreferredMovieTypes() != null && !pref.getPreferredMovieTypes().isEmpty());
+    }
+
+    /**
+     * 将用户偏好转换为结构化自然语言文本，注入 LLM 上下文。
+     * 相比 JSON 序列化更省 Token 且 LLM 理解更优。
+     */
+    private static String buildPreferenceText(UserPreferenceDocument pref) {
+        StringBuilder sb = new StringBuilder("【用户偏好】\n");
+        if (pref.getPreferredHallType() != null && !pref.getPreferredHallType().isBlank()) {
+            sb.append("影厅类型：").append(pref.getPreferredHallType()).append("\n");
+        }
+        if (pref.getPriceMin() != null || pref.getPriceMax() != null) {
+            sb.append("价格范围：");
+            if (pref.getPriceMin() != null && pref.getPriceMax() != null) {
+                sb.append(pref.getPriceMin()).append("-").append(pref.getPriceMax()).append("元");
+            } else if (pref.getPriceMin() != null) {
+                sb.append(pref.getPriceMin()).append("元以上");
+            } else {
+                sb.append(pref.getPriceMax()).append("元以内");
+            }
+            sb.append("\n");
+        }
+        if (pref.getPreferredSeatArea() != null && !pref.getPreferredSeatArea().isBlank()) {
+            sb.append("座位区域：").append(pref.getPreferredSeatArea()).append("\n");
+        }
+        if (pref.getPreferredMovieTypes() != null && !pref.getPreferredMovieTypes().isEmpty()) {
+            sb.append("影片类型：").append(String.join("、", pref.getPreferredMovieTypes())).append("\n");
+        }
+        return sb.toString();
     }
 
     private void sendSseEvent(SseEmitter emitter, SseEvent event) throws IOException {
