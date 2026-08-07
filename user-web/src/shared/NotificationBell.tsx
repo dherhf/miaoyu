@@ -37,7 +37,7 @@ export default function NotificationBell({ items, onRead }: NotificationBellProp
   const content = items.length === 0 ? (
     <Empty description="暂无通知" image={Empty.PRESENTED_IMAGE_SIMPLE} className="my-2" />
   ) : (
-    <div className="max-w-80 max-h-[400px] overflow-auto">
+    <div className="w-[min(320px,calc(100vw-1.5rem))] max-h-[400px] overflow-auto">
       {items.map((item) => (
         <div
           key={item.id}
@@ -48,11 +48,11 @@ export default function NotificationBell({ items, onRead }: NotificationBellProp
             {item.isRead === 0 && (
               <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
             )}
-            <Typography.Text strong className="text-sm!">
+            <Typography.Text strong className="text-sm! break-words">
               {item.title}
             </Typography.Text>
           </div>
-          <Typography.Text type="secondary" className="text-[13px]!">
+          <Typography.Text type="secondary" className="text-[13px]! break-words">
             {item.content}
           </Typography.Text>
           <div className="text-xs text-muted mt-0.5">

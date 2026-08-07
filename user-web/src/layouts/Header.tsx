@@ -125,10 +125,6 @@ export function Header() {
               <span className="hidden sm:inline">{addressText}</span>
             </span>
           </Tooltip>
-          <NotificationBell
-            items={notifications}
-            onRead={handleNotificationRead}
-          />
           <Button
             type="text"
             icon={<ProfileOutlined />}
@@ -136,13 +132,17 @@ export function Header() {
           />
           <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
             <Button type="text" icon={<UserOutlined />}>
-              {userInfo?.nickname ?? '用户'}
+              <span className="hidden sm:inline">{userInfo?.nickname ?? '用户'}</span>
             </Button>
           </Dropdown>
           <Button
             type="text"
             icon={<MessageOutlined />}
             onClick={() => navigate('/chat')}
+          />
+          <NotificationBell
+            items={notifications}
+            onRead={handleNotificationRead}
           />
         </div>
       ) : (
