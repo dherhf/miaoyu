@@ -12,7 +12,11 @@ public enum CardTypeEnum {
     ORDER_CONFIRM("order_confirm"),
     ORDER_SUCCESS("order_success"),
     RECOMMEND_TIP("recommend_tip"),
-    PENDING_ORDER("pending_order");
+    PENDING_ORDER("pending_order"),
+    ORDER_LIST("order_list"),
+    ROUTE_INFO("route_info"),
+    NEARBY_POI("nearby_poi"),
+    WEATHER_INFO("weather_info");
 
     private final String value;
 
