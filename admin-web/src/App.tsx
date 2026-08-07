@@ -82,7 +82,7 @@ const router = createBrowserRouter([
   },
   // 404兜底路由
   { path: '*', element: <NotFound /> },
-]);
+], { basename: '/admin' });
 
 function App() {
   return (
