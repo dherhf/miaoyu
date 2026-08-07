@@ -52,6 +52,8 @@ public class DialogueService {
     private final OutputValidatorService outputValidatorService;
     private final ContextService contextService;
     private final ChatSessionService chatSessionService;
+    private final TitleAgentService titleAgentService;
+    private final IntentRecognitionService intentRecognitionService;
     private final TicketServiceClient ticketClient;
     private final org.dherhf.agent.tool.AmapClient amapClient;
     private final IdempotentService idempotentService;
@@ -141,6 +143,9 @@ public class DialogueService {
             return emitter;
         }
 
+        // 首条消息时由标题 Agent 生成标题
+        final boolean needTitle = "新对话".equals(session.getTitle());
+
         SlotState slotState = contextService.loadSlotState(sessionId);
 
         // 将前端传入的场次/座位信息写入槽位
@@ -168,7 +173,7 @@ public class DialogueService {
         Thread.startVirtualThread(() -> {
             try {
                 contextService.storeRequestContext(sessionId, requestCtx);
-                processDialogue(emitter, sessionId, content, slotState, longitude, latitude, city);
+                processDialogue(emitter, sessionId, content, slotState, longitude, latitude, city, needTitle);
             } catch (Exception ex) {
                 log.error("[handleMessage] 对话处理异常: sessionId={}", sessionId, ex);
                 try {
@@ -197,10 +202,16 @@ public class DialogueService {
             SlotState slotState,
             Double longitude,
             Double latitude,
-            String city
+            String city,
+            boolean needTitle
     ) {
         List<ChatMessage> recentMessages = contextService.getRecentMessages(sessionId);
-        String contextPrompt = buildContextPrompt(content, slotState, recentMessages, longitude, latitude, city);
+
+        // 先识别意图（串行），结果注入主 Agent 上下文以指导工具链选择
+        String recognizedIntent = intentRecognitionService.recognizeIntent(content, recentMessages);
+        log.info("[processDialogue] 意图识别结果: sessionId={}, intent={}", sessionId, recognizedIntent);
+
+        String contextPrompt = buildContextPrompt(content, slotState, recentMessages, longitude, latitude, city, recognizedIntent);
 
         int totalMsgCount = contextService.getMessageCount(sessionId);
         int nextId = totalMsgCount + 1;
@@ -268,7 +279,7 @@ public class DialogueService {
                 try {
                     String full = fullText.toString();
                     String aiContent;
-                    IntentEnum intent = IntentEnum.OTHER;
+                    IntentEnum metaIntent = IntentEnum.OTHER;
                     SlotState incomingSlots = new SlotState();
 
                     int metaIdx = full.indexOf(META_DELIMITER);
@@ -282,9 +293,9 @@ public class DialogueService {
                             JsonNode metaNode = objectMapper.readTree(metaJson);
                             if (metaNode.has("intent")) {
                                 try {
-                                    intent = IntentEnum.valueOf(metaNode.get("intent").asString());
+                                    metaIntent = IntentEnum.valueOf(metaNode.get("intent").asString());
                                 } catch (IllegalArgumentException e) {
-                                    log.warn("[processDialogue] 未知意图: {}", metaNode.get("intent").asString());
+                                    log.warn("[processDialogue] META 未知意图: {}", metaNode.get("intent").asString());
                                 }
                             }
                             if (metaNode.has("slots") && !metaNode.get("slots").isNull()) {
@@ -295,6 +306,15 @@ public class DialogueService {
                         }
                     } else {
                         aiContent = full.trim();
+                    }
+
+                    // 优先使用独立意图 Agent 的结果，META intent 作为降级
+                    IntentEnum intent;
+                    try {
+                        intent = IntentEnum.valueOf(recognizedIntent);
+                    } catch (IllegalArgumentException e) {
+                        log.warn("[processDialogue] 意图Agent返回未知值: {}，降级META: {}", recognizedIntent, metaIntent);
+                        intent = metaIntent;
                     }
 
                     if (!outputValidatorService.validate(aiContent)) {
@@ -340,10 +360,17 @@ public class DialogueService {
 
                     contextService.updateContext(sessionId, updatedSlotState, aiMsg, aiMsg.getCreatedAt());
 
+                    // 首条消息时由标题 Agent 生成标题（含降级逻辑）
+                    String title = needTitle ? titleAgentService.generateTitle(content) : null;
+                    if (title != null) {
+                        chatSessionService.updateTitle(sessionId, title);
+                    }
+
                     // 避免重复推送：只推送一次完成状态
                     sendSseEvent(emitter, SseEvent.done(sessionId,
                             intent.name(),
-                            updatedSlotState));
+                            updatedSlotState,
+                            title));
                     emitter.complete();
                     streamFuture.complete(null);
                 } catch (Exception e) {
@@ -390,9 +417,13 @@ public class DialogueService {
             List<ChatMessage> recentMessages,
             Double longitude,
             Double latitude,
-            String city
+            String city,
+            String recognizedIntent
     ) {
         StringBuilder sb = new StringBuilder();
+        if (recognizedIntent != null && !recognizedIntent.isBlank()) {
+            sb.append("【识别意图】\n").append(recognizedIntent).append("\n");
+        }
         if (!recentMessages.isEmpty()) {
             sb.append("【历史对话】\n");
             for (ChatMessage msg : recentMessages) {

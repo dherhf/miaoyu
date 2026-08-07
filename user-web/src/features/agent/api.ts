@@ -157,7 +157,7 @@ function parseSseEvent(raw: string, callbacks: SseCallbacks): void {
       callbacks.onCard(data as { cardType: string; cardData: unknown })
       break
     case 'done':
-      callbacks.onDone(data as { sessionId: string; intent: string; slots: unknown })
+      callbacks.onDone(data as { sessionId: string; intent: string; slots: unknown; title?: string })
       break
     case 'error':
       callbacks.onError(data as { code: string | number; message: string })
