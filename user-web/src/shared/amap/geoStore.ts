@@ -9,6 +9,30 @@ interface GeoState {
   fetchLocation: () => Promise<GeolocationData>
 }
 
+/** AMap 逆地理编码：坐标 → 地址 */
+async function reverseGeocode(
+  lng: number,
+  lat: number,
+): Promise<Partial<GeolocationData>> {
+  const AMap = await loadAMap()
+  const geocoder = new AMap.Geocoder({ city: '', radius: 1000 })
+  return new Promise((resolve) => {
+    geocoder.getAddress([lng, lat], (status, result) => {
+      if (status === 'complete' && result?.regeocode) {
+        const comp = result.regeocode.addressComponent
+        resolve({
+          address: result.regeocode.formattedAddress,
+          province: comp.province,
+          city: Array.isArray(comp.city) ? comp.city[0] : comp.city,
+          district: comp.district,
+        })
+      } else {
+        resolve({})
+      }
+    })
+  })
+}
+
 export const useGeoStore = create<GeoState>((set, get) => ({
   location: null,
   loading: false,
@@ -20,14 +44,11 @@ export const useGeoStore = create<GeoState>((set, get) => ({
     try {
       const AMap = await loadAMap()
 
-      // 方式1: AMap.Geolocation 精确定位（convert:true 自动转 GCJ-02）
+      // 方式1: AMap.Geolocation 定位（参考官方 demo）
       try {
         const geo = new AMap.Geolocation({
           enableHighAccuracy: true,
           timeout: 10000,
-          maximumAge: 0,
-          convert: true,
-          needAddress: true,
           showButton: false,
           showMarker: false,
           showCircle: false,
@@ -36,18 +57,19 @@ export const useGeoStore = create<GeoState>((set, get) => ({
         })
 
         const result = await new Promise<GeolocationData>((resolve, reject) => {
-          geo.getCurrentPosition((status, res) => {
+          geo.getCurrentPosition(async (status, res) => {
             if (status === 'complete' && res.position) {
+              const lng = res.position.getLng()
+              const lat = res.position.getLat()
+              const address = await reverseGeocode(lng, lat)
               resolve({
-                longitude: res.position.getLng(),
-                latitude: res.position.getLat(),
+                longitude: lng,
+                latitude: lat,
                 accuracy: res.accuracy,
-                address: res.formattedAddress,
-                province: res.addressComponent?.province,
-                city: Array.isArray(res.addressComponent?.city)
-                  ? res.addressComponent.city[0]
-                  : res.addressComponent?.city,
-                district: res.addressComponent?.district,
+                address: address.address,
+                province: address.province,
+                city: address.city,
+                district: address.district,
                 source: 'gps',
               })
             } else {
