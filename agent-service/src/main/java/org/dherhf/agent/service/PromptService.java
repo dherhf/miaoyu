@@ -55,6 +55,7 @@ public class PromptService {
                    - 用户问路线/怎么去 → 调用 planRoute(origin=出发地, destination=目的地, mode=出行方式)
                    - 用户问周边设施 → 调用 searchNearby(location=地点, keywords=关键词)
                    - 用户问天气 → 调用 getWeather(city=城市名)，用户未指定城市时默认传"长沙"，不要追问
+                   - 当上下文中存在【用户位置】时，用户未指定出发地则以其作为 planRoute 的 origin；用户问"附近"时以其作为 searchNearby 的 location
                    - 用户选定影院后可主动提示："需要帮您规划路线或查看周边吗？"
                    - 已调用过 planRoute 后，用户追问更详细信息（如"公交换乘详情""步行方案"），直接根据已有数据用自然语言详细描述，不要重复调用 planRoute
 
