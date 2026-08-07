@@ -25,7 +25,6 @@ import java.util.concurrent.TimeoutException;
 import org.dherhf.common.result.ErrorCodeEnum;
 import org.dherhf.agent.document.ChatMessage;
 import org.dherhf.agent.document.UserPreferenceDocument;
-import org.dherhf.agent.model.dto.PreferenceUpdateDTO;
 import org.dherhf.agent.enums.IntentEnum;
 import org.dherhf.agent.enums.SessionStatusEnum;
 import org.dherhf.agent.model.card.CardPayload;
@@ -94,7 +93,7 @@ public class DialogueService {
     }
 
     private TicketTools createTicketTools(String sessionId) {
-        return new TicketTools(ticketClient, amapClient, objectMapper, contextService, idempotentService, sessionId);
+        return new TicketTools(ticketClient, amapClient, objectMapper, contextService, idempotentService, userPreferenceService, sessionId);
     }
 
     /**
@@ -295,6 +294,7 @@ public class DialogueService {
                                 : full.substring(metaIdx + META_DELIMITER.length()).trim();
                         try {
                             JsonNode metaNode = objectMapper.readTree(metaJson);
+                            log.debug("[processDialogue] META解析: sessionId={}, metaJson={}", sessionId, metaJson);
                             if (metaNode.has("intent")) {
                                 try {
                                     metaIntent = IntentEnum.valueOf(metaNode.get("intent").asString());
@@ -304,18 +304,6 @@ public class DialogueService {
                             }
                             if (metaNode.has("slots") && !metaNode.get("slots").isNull()) {
                                 incomingSlots = objectMapper.treeToValue(metaNode.get("slots"), SlotState.class);
-                            }
-                            if (metaNode.has("preferenceUpdate") && !metaNode.get("preferenceUpdate").isNull()) {
-                                try {
-                                    PreferenceUpdateDTO prefDto = objectMapper.treeToValue(
-                                            metaNode.get("preferenceUpdate"), PreferenceUpdateDTO.class);
-                                    if (hasPrefUpdateData(prefDto)) {
-                                        userPreferenceService.mergePreference(userId, prefDto);
-                                        log.info("[processDialogue] 偏好自动提取: sessionId={}, pref={}", sessionId, prefDto);
-                                    }
-                                } catch (Exception e) {
-                                    log.warn("[processDialogue] 偏好提取解析失败: {}", e.getMessage());
-                                }
                             }
                         } catch (Exception e) {
                             log.warn("[processDialogue] 元数据解析失败: {}", e.getMessage());
@@ -502,15 +490,6 @@ public class DialogueService {
                 || pref.getPriceMax() != null
                 || (pref.getPreferredSeatArea() != null && !pref.getPreferredSeatArea().isBlank())
                 || (pref.getPreferredMovieTypes() != null && !pref.getPreferredMovieTypes().isEmpty());
-    }
-
-    private static boolean hasPrefUpdateData(PreferenceUpdateDTO dto) {
-        if (dto == null) return false;
-        return (dto.getPreferredHallType() != null && !dto.getPreferredHallType().isBlank())
-                || dto.getPriceMin() != null
-                || dto.getPriceMax() != null
-                || (dto.getPreferredSeatArea() != null && !dto.getPreferredSeatArea().isBlank())
-                || (dto.getPreferredMovieTypes() != null && !dto.getPreferredMovieTypes().isEmpty());
     }
 
     /**
