@@ -34,6 +34,7 @@ build/
 
 ### env ###
 .env
+.env.docker
 
 ### codely ###
 .codely-cli/
