@@ -1,0 +1,117 @@
+# ============================================================
+# 妙语购票 — Docker Compose 部署配置
+# 适用：阿里云 ECS 2核4G
+# ============================================================
+# 使用前：
+#   1. cp .env.docker.example .env.docker
+#   2. 修改 .env.docker 中的密码和密钥
+#   3. docker compose --env-file .env.docker up -d --build
+# ============================================================
+
+services:
+  # 后端服务
+  ticket-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: ticket-service
+    container_name: miaoyu-ticket
+    restart: unless-stopped
+    mem_limit: 500m
+    environment:
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: ${MYSQL_PORT}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USERNAME: ${MYSQL_USERNAME}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_DATABASE: ${REDIS_DATABASE}
+      JWT_CURRENT_SECRET: ${JWT_CURRENT_SECRET}
+      JWT_OLD_SECRET: ${JWT_OLD_SECRET:-}
+      CRYPTO_AES_KEY: ${CRYPTO_AES_KEY}
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+      OSS_ENDPOINT: ${OSS_ENDPOINT}
+      OSS_BUCKET_NAME: ${OSS_BUCKET_NAME}
+      OSS_ACCESS_KEY_ID: ${OSS_ACCESS_KEY_ID}
+      OSS_ACCESS_KEY_SECRET: ${OSS_ACCESS_KEY_SECRET}
+      SMS_ACCESS_KEY_ID: ${SMS_ACCESS_KEY_ID}
+      SMS_ACCESS_KEY_SECRET: ${SMS_ACCESS_KEY_SECRET}
+    networks:
+      - miaoyu-net
+
+  agent-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: agent-service
+    container_name: miaoyu-agent
+    restart: unless-stopped
+    mem_limit: 500m
+    depends_on:
+      ticket-service:
+        condition: service_started
+    environment:
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      MONGODB_HOST: ${MONGODB_HOST}
+      MONGODB_PORT: ${MONGODB_PORT}
+      MONGODB_DATABASE: ${MONGODB_DATABASE}
+      MONGODB_USERNAME: ${MONGODB_USERNAME}
+      MONGODB_PASSWORD: ${MONGODB_PASSWORD}
+      TICKET_SERVICE_URL: http://ticket-service:8080
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+    networks:
+      - miaoyu-net
+
+  gateway-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: gateway-service
+    container_name: miaoyu-gateway
+    restart: unless-stopped
+    mem_limit: 350m
+    depends_on:
+      ticket-service:
+        condition: service_started
+      agent-service:
+        condition: service_started
+    environment:
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      JWT_CURRENT_SECRET: ${JWT_CURRENT_SECRET}
+      JWT_OLD_SECRET: ${JWT_OLD_SECRET:-}
+      TICKET_SERVICE_URL: http://ticket-service:8080
+      AGENT_SERVICE_URL: http://agent-service:8081
+    networks:
+      - miaoyu-net
+
+  # Nginx
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+      args:
+        VITE_ADMIN_AMAP_JS_KEY: ${VITE_ADMIN_AMAP_JS_KEY:-}
+        VITE_USER_AMAP_JS_KEY: ${VITE_USER_AMAP_JS_KEY:-}
+        VITE_USER_AMAP_SECURITY_CODE: ${VITE_USER_AMAP_SECURITY_CODE:-}
+    container_name: miaoyu-nginx
+    restart: unless-stopped
+    mem_limit: 64m
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      gateway-service:
+        condition: service_started
+    networks:
+      - miaoyu-net
+
+networks:
+  miaoyu-net:
+    driver: bridge
