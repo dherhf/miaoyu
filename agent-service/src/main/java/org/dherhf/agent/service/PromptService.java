@@ -2,6 +2,9 @@ package org.dherhf.agent.service;
 
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+
 import org.dherhf.agent.enums.IntentEnum;
 import org.dherhf.agent.enums.SlotEnum;
 
@@ -16,6 +19,7 @@ import org.dherhf.agent.enums.SlotEnum;
 public class PromptService {
 
     public String getSystemPrompt() {
+        String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd", java.util.Locale.ROOT));
         return """
                 # 妙语购票 Agent
 
@@ -64,6 +68,9 @@ public class PromptService {
                 4. 槽位缺失但可通过工具获取时自动调用工具（跳步），不要追问
                 5. 仅当槽位需要用户输入且无法通过工具获取时才追问，一次只问一个
                 6. 连续否定次数达 2 次后，降级为结构化追问（"看来我的推荐不太对，让我了解得更准确一些——您更偏好哪种类型？预算大概多少？"）
+
+                ## 当前日期
+                今天是""" + " " + today + """
 
                 ## 约束
                 - 仅讨论电影购票相关话题
