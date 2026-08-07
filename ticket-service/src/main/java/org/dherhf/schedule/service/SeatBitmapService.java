@@ -199,8 +199,8 @@ public class SeatBitmapService {
             String soldVal = redisTemplate.opsForValue().get(soldKey);
             byte[] soldBits = soldVal != null ? soldVal.getBytes() : null;
             for (int i = 0; i < totalSeats; i++) {
-                boolean occupied = occBits != null && getBit(occBits, i);
-                boolean sold = soldBits != null && getBit(soldBits, i);
+                boolean occupied = getBit(occBits, i);
+                boolean sold = getBit(soldBits, i);
                 if (sold) {
                     statuses[i] = ScheduleSeatStatus.SOLD.getCode();
                 } else if (occupied) {
