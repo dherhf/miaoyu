@@ -2,7 +2,6 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Input, Button, Space, List, Spin, Typography } from 'antd';
 import { MapPin, Search } from 'lucide-react';
 import AMapLoader from '@amap/amap-jsapi-loader';
-import { searchPoi, reGeocode, type PoiItem } from './api';
 import styles from './LocationPicker.module.css';
 
 export interface LocationData {
@@ -17,14 +16,28 @@ export interface LocationPickerProps {
   readonly?: boolean;
 }
 
+/** POI 搜索结果条目（从 AMap.PlaceSearch 回调中提取） */
+interface PoiItem {
+  id: string;
+  name: string;
+  address: string;
+  location: string;
+  tel?: string;
+}
+
 /** 高德 JS SDK 加载缓存——全局只加载一次 */
 let amapPromise: Promise<typeof AMap> | null = null;
 
 function loadAMap(): Promise<typeof AMap> {
   if (!amapPromise) {
+    const securityCode = import.meta.env.VITE_ADMIN_AMAP_SECURITY_CODE;
+    if (securityCode) {
+      window._AMapSecurityConfig = { securityJsCode: securityCode };
+    }
     amapPromise = AMapLoader.load({
       key: import.meta.env.VITE_ADMIN_AMAP_JS_KEY || 'your_amap_js_key_here',
       version: '2.0',
+      plugins: ['AMap.PlaceSearch', 'AMap.Geocoder'],
     });
   }
   return amapPromise;
@@ -44,6 +57,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, readon
   // 地图相关
   const mapRef = useRef<AMap.Map | null>(null);
   const markerRef = useRef<AMap.Marker | null>(null);
+  const geocoderRef = useRef<AMap.Geocoder | null>(null);
   const containerId = useRef(`${MAP_CONTAINER_ID_PREFIX}${++containerIdCounter}`);
   const [mapReady, setMapReady] = useState(false);
 
@@ -87,21 +101,36 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, readon
     [],
   );
 
+  // 逆地理编码（客户端 AMap.Geocoder）
+  const reverseGeocode = useCallback(
+    (lng: number, lat: number): Promise<string> => {
+      return new Promise((resolve) => {
+        if (!geocoderRef.current) {
+          resolve('');
+          return;
+        }
+        geocoderRef.current.getAddress([lng, lat], (status, result) => {
+          if (status === 'complete' && result?.regeocode?.formattedAddress) {
+            resolve(result.regeocode.formattedAddress);
+          } else {
+            resolve('');
+          }
+        });
+      });
+    },
+    [],
+  );
+
   // 点击地图选点
   const handleMapClick = useCallback(
     async (e: any) => {
       const lng = e.lnglat.getLng();
       const lat = e.lnglat.getLat();
       placeMarker(lng, lat);
-      try {
-        const res = await reGeocode(`${lng},${lat}`);
-        const addr = res.code === 200 && res.data ? res.data.formattedAddress : `${lng.toFixed(6)}, ${lat.toFixed(6)}`;
-        emit(addr, lng, lat);
-      } catch {
-        emit(`${lng.toFixed(6)}, ${lat.toFixed(6)}`, lng, lat);
-      }
+      const addr = await reverseGeocode(lng, lat);
+      emit(addr || `${lng.toFixed(6)}, ${lat.toFixed(6)}`, lng, lat);
     },
-    [placeMarker, emit],
+    [placeMarker, emit, reverseGeocode],
   );
 
   // 初始化地图
@@ -129,6 +158,9 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, readon
       });
       map.add(marker);
 
+      // 创建逆地理编码实例
+      geocoderRef.current = new AMap.Geocoder({ extensions: 'all' });
+
       // 点击地图事件
       map.on('click', handleMapClick);
 
@@ -145,24 +177,38 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, readon
       }
       mapRef.current = null;
       markerRef.current = null;
+      geocoderRef.current = null;
       setMapReady(false);
     };
     // 只在 readonly 变化时重新初始化；longitude/latitude 初始值用 ref 方式处理
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readonly]);
 
-  // POI 搜索
-  const handleSearch = useCallback(async () => {
-    if (!searchKeyword.trim()) return;
+  // POI 搜索（客户端 AMap.PlaceSearch）
+  const handleSearch = useCallback(() => {
+    if (!searchKeyword.trim() || !mapRef.current) return;
     setSearching(true);
-    try {
-      const res = await searchPoi(searchKeyword.trim(), { pageSize: 10 });
-      setPoiResults(res.code === 200 && res.data ? res.data : []);
-    } catch {
-      setPoiResults([]);
-    } finally {
+
+    const placeSearch = new AMap.PlaceSearch({
+      pageSize: 10,
+      pageIndex: 1,
+      autoFitView: false,
+    });
+    placeSearch.search(searchKeyword.trim(), (status, result) => {
+      if (status === 'complete' && result?.poiList?.pois?.length) {
+        const items: PoiItem[] = result.poiList.pois.map((p) => ({
+          id: p.id,
+          name: p.name,
+          address: p.address,
+          location: `${p.location.getLng()},${p.location.getLat()}`,
+          tel: p.tel,
+        }));
+        setPoiResults(items);
+      } else {
+        setPoiResults([]);
+      }
       setSearching(false);
-    }
+    });
   }, [searchKeyword]);
 
   // 选中 POI ——逆地理编码后更新标记与地图
@@ -170,17 +216,12 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, readon
     async (item: PoiItem) => {
       const [lng, lat] = item.location.split(',').map(Number);
       placeMarker(lng, lat);
-      try {
-        const res = await reGeocode(item.location);
-        const addr = res.code === 200 && res.data ? res.data.formattedAddress : item.address;
-        emit(addr || item.address, lng, lat);
-      } catch {
-        emit(item.address, lng, lat);
-      }
+      const addr = await reverseGeocode(lng, lat);
+      emit(addr || item.address, lng, lat);
       setPoiResults([]);
       setSearchKeyword(item.name);
     },
-    [emit, placeMarker],
+    [emit, placeMarker, reverseGeocode],
   );
 
   if (readonly) {
