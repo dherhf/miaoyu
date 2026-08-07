@@ -2,6 +2,7 @@ package org.dherhf.agent.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.dherhf.agent.model.dto.PreferenceUpdateDTO;
 import org.dherhf.agent.model.vo.PreferenceVO;
 import org.dherhf.agent.service.UserPreferenceService;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
  * userId 通过 {@code X-User-Id} Header 注入（由 Gateway 统一 JWT 校验）。
  * </p>
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/chat/users")
 @RequiredArgsConstructor
@@ -29,6 +31,7 @@ public class UserPreferenceController {
 
     @GetMapping("/preferences")
     public Result<PreferenceVO> getPreference(@RequestHeader("X-User-Id") Long userId) {
+        log.info("获取偏好");
         return Result.success(userPreferenceService.getPreferenceVO(userId));
     }
 
@@ -36,6 +39,7 @@ public class UserPreferenceController {
     public Result<PreferenceVO> updatePreference(
             @RequestHeader("X-User-Id") Long userId,
             @Valid @RequestBody PreferenceUpdateDTO dto) {
+        log.info("更新偏好");
         return Result.success(userPreferenceService.updatePreference(userId, dto));
     }
 }
