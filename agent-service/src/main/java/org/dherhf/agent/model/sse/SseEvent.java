@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -32,9 +33,12 @@ public class SseEvent {
     }
 
     public static SseEvent card(String cardType, Object cardData) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("cardType", cardType);
+        payload.put("cardData", cardData);
         return SseEvent.builder()
                 .event("card")
-                .data(Map.of("cardType", cardType, "cardData", cardData))
+                .data(payload)
                 .build();
     }
 
