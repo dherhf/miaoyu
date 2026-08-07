@@ -1,7 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Plus,
-  Search,
   Edit2,
   Trash2,
   Calendar,
@@ -13,18 +12,15 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import {
-  Table,
   Modal,
-  Input,
-  Select,
-  DatePicker,
   Button,
   Space,
   Tag,
   Card,
   App,
 } from 'antd';
-import type { TableProps } from 'antd';
+import { ProTable } from '@ant-design/pro-components';
+import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import dayjs from 'dayjs';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCinemaStore } from '../cinema';
@@ -35,7 +31,7 @@ import {
   SCHEDULE_STATUS,
   SCHEDULE_STATUS_LABELS,
 } from './store';
-import type { ScheduleItem, ScheduleStatus } from './types';
+import type { ScheduleItem } from './types';
 import { ScheduleForm, LANGUAGE_VERSIONS } from './ScheduleForm';
 import type { ScheduleFormData, ScheduleFormErr } from './ScheduleForm';
 import styles from './SchedulePage.module.css';
@@ -43,13 +39,14 @@ import styles from './SchedulePage.module.css';
 // ===================== 主页面 Schedule排期管理 =====================
 export function SchedulePage() {
   const navigate = useNavigate();
+  const actionRef = useRef<ActionType>(null);
   const [searchParams] = useSearchParams();
   const cinemaStore = useCinemaStore();
   const movieStore = useMovieStore();
   const hallStore = useHallStore();
   const { message, modal } = App.useApp();
   const scheduleStore = useScheduleStore();
-  const { schedules: allSchedules, loading: scheduleLoading, fetchSchedules } = scheduleStore;
+  const { fetchSchedules } = scheduleStore;
   const { fetchCinemas } = cinemaStore;
   const { fetchMovies } = movieStore;
   const { fetchHalls } = hallStore;
@@ -57,15 +54,6 @@ export function SchedulePage() {
   // URL影院参数
   const cinemaIdParam = searchParams.get('cinemaId');
   const [selectedCinemaId, setSelectedCinemaId] = useState<string>(cinemaIdParam ?? '');
-
-  // 筛选状态
-  const [keyword, setKeyword] = useState('');
-  const [movieFilter, setMovieFilter] = useState<string>();
-  const [hallFilter, setHallFilter] = useState<string>();
-  const [statusFilter, setStatusFilter] = useState<string>();
-  const [dateStart, setDateStart] = useState('');
-  const [dateEnd, setDateEnd] = useState('');
-  const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
 
   // 弹窗状态
   const [modalOpen, setModalOpen] = useState(false);
@@ -105,20 +93,6 @@ export function SchedulePage() {
   const movies = movieStore.movies;
   const allHalls = hallStore.halls;
   const currentCinema = useMemo(() => cinemas.find(c => String(c.id) === String(selectedCinemaId)), [cinemas, selectedCinemaId]);
-  const cinemaHalls = useMemo(() => allHalls.filter(h => String(h.cinemaId) === String(selectedCinemaId)), [allHalls, selectedCinemaId]);
-
-  // 过滤排期列表
-  const filteredScheduleList = useMemo(() => {
-    let list = [...allSchedules];
-    if (selectedCinemaId) list = list.filter(s => String(s.cinemaId) === String(selectedCinemaId));
-    if (keyword) list = list.filter(s => s.movieName.includes(keyword) || s.hallName.includes(keyword));
-    if (movieFilter) list = list.filter(s => String(s.movieId) === String(movieFilter));
-    if (hallFilter) list = list.filter(s => String(s.hallId) === String(hallFilter));
-    if (dateStart && dateEnd) list = list.filter(s => s.showDate >= dateStart && s.showDate <= dateEnd);
-    if (statusFilter) list = list.filter(s => s.status === statusFilter);
-    // 按放映时间倒序
-    return list.sort((a, b) => dayjs(`${b.showDate} ${b.showTime}`).valueOf() - dayjs(`${a.showDate} ${a.showTime}`).valueOf());
-  }, [allSchedules, selectedCinemaId, keyword, movieFilter, hallFilter, dateStart, dateEnd, statusFilter]);
 
   // 计算上座率
   const calcRate = (sold: number, total: number) => total === 0 ? 0 : Math.round((sold / total) * 100);
@@ -183,7 +157,7 @@ export function SchedulePage() {
     const targetMovie = movies.find(m => m.id === data.movieId);
     const start = dayjs(`${data.showDate} ${data.showTime}`);
     const end = start.add(targetMovie?.duration || 120, 'minute');
-    const targetHalls = allSchedules.filter(s => s.hallId === data.hallId && s.id !== excludeId && s.status !== SCHEDULE_STATUS.CANCELLED);
+    const targetHalls = scheduleStore.schedules.filter(s => s.hallId === data.hallId && s.id !== excludeId && s.status !== SCHEDULE_STATUS.CANCELLED);
     for (const item of targetHalls) {
       const itemStart = dayjs(`${item.showDate} ${item.showTime}`);
       const itemEnd = itemStart.add(movies.find(m => m.id === item.movieId)?.duration || 120, 'minute');
@@ -228,6 +202,7 @@ export function SchedulePage() {
         message.success('新增排期成功');
       }
       setModalOpen(false);
+      actionRef.current?.reload();
     } catch (e: any) {
       message.error(e.message || '操作失败');
     } finally {
@@ -246,6 +221,7 @@ export function SchedulePage() {
         try {
           await scheduleStore.cancelSchedule(row.id);
           message.success('场次已取消');
+          actionRef.current?.reload();
         } catch (e: any) {
           message.error(e.message || '操作失败');
         }
@@ -262,6 +238,7 @@ export function SchedulePage() {
         try {
           await scheduleStore.restoreSchedule(row.id);
           message.success('场次已恢复');
+          actionRef.current?.reload();
         } catch (e: any) {
           message.error(e.message || '操作失败');
         }
@@ -280,6 +257,7 @@ export function SchedulePage() {
         try {
           await scheduleStore.deleteSchedule(row.id);
           message.success('删除成功');
+          actionRef.current?.reload();
         } catch (e: any) {
           message.error(e.message || '操作失败');
         }
@@ -288,15 +266,15 @@ export function SchedulePage() {
   };
 
   // 表格列配置
-  const tableColumns: TableProps<ScheduleItem>['columns'] = useMemo(() => [
+  const columns: ProColumns<ScheduleItem>[] = [
     {
       title: '影片',
       dataIndex: 'movieName',
-      render: (name, row) => (
+      render: (_, record) => (
         <div>
-          <div className={styles.cellMovieName}>{name}</div>
+          <div className={styles.cellMovieName}>{record.movieName}</div>
           <div className={styles.cellSubText}>
-            {LANGUAGE_VERSIONS.find(v => v.value === row.languageVersion)?.label}
+            {LANGUAGE_VERSIONS.find(v => v.value === record.languageVersion)?.label}
           </div>
         </div>
       ),
@@ -304,15 +282,16 @@ export function SchedulePage() {
     {
       title: '放映时间',
       dataIndex: 'showDate',
-      render: (date, row) => (
+      search: false,
+      render: (_, record) => (
         <div className={styles.cellShowTime}>
           <div className={styles.cellDateRow}>
             <Calendar size={14} color="#999" />
-            {date}
+            {record.showDate}
           </div>
           <div className={styles.cellTimeRow}>
             <Clock size={14} />
-            {row.showTime} - {row.endTime}
+            {record.showTime} - {record.endTime}
           </div>
         </div>
       ),
@@ -320,10 +299,10 @@ export function SchedulePage() {
     {
       title: '影厅',
       dataIndex: 'hallName',
-      render: (hallName, row) => (
+      render: (_, record) => (
         <div>
-          <div className={styles.cellMovieName}>{hallName}</div>
-          <div className={styles.cellSubText}>{row.cinemaName}</div>
+          <div className={styles.cellMovieName}>{record.hallName}</div>
+          <div className={styles.cellSubText}>{record.cinemaName}</div>
         </div>
       ),
     },
@@ -331,9 +310,10 @@ export function SchedulePage() {
       title: '票价',
       dataIndex: 'price',
       align: 'center',
-      render: (price) => (
+      search: false,
+      render: (_, record) => (
         <div className={styles.cellCenter}>
-          <div className={styles.cellPriceValue}>¥{price}</div>
+          <div className={styles.cellPriceValue}>¥{record.price}</div>
         </div>
       ),
     },
@@ -341,15 +321,16 @@ export function SchedulePage() {
       title: '座位',
       align: 'center',
       dataIndex: 'soldSeats',
-      render: (sold, row) => {
-        const rate = calcRate(sold, row.totalSeats);
+      search: false,
+      render: (_, record) => {
+        const rate = calcRate(record.soldSeats, record.totalSeats);
         const barClass = rate >= 80 ? styles.barRed : rate >= 50 ? styles.barAmber : styles.barGreen;
         const textClass = rate >= 80 ? styles.textRed : rate >= 50 ? styles.textAmber : styles.textGreen;
         return (
           <div className={styles.cellCenter}>
             <Space size={4} className={styles.cellCenterSpace}>
               <Armchair size={14} color="#999" />
-              <span>{sold}/{row.totalSeats}</span>
+              <span>{record.soldSeats}/{record.totalSeats}</span>
             </Space>
             <div className={styles.progressTrack}>
               <div
@@ -366,8 +347,15 @@ export function SchedulePage() {
       title: '状态',
       dataIndex: 'status',
       align: 'center',
-      render: (status: ScheduleStatus) => {
-        const cfg = SCHEDULE_STATUS_LABELS[status];
+      valueType: 'select',
+      valueEnum: {
+        available: { text: '可售' },
+        full: { text: '满场' },
+        ended: { text: '已结束' },
+        cancelled: { text: '已取消' },
+      },
+      render: (_, record) => {
+        const cfg = SCHEDULE_STATUS_LABELS[record.status];
         return <Tag color={cfg.color}>{cfg.label}</Tag>;
       },
     },
@@ -375,29 +363,30 @@ export function SchedulePage() {
       title: '操作',
       width: 160,
       align: 'center',
-      render: (_: unknown, row: ScheduleItem) => {
-        const hasSold = row.soldSeats > 0;
-        const isEnd = row.status === SCHEDULE_STATUS.ENDED;
-        const isCancel = row.status === SCHEDULE_STATUS.CANCELLED;
+      search: false,
+      render: (_, record) => {
+        const hasSold = record.soldSeats > 0;
+        const isEnd = record.status === SCHEDULE_STATUS.ENDED;
+        const isCancel = record.status === SCHEDULE_STATUS.CANCELLED;
         return (
           <Space size={6}>
             {!isEnd && !isCancel && (
-              <Button size="small" icon={<Edit2 size={14} />} disabled={hasSold} onClick={() => openEdit(row)}>编辑</Button>
+              <Button size="small" icon={<Edit2 size={14} />} disabled={hasSold} onClick={() => openEdit(record)}>编辑</Button>
             )}
             {!isEnd && !isCancel && (
-              <Button size="small" danger ghost icon={<Ban size={14} />} disabled={hasSold} onClick={() => handleCancelSchedule(row)}>取消</Button>
+              <Button size="small" danger ghost icon={<Ban size={14} />} disabled={hasSold} onClick={() => handleCancelSchedule(record)}>取消</Button>
             )}
             {isCancel && (
-              <Button size="small" type="primary" ghost icon={<RotateCcw size={14} />} onClick={() => handleRestoreSchedule(row)}>恢复</Button>
+              <Button size="small" type="primary" ghost icon={<RotateCcw size={14} />} onClick={() => handleRestoreSchedule(record)}>恢复</Button>
             )}
             {(isEnd || isCancel) && (
-              <Button size="small" danger icon={<Trash2 size={14} />} disabled={hasSold} onClick={() => handleDeleteSchedule(row)}>删除</Button>
+              <Button size="small" danger icon={<Trash2 size={14} />} disabled={hasSold} onClick={() => handleDeleteSchedule(record)}>删除</Button>
             )}
           </Space>
         );
       },
     },
-  ], []);
+  ];
 
   return (
     <div className={styles.pageRoot}>
@@ -410,7 +399,7 @@ export function SchedulePage() {
             </Button>
           )}
           <h2 className={styles.pageTitle}>
-            {currentCinema ? `${currentCinema.name} ${currentCinema.branch} - 排期管理` : '场次管理'}
+            {currentCinema ? `${currentCinema.name} - 排期管理` : '场次管理'}
           </h2>
           <p className={styles.pageSubtitle}>
             {currentCinema ? '管理本影院放映排片' : '请先选择影院查看排期'}
@@ -432,7 +421,7 @@ export function SchedulePage() {
           <div className={styles.cinemaGrid}>
             {cinemas.map(cinema => (
               <Card hoverable key={cinema.id} onClick={() => { setSelectedCinemaId(cinema.id); navigate(`/schedules?cinemaId=${cinema.id}`); }}>
-                <div className={styles.cardCinemaName}>{cinema.name} {cinema.branch}</div>
+                <div className={styles.cardCinemaName}>{cinema.name}</div>
                 <div className={styles.cardCinemaAddress}>{cinema.address}</div>
                 <div className={styles.cardHallCount}>
                   <Armchair size={12} /> {cinema.hallCount} 个影厅
@@ -443,57 +432,39 @@ export function SchedulePage() {
         </div>
       )}
 
-      {/* 已选影院：筛选区+表格 */}
+      {/* 已选影院：ProTable */}
       {selectedCinemaId && (
-        <>
-          {/* 筛选栏 */}
-          <div className={styles.filterBar}>
-            <Space wrap size={12} align="center">
-              <Input
-                placeholder="搜索影片/影厅"
-                allowClear
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-                className={styles.filterInput}
-                prefix={<Search size={14} color="#999" />}
-              />
-              <Select placeholder="全部影片" allowClear value={movieFilter} onChange={(v) => setMovieFilter(v)} className={styles.filterSelectMovie}>
-                {movies.map(m => <Select.Option key={m.id} value={m.id}>{m.name}</Select.Option>)}
-              </Select>
-              <Select placeholder="全部影厅" allowClear value={hallFilter} onChange={(v) => setHallFilter(v)} className={styles.filterSelectHall}>
-                {cinemaHalls.map(h => <Select.Option key={h.id} value={h.id}>{h.name}</Select.Option>)}
-              </Select>
-              <Select placeholder="全部状态" allowClear value={statusFilter} onChange={(v) => setStatusFilter(v)} className={styles.filterSelectStatus}>
-                {Object.entries(SCHEDULE_STATUS_LABELS).map(([k, v]) => (
-                  <Select.Option key={k} value={k}>{v.label}</Select.Option>
-                ))}
-              </Select>
-              <Space size={8}>
-                <DatePicker value={dateStart ? dayjs(dateStart) : undefined} onChange={(d) => setDateStart(d?.format('YYYY-MM-DD'))} placeholder="起始日期" />
-                <span className={styles.dateSeparator}>至</span>
-                <DatePicker value={dateEnd ? dayjs(dateEnd) : undefined} onChange={(d) => setDateEnd(d?.format('YYYY-MM-DD'))} placeholder="结束日期" />
-              </Space>
-            </Space>
-          </div>
-
-          {/* 排期表格 */}
-          <Card styles={{ body: { padding: 0 } }}>
-            <Table<ScheduleItem>
-              rowKey="id"
-              columns={tableColumns}
-              dataSource={filteredScheduleList}
-              bordered
-              loading={scheduleLoading}
-              scroll={{ x: 'max-content' }}
-              rowSelection={{ selectedRowKeys, onChange: (keys) => setSelectedRowKeys(keys as string[]) }}
-              pagination={{ pageSize: 10 }}
-            />
-          </Card>
-        </>
+        <ProTable<ScheduleItem>
+          actionRef={actionRef}
+          rowKey="id"
+          columns={columns}
+          request={async (params) => {
+            await fetchSchedules({
+              cinemaId: selectedCinemaId,
+              movieName: params.movieName || undefined,
+              hallId: params.hallId || undefined,
+              status: params.status === 'available' ? 'onsale' : params.status,
+              page: params.current ?? 1,
+              size: params.pageSize ?? 10,
+            });
+            const state = useScheduleStore.getState();
+            return {
+              data: state.schedules,
+              success: true,
+              total: state.total,
+            };
+          }}
+          search={{ labelWidth: 'auto', span: 6, defaultCollapsed: false }}
+          pagination={{ pageSize: 10, pageSizeOptions: [10, 20, 50], showSizeChanger: true }}
+          bordered
+          scroll={{ x: 'max-content' }}
+          headerTitle={`${currentCinema?.name ?? ''} 排期列表`}
+        />
       )}
 
       {/* 新增/编辑弹窗 */}
-      <Modal        open={modalOpen}
+      <Modal
+        open={modalOpen}
         title={editSchedule ? '编辑排期' : '新增排期'}
         width={580}
         maskClosable={false}

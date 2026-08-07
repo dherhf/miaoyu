@@ -220,7 +220,7 @@ export function MovieManage() {
       title: '评分',
       dataIndex: 'rating',
       align: 'center',
-      sorter: true,
+      sorter: (a, b) => (a.rating ?? 0) - (b.rating ?? 0),
       search: false,
       render: (_, record) => {
         const val = record.rating ?? 0;
@@ -261,7 +261,7 @@ export function MovieManage() {
       title: '上映日期',
       dataIndex: 'releaseDate',
       align: 'center',
-      sorter: true,
+      sorter: (a, b) => (a.releaseDate || '').localeCompare(b.releaseDate || ''),
       search: false,
     },
     {
@@ -313,11 +313,7 @@ export function MovieManage() {
         actionRef={actionRef}
         rowKey="id"
         columns={columns}
-        request={async (params, sort) => {
-          let sortParam: string | undefined;
-          if (sort?.rating === 'descend') {
-            sortParam = 'rating_desc';
-          }
+        request={async (params) => {
           const statusValue = params.status as MovieStatus | undefined;
           await fetchMovies({
             keyword: params.name || undefined,
@@ -325,7 +321,6 @@ export function MovieManage() {
             status: statusValue ? toApiStatus(statusValue) : undefined,
             page: params.current ?? 1,
             size: params.pageSize ?? 10,
-            sort: sortParam,
           });
           const state = useMovieStore.getState();
           return {

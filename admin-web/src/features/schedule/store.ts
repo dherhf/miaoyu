@@ -29,6 +29,7 @@ export const SCHEDULE_STATUS_LABELS: Record<ScheduleStatus, { label: string; col
 interface ScheduleState {
   schedules: ScheduleItem[];
   loading: boolean;
+  total: number;
   fetchSchedules: (params?: ScheduleListParams) => Promise<void>;
   hasMovieSchedule: (movieId: string) => boolean;
   addSchedule: (payload: ScheduleCreateParams) => Promise<void>;
@@ -41,12 +42,13 @@ interface ScheduleState {
 export const useScheduleStore = create<ScheduleState>((set, get) => ({
   schedules: [],
   loading: false,
+  total: 0,
 
   fetchSchedules: async (params?: ScheduleListParams): Promise<void> => {
     set({ loading: true });
     try {
       const res = await scheduleApi.getList(params ?? { page: 1, size: 100 });
-      set({ schedules: res.records.map(mapScheduleRecord) });
+      set({ schedules: res.records.map(mapScheduleRecord), total: res.total });
     } finally {
       set({ loading: false });
     }
