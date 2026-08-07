@@ -1,42 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Button, Tag, Pagination, Empty, App, Spin, Modal, Descriptions } from 'antd'
 import request from '@/shared/request'
+import { payOrder, cancelOrder, refundOrder } from '@/features/order/api'
 import type { BaseCardProps, OrderListCardData, OrderItem } from '../../types'
-
-const S: Record<string, React.CSSProperties> = {
-  wrap: {
-    width: '100%', background: '#fff', borderRadius: 12,
-    border: '1px solid #e5e7eb', overflow: 'hidden',
-  },
-  filterBar: {
-    display: 'flex', gap: 8, padding: '12px 16px',
-    borderBottom: '1px solid #f3f4f6', overflowX: 'auto' as const,
-    alignItems: 'center',
-  },
-  list: {
-    padding: '8px 12px', display: 'flex', flexDirection: 'column' as const, gap: 8,
-    minHeight: 120, position: 'relative' as const,
-  },
-  orderItem: {
-    border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden',
-  },
-  itemHeader: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '10px 14px', borderBottom: '1px solid #f9fafb',
-  },
-  movieName: { fontWeight: 700, fontSize: 15, color: '#111' },
-  itemBody: {
-    padding: '8px 14px 12px',
-  },
-  infoRow: {
-    display: 'flex', justifyContent: 'space-between',
-    padding: '3px 0', fontSize: 13, color: '#6b7280',
-  },
-  amount: { fontWeight: 700, color: '#dc2626' },
-  actions: {
-    display: 'flex', gap: 8, padding: '8px 14px 12px',
-  },
-}
 
 const FILTERS = [
   { key: '', label: '全部' },
@@ -64,7 +30,7 @@ function fmtDate(dateStr: string, timeStr: string) {
 
 const PAGE_SIZE = 10
 
-export default function OrderListCard({ data, onAction }: BaseCardProps<OrderListCardData>) {
+export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>) {
   const { modal, message } = App.useApp()
   const initFromProps = (d: OrderListCardData | undefined) => ({
     records: d?.records || [],
@@ -80,7 +46,6 @@ export default function OrderListCard({ data, onAction }: BaseCardProps<OrderLis
   }>({ open: false, loading: false, orderId: null, data: null })
   const dataRef = useRef(data)
 
-  // 当 props.data 变化（新卡片推送）时同步
   useEffect(() => {
     if (data !== dataRef.current && data) {
       dataRef.current = data
@@ -109,30 +74,51 @@ export default function OrderListCard({ data, onAction }: BaseCardProps<OrderLis
     fetchPage(1, key)
   }
 
+  const handlePay = useCallback(async (orderId: number) => {
+    try {
+      await payOrder(orderId)
+      message.success('支付成功')
+      fetchPage(state.page, activeFilter)
+    } catch {
+      // 拦截器已统一提示
+    }
+  }, [message, fetchPage, state.page, activeFilter])
+
   const handleCancel = useCallback((orderId: number) => {
     modal.confirm({
       title: '取消订单',
       content: '确定放弃这些座位吗？取消后座位将被释放。',
       okText: '确认取消',
       cancelText: '关闭',
-      onOk: () => {
-        setCancelledIds((prev) => new Set(prev).add(orderId))
-        onAction(`取消订单${orderId}`)
+      onOk: async () => {
+        try {
+          await cancelOrder(orderId)
+          setCancelledIds((prev) => new Set(prev).add(orderId))
+          message.success('订单已取消')
+        } catch {
+          // 拦截器已统一提示
+        }
       },
     })
-  }, [modal, onAction])
+  }, [modal, message])
 
-  const handleRefund = (orderId: number) => {
+  const handleRefund = useCallback((orderId: number) => {
     modal.confirm({
       title: '确认退票',
       content: '确认退票？放映前可退，将释放座位。款项将原路返还。',
       okText: '确认退票',
       cancelText: '取消',
-      onOk: () => {
-        onAction(`退票${orderId}`)
+      onOk: async () => {
+        try {
+          await refundOrder(orderId)
+          message.success('退票成功')
+          fetchPage(state.page, activeFilter)
+        } catch {
+          // 拦截器已统一提示
+        }
       },
     })
-  }
+  }, [modal, message, fetchPage, state.page, activeFilter])
 
   const handleViewPickupCode = async (orderId: number) => {
     setPickupModal({ open: true, loading: true, orderId, data: null })
@@ -152,30 +138,27 @@ export default function OrderListCard({ data, onAction }: BaseCardProps<OrderLis
   const { records, total, page } = state
 
   return (
-    <div style={S.wrap}>
+    <div className="w-full overflow-hidden rounded-xl border border-border bg-surface">
       {/* 筛选栏 */}
-      <div style={S.filterBar}>
+      <div className="flex items-center gap-2 overflow-x-auto border-b border-border/50 px-4 py-3">
         {FILTERS.map((f) => (
           <Tag
             key={f.key}
             color={activeFilter === f.key ? 'blue' : undefined}
-            style={activeFilter === f.key
-              ? { background: '#1677ff', color: '#fff', borderColor: '#1677ff', borderRadius: 999, cursor: 'pointer' }
-              : { borderRadius: 999, cursor: 'pointer' }
-            }
+            className={`!cursor-pointer !rounded-full ${activeFilter === f.key ? '!border-[#1677ff] !bg-[#1677ff] !text-white' : ''}`}
             onClick={() => handleFilter(f.key)}
           >
             {f.label}
           </Tag>
         ))}
-        <span style={{ marginLeft: 'auto', fontSize: 12, color: '#9ca3af', whiteSpace: 'nowrap' }}>
+        <span className="ml-auto whitespace-nowrap text-xs text-muted/70">
           共{total}条
         </span>
       </div>
 
       {/* 订单列表 */}
       <Spin spinning={loading}>
-        <div style={S.list}>
+        <div className="flex min-h-[120px] flex-col gap-2 px-3 py-2">
           {records.length === 0 ? (
             <Empty description="暂无订单" />
           ) : (
@@ -187,57 +170,51 @@ export default function OrderListCard({ data, onAction }: BaseCardProps<OrderLis
               const isRefunded = effectiveStatus === 'refunded'
 
               return (
-                <div key={order.id} style={{
-                  ...S.orderItem,
-                  opacity: (isCancelled || isRefunded) ? 0.6 : 1,
-                }}>
-                  {/* 头部：影片名 + 状态标签 */}
-                  <div style={S.itemHeader}>
-                    <span style={S.movieName}>🎬 {order.movieName}</span>
-                    <Tag color={st.color} style={{ borderRadius: 999 }}>
+                <div key={order.id} className={`overflow-hidden rounded-lg border border-border ${(isCancelled || isRefunded) ? 'opacity-60' : ''}`}>
+                  <div className="flex items-center justify-between border-b border-border/30 px-3.5 py-2.5">
+                    <span className="text-[15px] font-bold text-heading">🎬 {order.movieName}</span>
+                    <Tag color={st.color} className="!rounded-full !m-0">
                       {st.label}
                     </Tag>
                   </div>
 
-                  {/* 详情 */}
-                  <div style={S.itemBody}>
-                    <div style={S.infoRow}>
+                  <div className="px-3.5 pt-2 pb-3">
+                    <div className="flex justify-between py-0.5 text-[13px] text-muted">
                       <span>场次</span>
                       <span>{fmtDate(order.showDate, order.startTime)} | {order.cinemaName}</span>
                     </div>
-                    <div style={S.infoRow}>
+                    <div className="flex justify-between py-0.5 text-[13px] text-muted">
                       <span>座位</span>
                       <span>{order.seatInfo}</span>
                     </div>
-                    <div style={S.infoRow}>
+                    <div className="flex justify-between py-0.5 text-[13px] text-muted">
                       <span>票数</span>
                       <span>{order.ticketCount}张</span>
                     </div>
-                    <div style={S.infoRow}>
+                    <div className="flex justify-between py-0.5 text-[13px] text-muted">
                       <span>金额</span>
-                      <span style={isCancelled || isRefunded ? { color: '#9ca3af' } : S.amount}>
+                      <span className={isCancelled || isRefunded ? 'text-muted/70' : 'font-bold text-[#dc2626]'}>
                         ¥{order.totalAmount}
                       </span>
                     </div>
-                    <div style={{ ...S.infoRow, fontSize: 11, color: '#9ca3af' }}>
+                    <div className="flex justify-between py-0.5 text-[11px] text-muted/70">
                       <span>订单号</span>
-                      <span style={{ fontFamily: 'monospace' }}>{order.orderNo}</span>
+                      <span className="font-mono">{order.orderNo}</span>
                     </div>
                   </div>
 
-                  {/* 操作按钮 */}
                   {order.status === 'pending' && !locallyCancelled && (
-                    <div style={S.actions}>
+                    <div className="flex gap-2 px-3.5 pt-0 pb-3">
                       <Button
                         type="primary"
-                        style={{ flex: 1 }}
-                        onClick={() => onAction(`支付订单${order.id}`)}
+                        className="flex-1"
+                        onClick={() => handlePay(order.id)}
                       >
                         去支付
                       </Button>
                       <Button
                         type="default"
-                        style={{ flex: 1 }}
+                        className="flex-1"
                         disabled={locallyCancelled}
                         onClick={() => handleCancel(order.id)}
                       >
@@ -246,10 +223,10 @@ export default function OrderListCard({ data, onAction }: BaseCardProps<OrderLis
                     </div>
                   )}
                   {(order.status === 'paid' || order.status === 'checked') && (
-                    <div style={S.actions}>
+                    <div className="flex gap-2 px-3.5 pt-0 pb-3">
                       <Button
                         type="primary"
-                        style={{ flex: 1 }}
+                        className="flex-1"
                         onClick={() => handleViewPickupCode(order.id)}
                       >
                         查看取票码
@@ -258,7 +235,7 @@ export default function OrderListCard({ data, onAction }: BaseCardProps<OrderLis
                         <Button
                           type="default"
                           danger
-                          style={{ flex: 1 }}
+                          className="flex-1"
                           onClick={() => handleRefund(order.id)}
                         >
                           退票
@@ -275,7 +252,7 @@ export default function OrderListCard({ data, onAction }: BaseCardProps<OrderLis
 
       {/* 分页 */}
       {total > PAGE_SIZE && (
-        <div style={{ padding: '10px 16px', borderTop: '1px solid #f3f4f6', display: 'flex', justifyContent: 'center' }}>
+        <div className="flex justify-center border-t border-border/50 px-4 py-2.5">
           <Pagination
             current={page}
             total={total}
@@ -298,10 +275,10 @@ export default function OrderListCard({ data, onAction }: BaseCardProps<OrderLis
         <Spin spinning={pickupModal.loading}>
           {pickupModal.data ? (
             <div>
-              <div style={{ textAlign: 'center', padding: '16px 0', background: '#f9fafb', borderRadius: 8, marginBottom: 16 }}>
-                <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 4 }}>取票码</div>
+              <div className="mb-4 rounded-lg bg-surface-alt px-4 py-4 text-center">
+                <div className="mb-1 text-xs text-muted/70">取票码</div>
                 <div
-                  style={{ fontSize: 40, fontWeight: 700, letterSpacing: 6, color: '#111', cursor: 'pointer', userSelect: 'all' }}
+                  className="cursor-pointer select-all text-[40px] font-bold tracking-[6px] text-heading"
                   onClick={() => {
                     const code = pickupModal.data?.pickupCode || ''
                     navigator.clipboard.writeText(code).catch(() => {})
@@ -310,7 +287,7 @@ export default function OrderListCard({ data, onAction }: BaseCardProps<OrderLis
                 >
                   {pickupModal.data.pickupCode || '-'}
                 </div>
-                <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>点击复制取票码</div>
+                <div className="mt-1 text-xs text-muted/70">点击复制取票码</div>
               </div>
               <Descriptions column={1} size="small" colon={false}>
                 <Descriptions.Item label="影片">{pickupModal.data.movieName}</Descriptions.Item>
@@ -319,7 +296,7 @@ export default function OrderListCard({ data, onAction }: BaseCardProps<OrderLis
                 <Descriptions.Item label="影厅">{pickupModal.data.hallName}</Descriptions.Item>
                 <Descriptions.Item label="时间">{pickupModal.data.showDate ? fmtDate(pickupModal.data.showDate, pickupModal.data.startTime) : '-'}</Descriptions.Item>
                 <Descriptions.Item label="座位">{pickupModal.data.seatInfo}</Descriptions.Item>
-                <Descriptions.Item label="订单号"><span style={{ fontFamily: 'monospace' }}>{pickupModal.data.orderNo}</span></Descriptions.Item>
+                <Descriptions.Item label="订单号"><span className="font-mono">{pickupModal.data.orderNo}</span></Descriptions.Item>
               </Descriptions>
             </div>
           ) : null}

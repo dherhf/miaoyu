@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
-import { Button } from 'antd'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { Button, App } from 'antd'
+import { payOrder, cancelOrder } from '@/features/order/api'
 import type { BaseCardProps, PendingOrderCardData } from '../../types'
 
 function fmtTime(totalSec: number) {
@@ -8,28 +9,51 @@ function fmtTime(totalSec: number) {
   return `${m}:${s}`
 }
 
-const S: Record<string, React.CSSProperties> = {
-  wrap: { width: '100%', background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' as const, position: 'relative' as const },
-  overlay: {
-    position: 'absolute' as const, inset: 0, background: 'rgba(255,255,255,0.95)', zIndex: 10,
-    display: 'flex', flexDirection: 'column' as const, alignItems: 'center', justifyContent: 'center',
-  },
-  header: { padding: '8px 16px', background: '#fffbeb', borderBottom: '1px solid #fde68a', display: 'flex', alignItems: 'center', gap: 8 },
-  headerTitle: { fontSize: 14, fontWeight: 700, color: '#92400e' },
-  body: { padding: '12px 16px' },
-  tag: { display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' },
-  tagLabel: { fontSize: 12, color: '#9ca3af', minWidth: 32 },
-  amountRow: { marginTop: 8, paddingTop: 8, borderTop: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  amount: { fontSize: 20, fontWeight: 700, color: '#dc2626' },
-  timerRow: { padding: '6px 16px', background: '#fef2f2', borderTop: '1px solid #fecaca', borderBottom: '1px solid #fecaca', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  actions: { padding: '12px 16px', display: 'flex', flexDirection: 'column' as const, gap: 8 },
-}
-
-export default function PendingOrderCard({ data, onAction }: BaseCardProps<PendingOrderCardData>) {
+export default function PendingOrderCard({ data }: BaseCardProps<PendingOrderCardData>) {
+  const { message, modal } = App.useApp()
   const { id, movieName, cinemaName, seatInfo, totalAmount, remainingSeconds } = data || {}
   const [seconds, setSeconds] = useState(remainingSeconds ?? 0)
+  const [paying, setPaying] = useState(false)
+  const [paid, setPaid] = useState(false)
+  const [cancelled, setCancelled] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
   const expired = seconds <= 0
+  const done = paid || cancelled
+
+  const handlePay = useCallback(async () => {
+    if (expired || done || paying) return
+    setPaying(true)
+    try {
+      await payOrder(id)
+      setPaid(true)
+      if (timerRef.current) clearInterval(timerRef.current)
+      message.success('支付成功')
+    } catch {
+      // 拦截器已统一提示
+    } finally {
+      setPaying(false)
+    }
+  }, [expired, done, paying, id, message])
+
+  const handleCancel = useCallback(() => {
+    if (expired || done) return
+    modal.confirm({
+      title: '取消订单',
+      content: '确定放弃这些座位吗？取消后座位将被释放。',
+      okText: '确认取消',
+      cancelText: '关闭',
+      onOk: async () => {
+        try {
+          await cancelOrder(id)
+          setCancelled(true)
+          if (timerRef.current) clearInterval(timerRef.current)
+          message.success('订单已取消')
+        } catch {
+          // 拦截器已统一提示
+        }
+      },
+    })
+  }, [expired, done, id, modal, message])
 
   useEffect(() => {
     if (expired) return
@@ -44,46 +68,62 @@ export default function PendingOrderCard({ data, onAction }: BaseCardProps<Pendi
   }, [expired])
 
   return (
-    <div style={S.wrap}>
-      {expired && (
-        <div style={S.overlay}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#6b7280' }}>订单已超时释放</div>
-          <div style={{ fontSize: 13, color: '#9ca3af', marginTop: 4 }}>请重新选座购票</div>
+    <div className="relative w-full overflow-hidden rounded-xl border border-border bg-surface">
+      {expired && !done && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-surface/95">
+          <div className="text-sm font-bold text-muted">订单已超时释放</div>
+          <div className="mt-1 text-[13px] text-muted/70">请重新选座购票</div>
         </div>
       )}
 
-      <div style={S.header}>
-        <span style={{ fontSize: 18 }}>⏰</span>
-        <span style={S.headerTitle}>您有一笔待支付的订单</span>
+      {paid && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-surface/95">
+          <div className="mb-2 text-[40px]">✅</div>
+          <div className="text-sm font-bold text-[#16a34a]">支付成功</div>
+          <div className="mt-1 text-[13px] text-muted/70">祝您观影愉快</div>
+        </div>
+      )}
+
+      {cancelled && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-surface/95">
+          <div className="mb-2 text-[40px]">❌</div>
+          <div className="text-sm font-bold text-muted">订单已取消</div>
+          <div className="mt-1 text-[13px] text-muted/70">座位已释放</div>
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 border-b border-[#fde68a] bg-[#fffbeb] px-4 py-2">
+        <span className="text-lg">⏰</span>
+        <span className="text-sm font-bold text-[#92400e]">您有一笔待支付的订单</span>
       </div>
 
-      <div style={S.body}>
-        <div style={S.tag}>
-          <span style={S.tagLabel}>影片</span>
-          <span style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>🎬 {movieName}</span>
+      <div className="px-4 py-3">
+        <div className="flex items-center gap-2 py-1">
+          <span className="min-w-[32px] text-xs text-muted/70">影片</span>
+          <span className="text-sm font-medium text-heading">🎬 {movieName}</span>
         </div>
-        <div style={S.tag}>
-          <span style={S.tagLabel}>影院</span>
-          <span style={{ fontSize: 14, color: '#374151' }}>{cinemaName}</span>
+        <div className="flex items-center gap-2 py-1">
+          <span className="min-w-[32px] text-xs text-muted/70">影院</span>
+          <span className="text-sm text-heading/80">{cinemaName}</span>
         </div>
-        <div style={S.tag}>
-          <span style={S.tagLabel}>座位</span>
-          <span style={{ fontSize: 14, color: '#374151' }}>{seatInfo}</span>
+        <div className="flex items-center gap-2 py-1">
+          <span className="min-w-[32px] text-xs text-muted/70">座位</span>
+          <span className="text-sm text-heading/80">{seatInfo}</span>
         </div>
-        <div style={S.amountRow}>
-          <span style={{ fontSize: 14, color: '#6b7280' }}>订单金额</span>
-          <span style={S.amount}>¥{totalAmount}</span>
+        <div className="mt-2 flex items-center justify-between border-t border-border/50 pt-2">
+          <span className="text-sm text-muted">订单金额</span>
+          <span className="text-xl font-bold text-[#dc2626]">¥{totalAmount}</span>
         </div>
       </div>
 
-      <div style={S.timerRow}>
-        <span style={{ fontSize: 13, fontWeight: 500, color: '#b91c1c' }}>剩余时间</span>
-        <span style={{ fontFamily: 'monospace', fontSize: 16, fontWeight: 700, color: '#dc2626' }}>{fmtTime(seconds)}</span>
+      <div className="flex items-center justify-between border-y border-[#fecaca] bg-[#fef2f2] px-4 py-1.5">
+        <span className="text-[13px] font-medium text-[#b91c1c]">剩余时间</span>
+        <span className="font-mono text-base font-bold text-[#dc2626]">{fmtTime(seconds)}</span>
       </div>
 
-      <div style={S.actions}>
-        <Button type="primary" danger block disabled={expired} onClick={() => onAction(`支付订单${id}`)}>继续支付</Button>
-        <Button type="default" block disabled={expired} onClick={() => onAction(`取消订单${id}`)}>放弃订单</Button>
+      <div className="flex flex-col gap-2 px-4 py-3">
+        <Button type="primary" danger block disabled={expired || done} loading={paying} onClick={handlePay}>继续支付</Button>
+        <Button type="default" block disabled={expired || done || paying} onClick={handleCancel}>放弃订单</Button>
       </div>
     </div>
   )
