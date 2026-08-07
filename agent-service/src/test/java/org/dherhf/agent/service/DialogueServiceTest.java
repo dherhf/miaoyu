@@ -27,6 +27,7 @@ class DialogueServiceTest {
     private DialogueService service;
     private StreamingChatModel streamingChatModel;
     private TitleAgentService titleAgentService;
+    private IntentRecognitionService intentRecognitionService;
     private PromptService promptService;
     private InputFilterService inputFilterService;
     private OutputValidatorService outputValidatorService;
@@ -41,6 +42,7 @@ class DialogueServiceTest {
     void setUp() {
         streamingChatModel = mock(StreamingChatModel.class);
         titleAgentService = mock(TitleAgentService.class);
+        intentRecognitionService = mock(IntentRecognitionService.class);
         promptService = mock(PromptService.class);
         inputFilterService = mock(InputFilterService.class);
         outputValidatorService = mock(OutputValidatorService.class);
@@ -55,12 +57,13 @@ class DialogueServiceTest {
         when(outputValidatorService.validate(anyString())).thenReturn(true);
         when(contextService.mergeSlots(any(), any())).thenReturn(new SlotState());
         when(titleAgentService.generateTitle(anyString())).thenReturn("测试标题");
+        when(intentRecognitionService.recognizeIntent(anyString(), anyList())).thenReturn("OTHER");
 
         // 直接通过构造器创建，覆写 buildChatAssistant 返回 mock（替代原 ReflectionTestUtils 注入 chatAssistant）
         service = new DialogueService(
                 streamingChatModel, promptService, inputFilterService,
                 outputValidatorService, contextService, chatSessionService,
-                titleAgentService, ticketClient, amapClient, idempotentService, objectMapper
+                titleAgentService, intentRecognitionService, ticketClient, amapClient, idempotentService, objectMapper
         ) {
             @Override
             protected DialogueService.ChatAssistant buildChatAssistant(String sessionId, TicketTools tools) {
@@ -242,9 +245,9 @@ class DialogueServiceTest {
 
         private String buildContextPrompt(String content, SlotState slotState, List<ChatMessage> history) throws Exception {
             java.lang.reflect.Method method = DialogueService.class
-                    .getDeclaredMethod("buildContextPrompt", String.class, SlotState.class, List.class, Double.class, Double.class, String.class);
+                    .getDeclaredMethod("buildContextPrompt", String.class, SlotState.class, List.class, Double.class, Double.class, String.class, String.class);
             method.setAccessible(true);
-            return (String) method.invoke(service, content, slotState, history, null, null, null);
+            return (String) method.invoke(service, content, slotState, history, null, null, null, null);
         }
 
         @Test
