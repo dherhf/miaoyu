@@ -29,14 +29,16 @@ public class IdempotentService {
 
     /**
      * 检查请求是否已处理过,返回缓存的反序列化结果。
+     * Redis Key 绑定 userId,防止跨用户 requestId 碰撞或重放。
      *
+     * @param userId    用户ID
      * @param requestId 幂等请求ID
      * @param clazz     缓存结果的类型
      * @param <T>       结果类型
      * @return 已存在返回缓存的结果,不存在返回 null
      */
-    public <T> T getIfPresent(String requestId, Class<T> clazz) {
-        String json = redisTemplate.opsForValue().get(KEY_PREFIX + requestId);
+    public <T> T getIfPresent(Long userId, String requestId, Class<T> clazz) {
+        String json = redisTemplate.opsForValue().get(KEY_PREFIX + userId + ":" + requestId);
         if (json == null) {
             return null;
         }
@@ -46,23 +48,25 @@ public class IdempotentService {
         try {
             return objectMapper.readValue(json, clazz);
         } catch (JacksonException e) {
-            log.error("无法反序列化 requestId 的幂等缓存={}", requestId, e);
+            log.error("无法反序列化 userId={},requestId={} 的幂等缓存", userId, requestId, e);
             return null;
         }
     }
 
     /**
      * 缓存请求结果,序列化为 JSON 字符串后存入 Redis。
+     * Redis Key 绑定 userId,防止跨用户 requestId 碰撞或重放。
      *
+     * @param userId    用户ID
      * @param requestId 幂等请求ID
      * @param result    请求结果
      */
-    public void put(String requestId, Object result) {
+    public void put(Long userId, String requestId, Object result) {
         try {
             String json = objectMapper.writeValueAsString(result);
-            redisTemplate.opsForValue().set(KEY_PREFIX + requestId, json, TTL);
+            redisTemplate.opsForValue().set(KEY_PREFIX + userId + ":" + requestId, json, TTL);
         } catch (JacksonException e) {
-            log.error("无法序列化 requestId 的幂等缓存={}", requestId, e);
+            log.error("无法序列化 userId={},requestId={} 的幂等缓存", userId, requestId, e);
         }
     }
 }

@@ -104,12 +104,12 @@ class OrderServiceTest {
         lockSeatDTO = LockSeatDTO.builder().scheduleId(1L).seatIds(List.of(10L, 11L)).ticketCount(2).build();
 
         // Common stubs for all tests
-        when(idempotentService.getIfPresent(any(), any())).thenReturn(null);
+        when(idempotentService.getIfPresent(any(), any(), any())).thenReturn(null);
         when(redissonClient.getLock(anyString())).thenReturn(rLock);
         when(rLock.tryLock(anyLong(), anyLong(), any(TimeUnit.class))).thenReturn(true);
         when(rLock.isHeldByCurrentThread()).thenReturn(true);
         doNothing().when(rLock).unlock();
-        doNothing().when(idempotentService).put(anyString(), any());
+        doNothing().when(idempotentService).put(any(), anyString(), any());
         doNothing().when(orderTimeoutService).schedule(any());
         doNothing().when(orderTimeoutService).cancel(any());
         doNothing().when(notificationService).sendNotification(anyLong(), anyString(), anyString(), anyString(), any());
