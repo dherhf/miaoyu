@@ -44,7 +44,14 @@ export async function sendMessage(
   sessionId: string,
   content: string,
   callbacks: SseCallbacks,
-  options?: { scheduleId?: string; seatIds?: string[]; ticketCount?: number },
+  options?: {
+    scheduleId?: string
+    seatIds?: string[]
+    ticketCount?: number
+    longitude?: number
+    latitude?: number
+    city?: string
+  },
 ): Promise<void> {
   const token = useAuthStore.getState().token
   const body: SendMessageRequest = {

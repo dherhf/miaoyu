@@ -15,4 +15,13 @@ public class RequestContext {
     private List<Long> seatIds;
     private Integer ticketCount;
     private String requestId;
+
+    /** 用户当前经度（GCJ-02，由前端高德定位提供） */
+    private Double longitude;
+
+    /** 用户当前纬度（GCJ-02） */
+    private Double latitude;
+
+    /** 用户当前城市 */
+    private String city;
 }

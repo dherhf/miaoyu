@@ -86,7 +86,10 @@ public class ChatController {
                 request.getScheduleId(),
                 request.getSeatIds(),
                 request.getTicketCount(),
-                request.getRequestId()
+                request.getRequestId(),
+                request.getLongitude(),
+                request.getLatitude(),
+                request.getCity()
         );
     }
 

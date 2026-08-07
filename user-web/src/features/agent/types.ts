@@ -18,6 +18,12 @@ export interface SendMessageRequest {
   scheduleId?: string
   ticketCount?: number
   requestId?: string
+  /** 用户当前经度（GCJ-02，由前端高德定位提供） */
+  longitude?: number
+  /** 用户当前纬度（GCJ-02） */
+  latitude?: number
+  /** 用户当前城市 */
+  city?: string
 }
 
 export interface SessionSummary {

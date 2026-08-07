@@ -102,6 +102,9 @@ public class DialogueService {
      * @param seatIds      前端选座后直接提供（可 null）
      * @param ticketCount  购票数量（=座位数，前端选座时提供，可 null）
      * @param requestId    幂等请求 ID（前端生成，写操作幂等控制，可 null）
+     * @param longitude    用户当前经度（GCJ-02，前端高德定位提供，可 null）
+     * @param latitude     用户当前纬度（GCJ-02，可 null）
+     * @param city         用户当前城市（可 null）
      * @return SseEmitter
      */
     public SseEmitter handleMessage(
@@ -111,7 +114,10 @@ public class DialogueService {
             Long scheduleId,
             List<Long> seatIds,
             Integer ticketCount,
-            String requestId
+            String requestId,
+            Double longitude,
+            Double latitude,
+            String city
     ) {
         SseEmitter emitter = new SseEmitter(sseTimeoutSeconds * 1000L);
 
@@ -155,11 +161,14 @@ public class DialogueService {
         requestCtx.setSeatIds(seatIds);
         requestCtx.setTicketCount(ticketCount);
         requestCtx.setRequestId(requestId);
+        requestCtx.setLongitude(longitude);
+        requestCtx.setLatitude(latitude);
+        requestCtx.setCity(city);
 
         Thread.startVirtualThread(() -> {
             try {
                 contextService.storeRequestContext(sessionId, requestCtx);
-                processDialogue(emitter, sessionId, content, slotState);
+                processDialogue(emitter, sessionId, content, slotState, longitude, latitude, city);
             } catch (Exception ex) {
                 log.error("[handleMessage] 对话处理异常: sessionId={}", sessionId, ex);
                 try {
@@ -185,10 +194,13 @@ public class DialogueService {
             SseEmitter emitter,
             String sessionId,
             String content,
-            SlotState slotState
+            SlotState slotState,
+            Double longitude,
+            Double latitude,
+            String city
     ) {
         List<ChatMessage> recentMessages = contextService.getRecentMessages(sessionId);
-        String contextPrompt = buildContextPrompt(content, slotState, recentMessages);
+        String contextPrompt = buildContextPrompt(content, slotState, recentMessages, longitude, latitude, city);
 
         int totalMsgCount = contextService.getMessageCount(sessionId);
         int nextId = totalMsgCount + 1;
@@ -375,7 +387,10 @@ public class DialogueService {
     private String buildContextPrompt(
             String content,
             SlotState slotState,
-            List<ChatMessage> recentMessages
+            List<ChatMessage> recentMessages,
+            Double longitude,
+            Double latitude,
+            String city
     ) {
         StringBuilder sb = new StringBuilder();
         if (!recentMessages.isEmpty()) {
@@ -394,6 +409,17 @@ public class DialogueService {
             try {
                 sb.append(objectMapper.writeValueAsString(slotState)).append("\n");
             } catch (Exception ignored) {}
+        }
+        // 注入用户位置信息
+        if (longitude != null && latitude != null && longitude != 0 && latitude != 0) {
+            sb.append("【用户位置】\n");
+            sb.append("坐标：").append(longitude).append(",").append(latitude);
+            if (city != null && !city.isBlank()) {
+                sb.append("，城市：").append(city);
+            }
+            sb.append("\n");
+        } else if (city != null && !city.isBlank()) {
+            sb.append("【用户位置】\n城市：").append(city).append("\n");
         }
         sb.append("【用户输入】\n").append(content);
         return sb.toString();
