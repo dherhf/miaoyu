@@ -5,7 +5,6 @@ export default defineConfig({
   plugins: [react()],
   envDir: '../',
   base: '/admin/',
-  envDir: '../',
   server: {
     port: 5173,
     proxy: {
