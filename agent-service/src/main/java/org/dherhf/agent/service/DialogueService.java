@@ -53,6 +53,7 @@ public class DialogueService {
     private final ContextService contextService;
     private final ChatSessionService chatSessionService;
     private final TitleAgentService titleAgentService;
+    private final IntentRecognitionService intentRecognitionService;
     private final TicketServiceClient ticketClient;
     private final org.dherhf.agent.tool.AmapClient amapClient;
     private final IdempotentService idempotentService;
@@ -205,7 +206,12 @@ public class DialogueService {
             boolean needTitle
     ) {
         List<ChatMessage> recentMessages = contextService.getRecentMessages(sessionId);
-        String contextPrompt = buildContextPrompt(content, slotState, recentMessages, longitude, latitude, city);
+
+        // 先识别意图（串行），结果注入主 Agent 上下文以指导工具链选择
+        String recognizedIntent = intentRecognitionService.recognizeIntent(content, recentMessages);
+        log.info("[processDialogue] 意图识别结果: sessionId={}, intent={}", sessionId, recognizedIntent);
+
+        String contextPrompt = buildContextPrompt(content, slotState, recentMessages, longitude, latitude, city, recognizedIntent);
 
         int totalMsgCount = contextService.getMessageCount(sessionId);
         int nextId = totalMsgCount + 1;
@@ -273,7 +279,7 @@ public class DialogueService {
                 try {
                     String full = fullText.toString();
                     String aiContent;
-                    IntentEnum intent = IntentEnum.OTHER;
+                    IntentEnum metaIntent = IntentEnum.OTHER;
                     SlotState incomingSlots = new SlotState();
 
                     int metaIdx = full.indexOf(META_DELIMITER);
@@ -287,9 +293,9 @@ public class DialogueService {
                             JsonNode metaNode = objectMapper.readTree(metaJson);
                             if (metaNode.has("intent")) {
                                 try {
-                                    intent = IntentEnum.valueOf(metaNode.get("intent").asString());
+                                    metaIntent = IntentEnum.valueOf(metaNode.get("intent").asString());
                                 } catch (IllegalArgumentException e) {
-                                    log.warn("[processDialogue] 未知意图: {}", metaNode.get("intent").asString());
+                                    log.warn("[processDialogue] META 未知意图: {}", metaNode.get("intent").asString());
                                 }
                             }
                             if (metaNode.has("slots") && !metaNode.get("slots").isNull()) {
@@ -300,6 +306,15 @@ public class DialogueService {
                         }
                     } else {
                         aiContent = full.trim();
+                    }
+
+                    // 优先使用独立意图 Agent 的结果，META intent 作为降级
+                    IntentEnum intent;
+                    try {
+                        intent = IntentEnum.valueOf(recognizedIntent);
+                    } catch (IllegalArgumentException e) {
+                        log.warn("[processDialogue] 意图Agent返回未知值: {}，降级META: {}", recognizedIntent, metaIntent);
+                        intent = metaIntent;
                     }
 
                     if (!outputValidatorService.validate(aiContent)) {
@@ -402,9 +417,13 @@ public class DialogueService {
             List<ChatMessage> recentMessages,
             Double longitude,
             Double latitude,
-            String city
+            String city,
+            String recognizedIntent
     ) {
         StringBuilder sb = new StringBuilder();
+        if (recognizedIntent != null && !recognizedIntent.isBlank()) {
+            sb.append("【识别意图】\n").append(recognizedIntent).append("\n");
+        }
         if (!recentMessages.isEmpty()) {
             sb.append("【历史对话】\n");
             for (ChatMessage msg : recentMessages) {

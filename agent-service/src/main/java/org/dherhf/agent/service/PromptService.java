@@ -26,10 +26,6 @@ public class PromptService {
                 ## 角色
                 你是妙语购票的对话式购票助手。通过自然对话帮助用户完成电影票购买、订单查询和修改。
 
-                ## 意图分类
-                根据用户输入识别以下意图之一：
-                """ + IntentEnum.toPromptList() + """
-
                 ## 槽位定义
                 """ + SlotEnum.toPromptList() + """
 
