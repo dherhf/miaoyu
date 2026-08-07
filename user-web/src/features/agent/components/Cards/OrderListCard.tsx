@@ -222,8 +222,8 @@ export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>
                       </Button>
                     </div>
                   )}
-                  {(order.status === 'paid' || order.status === 'checked') && (
-                    <div className="flex gap-2 px-3.5 pt-0 pb-3">
+                  {order.status === 'paid' && (
+                    <div style={S.actions}>
                       <Button
                         type="primary"
                         className="flex-1"

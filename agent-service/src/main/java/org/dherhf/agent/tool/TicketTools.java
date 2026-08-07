@@ -10,9 +10,11 @@ import org.dherhf.agent.service.IdempotentService;
 import org.dherhf.common.result.ErrorCodeEnum;
 import org.dherhf.common.result.Result;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -37,6 +39,8 @@ public class TicketTools {
     private final String sessionId;
 
     private final List<CardPayload> cardBuffer = new ArrayList<>();
+    /** 卡片抑制标记：置为 true 后本轮流经 emitCard 的卡片均被丢弃，确保取消/退票等操作后不推送任何卡片。 */
+    private boolean cardSuppressed = false;
 
     public TicketTools(TicketServiceClient ticketClient,
                        AmapClient amapClient,
@@ -65,6 +69,7 @@ public class TicketTools {
      * 将后端返回的原始数据加入卡片缓冲区，供 SSE 推送。
      */
     private void emitCard(String cardType, Object cardData) {
+        if (cardSuppressed) return;
         cardBuffer.add(CardPayload.builder()
                 .cardType(cardType)
                 .cardData(cardData)
@@ -113,6 +118,9 @@ public class TicketTools {
         if (s == null || s.isBlank()) return null;
         try { return Long.parseLong(s.trim()); } catch (NumberFormatException e) { return null; }
     }
+
+    /** 订单支付超时秒数，与 ticket-service OrderServiceImpl.ORDER_TIMEOUT_SECONDS 保持一致 */
+    private static final int ORDER_TIMEOUT_SECONDS = 15 * 60;
 
     private static Integer parseInt(String s) {
         if (s == null || s.isBlank()) return null;
@@ -192,16 +200,16 @@ public class TicketTools {
         return toJson(result);
     }
 
-    @Tool("查询当前用户的订单列表，支持分页。用户表达查询/修改/退票意图时调用。返回后端原始 JSON 数据。")
+    @Tool("查询当前用户的订单列表，支持分页。用户表达'查订单''我的订单'等查看全部订单意图时调用。已知订单ID查询单个订单请用 queryOrderDetail。返回后端原始 JSON 数据。")
     public String queryOrders(
             @P("订单状态过滤，如'pending'（待支付）、'paid'（已支付）、'refunded'（已退票）；查全部传空字符串") String status,
-            @P("页码，从1开始；用户未指定时传空字符串默认第1页，每页固定10条") String page
+            @P("页码，从1开始；用户未指定时传空字符串默认第1页，每页固定5条") String page
     ) {
         Long userId = requireUserId();
         Integer pageNum = parseInt(page);
         if (pageNum == null || pageNum < 1) pageNum = 1;
         log.info("[Tool:queryOrders] userId={}, status={}, page={}", userId, status, pageNum);
-        Result<Object> result = ticketClient.queryUserOrders(userId, status, pageNum, 10);
+        Result<Object> result = ticketClient.queryUserOrders(userId, status, pageNum, 5);
         if (result.getCode() == 0) {
             emitCard("order_list", result.getData());
         }
@@ -255,9 +263,9 @@ public class TicketTools {
         return json;
     }
 
-    @Tool("查询订单详情。用户询问订单状态或发起退票前调用。返回后端原始 JSON 数据。")
+    @Tool("查询单个订单详情。用户询问特定订单（已知订单ID）的状态、取票码等信息时调用。返回后端原始 JSON 数据。")
     public String queryOrderDetail(
-            @P("订单 ID（由 queryOrders 返回）") String orderId
+            @P("订单 ID（由 queryOrders 返回或用户直接提供）") String orderId
     ) {
         Long userId = requireUserId();
         Long orderIdLong = parseLong(orderId);
@@ -266,7 +274,35 @@ public class TicketTools {
         }
         log.info("[Tool:queryOrderDetail] orderId={}, userId={}", orderIdLong, userId);
         Result<Object> result = ticketClient.queryOrderDetail(orderIdLong, userId);
-        return toJson(result);
+        String json = toJson(result);
+        if (result.getCode() == 0 && result.getData() != null) {
+            try {
+                // 查询单个订单时推送 order_confirm 卡片（而非 order_list），
+                // 确保对话服务推送的最后一张卡片是单个订单详情
+                @SuppressWarnings("unchecked")
+                Map<String, Object> cardData = objectMapper.convertValue(result.getData(), Map.class);
+                String status = (String) cardData.get("status");
+                if ("pending".equals(status)) {
+                    String createdAtStr = (String) cardData.get("createdAt");
+                    if (createdAtStr != null) {
+                        LocalDateTime createdAt = LocalDateTime.parse(createdAtStr,
+                                java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                        int remaining = ORDER_TIMEOUT_SECONDS
+                                - (int) java.time.Duration.between(createdAt, LocalDateTime.now()).getSeconds();
+                        if (remaining < 0) remaining = 0;
+                        LocalDateTime expireAt = createdAt.plusSeconds(ORDER_TIMEOUT_SECONDS);
+                        cardData.put("remainingTime", remaining);
+                        cardData.put("expireAt", expireAt.format(
+                                java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+                    }
+                }
+                emitCard("order_confirm", cardData);
+            } catch (Exception e) {
+                log.warn("[queryOrderDetail] 卡片构建失败，回退原始数据: {}", e.getMessage());
+                emitCard("order_confirm", result.getData());
+            }
+        }
+        return json;
     }
 
     @Tool("支付订单。用户确认支付待支付订单时调用。返回后端原始 JSON 数据（含取票码）。")
@@ -319,8 +355,9 @@ public class TicketTools {
         if (result.getCode() == 0) {
             idempotentService.put(userId, requestId, json);
         }
-        // 取消成功后清空卡片缓冲区，确保本轮不推送任何卡片
+        // 清空已有卡片并抑制后续卡片，确保取消订单后本轮不推送任何卡片
         cardBuffer.clear();
+        cardSuppressed = true;
         return json;
     }
 
@@ -347,6 +384,9 @@ public class TicketTools {
         if (result.getCode() == 0) {
             idempotentService.put(userId, requestId, json);
         }
+        // 清空已有卡片并抑制后续卡片，确保退票后本轮不推送任何卡片
+        cardBuffer.clear();
+        cardSuppressed = true;
         return json;
     }
 
