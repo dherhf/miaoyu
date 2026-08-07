@@ -219,11 +219,25 @@ public class TicketTools {
             RequestContext ctx = contextService.getRequestContext(sessionId);
             count = ctx != null ? ctx.getTicketCount() : null;
         }
+
+        // 前置校验：在调用远端 API 前给出明确指引，帮助 LLM 自我纠错
+        if (scheduleIdLong == null) {
+            return "{\"code\":400,\"message\":\"场次ID无效，请确认已从前端或 querySessions 返回结果中获取有效的数字格式 scheduleId。\"}";
+        }
+        if (seatIdList.isEmpty()) {
+            return "{\"code\":400,\"message\":\"座位ID无效——请先调用 getSeatMap 获取该场次的座位图，从返回的 seats 数组中找到目标座位（根据 seatLabel 如 F9、F10 匹配），再使用其 hallCellId（数字格式）调用本工具。\"}";
+        }
+        if (count == null) {
+            return "{\"code\":400,\"message\":\"购票数量缺失，请确认后重试。\"}";
+        }
+        if (seatIdList.size() != count) {
+            return "{\"code\":400,\"message\":\"购票数量(" + count + ")与座位数(" + seatIdList.size() + ")不一致，请检查 seatIds 和 ticketCount 是否对应。\"}";
+        }
         String requestId = getRequestId();
         log.info("[Tool:lockAndCreateOrder] userId={}, scheduleId={}, seatIds={}, count={}, requestId={}",
                 userId, scheduleIdLong, seatIdList, count, requestId);
 
-        String cached = idempotentService.getIfPresent(userId, requestId, String.class);
+        String cached = idempotentService.getIfPresent(requestId, String.class);
         if (cached != null) {
             log.info("[Tool:lockAndCreateOrder] 幂等命中缓存: requestId={}", requestId);
             return cached;
@@ -232,7 +246,7 @@ public class TicketTools {
         Result<Object> result = ticketClient.lockSeat(userId, scheduleIdLong, seatIdList, count, requestId);
         String json = toJson(result);
         if (result.getCode() == 0) {
-            idempotentService.put(userId, requestId, json);
+            idempotentService.put(requestId, json);
             emitCard("order_confirm", result.getData());
         }
         return json;
@@ -261,7 +275,7 @@ public class TicketTools {
         String requestId = getRequestId();
         log.info("[Tool:payOrder] userId={}, orderId={}, requestId={}", userId, orderIdLong, requestId);
 
-        String cached = idempotentService.getIfPresent(userId, requestId, String.class);
+        String cached = idempotentService.getIfPresent(requestId, String.class);
         if (cached != null) {
             log.info("[Tool:payOrder] 幂等命中缓存: requestId={}", requestId);
             return cached;
@@ -270,7 +284,7 @@ public class TicketTools {
         Result<Object> result = ticketClient.payOrder(userId, orderIdLong, requestId);
         String json = toJson(result);
         if (result.getCode() == 0) {
-            idempotentService.put(userId, requestId, json);
+            idempotentService.put(requestId, json);
             emitCard("order_success", result.getData());
         }
         return json;
@@ -285,7 +299,7 @@ public class TicketTools {
         String requestId = getRequestId();
         log.info("[Tool:cancelOrder] userId={}, orderId={}, requestId={}", userId, orderIdLong, requestId);
 
-        String cached = idempotentService.getIfPresent(userId, requestId, String.class);
+        String cached = idempotentService.getIfPresent(requestId, String.class);
         if (cached != null) {
             log.info("[Tool:cancelOrder] 幂等命中缓存: requestId={}", requestId);
             return cached;
@@ -294,9 +308,10 @@ public class TicketTools {
         Result<Object> result = ticketClient.cancelOrder(userId, orderIdLong, requestId);
         String json = toJson(result);
         if (result.getCode() == 0) {
-            idempotentService.put(userId, requestId, json);
-            emitCard("order_success", result.getData());
+            idempotentService.put(requestId, json);
         }
+        // 取消成功后清空卡片缓冲区，避免上游工具（如 queryOrderDetail）的卡片被推送
+        cardBuffer.clear();
         return json;
     }
 
@@ -309,7 +324,7 @@ public class TicketTools {
         String requestId = getRequestId();
         log.info("[Tool:refundOrder] userId={}, orderId={}, requestId={}", userId, orderIdLong, requestId);
 
-        String cached = idempotentService.getIfPresent(userId, requestId, String.class);
+        String cached = idempotentService.getIfPresent(requestId, String.class);
         if (cached != null) {
             log.info("[Tool:refundOrder] 幂等命中缓存: requestId={}", requestId);
             return cached;
@@ -318,8 +333,7 @@ public class TicketTools {
         Result<Object> result = ticketClient.refundOrder(userId, orderIdLong, requestId);
         String json = toJson(result);
         if (result.getCode() == 0) {
-            idempotentService.put(userId, requestId, json);
-            emitCard("order_success", result.getData());
+            idempotentService.put(requestId, json);
         }
         return json;
     }
