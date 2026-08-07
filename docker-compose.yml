@@ -96,6 +96,10 @@ services:
     build:
       context: .
       dockerfile: nginx/Dockerfile
+      args:
+        VITE_ADMIN_AMAP_JS_KEY: ${VITE_ADMIN_AMAP_JS_KEY:-}
+        VITE_USER_AMAP_JS_KEY: ${VITE_USER_AMAP_JS_KEY:-}
+        VITE_USER_AMAP_SECURITY_CODE: ${VITE_USER_AMAP_SECURITY_CODE:-}
     container_name: miaoyu-nginx
     restart: unless-stopped
     mem_limit: 64m
