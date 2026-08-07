@@ -55,7 +55,7 @@ request.interceptors.response.use(
     // 401 → 清除登录态跳转
     if (res.code === 401) {
       useAuthStore.getState().clear();
-      window.location.href = '/login';
+      window.location.href = '/admin/login';
       return Promise.reject(new Error('未登录或登录已过期'));
     }
 
@@ -75,7 +75,7 @@ request.interceptors.response.use(
         break;
       case 401:
         useAuthStore.getState().clear();
-        window.location.href = '/login';
+        window.location.href = '/admin/login';
         message = '未登录或登录已过期';
         break;
       case 403:
