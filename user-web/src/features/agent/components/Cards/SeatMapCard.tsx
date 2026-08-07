@@ -9,13 +9,6 @@ const STATUS_COLORS: Record<string, { bg: string; border: string; text: string; 
   selected: { bg: '#3b82f6', border: '#2563eb', text: '#fff', cursor: 'pointer' },
 }
 
-const CAT_STYLES: Record<string, { ring: string; badge: string }> = {
-  regular: { ring: 'none', badge: '' },
-  vip: { ring: '2px solid #fbbf24', badge: 'V' },
-  couple: { ring: '2px solid #f472b6', badge: '♥' },
-  wheelchair: { ring: '2px solid #60a5fa', badge: '♿' },
-}
-
 const SEAT_SIZE = 36
 const GAP = 6
 
@@ -86,7 +79,6 @@ export default function SeatMapCard({ data, onAction }: BaseCardProps<SeatMapCar
                 const sel = isSelected(seat)
                 const status = sel ? 'selected' : seat.status
                 const colors = STATUS_COLORS[status] || STATUS_COLORS.available
-                const cat = CAT_STYLES[seat.seatCategory] || CAT_STYLES.regular
                 const disabled = seat.status === 'locked' || seat.status === 'sold'
                 return (
                   <button
@@ -102,24 +94,10 @@ export default function SeatMapCard({ data, onAction }: BaseCardProps<SeatMapCar
                       fontSize: 11, fontWeight: 600,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       cursor: disabled ? 'not-allowed' : 'pointer',
-                      outline: cat.ring === 'none' ? undefined : cat.ring,
-                      outlineOffset: -2,
-                      position: 'relative',
                       opacity: disabled ? 0.7 : 1,
                       transition: 'all .15s',
                     }}
                   >
-                    {seat.seatCategory !== 'regular' && (
-                      <span style={{
-                        position: 'absolute', top: -4, right: -4,
-                        width: 16, height: 16, borderRadius: '50%',
-                        fontSize: 9, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: '#fff',
-                        backgroundColor: seat.seatCategory === 'vip' ? '#fbbf24' : seat.seatCategory === 'couple' ? '#f472b6' : '#60a5fa',
-                      }}>
-                        {cat.badge}
-                      </span>
-                    )}
                     {seat.seatLabel}
                   </button>
                 )

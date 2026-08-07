@@ -20,6 +20,7 @@ public class OrderDetailVO {
     private String orderNo;
     private String movieName;
     private String cinemaName;
+    private String cinemaAddress;
     private String hallName;
     private LocalDate showDate;
     private LocalTime startTime;

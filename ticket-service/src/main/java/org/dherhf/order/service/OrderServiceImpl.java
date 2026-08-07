@@ -410,6 +410,9 @@ public class OrderServiceImpl implements OrderService {
         } else {
             vo.setPickupCode(pickupCodeService.getOrCreateCode(order.getId()));
         }
+        Schedule schedule = scheduleMapper.selectById(order.getScheduleId());
+        Cinema cinema = cinemaMapper.selectById(schedule != null ? schedule.getCinemaId() : null);
+        vo.setCinemaAddress(cinema != null ? cinema.getAddress() : null);
         return vo;
     }
 
