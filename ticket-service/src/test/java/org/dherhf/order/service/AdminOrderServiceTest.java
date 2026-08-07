@@ -121,4 +121,18 @@ class AdminOrderServiceTest {
         assertEquals(409, ex.getCode());
         System.out.println("[AdminOrderServiceTest] ✓ checkTicket_notPaid_throws409 PASSED");
     }
+
+    @Test
+    void checkTicket_expired_throws409() {
+        System.out.println("[AdminOrderServiceTest] ▶ checkTicket_expired_throws409");
+        when(pickupCodeService.verifyCode("AB3K9X")).thenReturn(1L);
+        Order order = Order.builder().id(1L).userId(1L).status("expired").build();
+        when(orderMapper.selectById(1L)).thenReturn(order);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> adminOrderService.checkTicket("AB3K9X"));
+        assertEquals(409, ex.getCode());
+        assertEquals("场次已结束，无法检票", ex.getMessage());
+        System.out.println("[AdminOrderServiceTest] ✓ checkTicket_expired_throws409 PASSED");
+    }
 }

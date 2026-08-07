@@ -315,6 +315,9 @@ public class ScheduleServiceImpl implements ScheduleService {
             scheduleSeatMapper.updateById(ss);
         }
 
+        // 已出票订单置为已过期(场次已结束,不可再检票)
+        expirePaidOrders(id);
+
         // 删除 Redis Bitmap 缓存
         seatBitmapService.deleteBitmap(id);
     }
@@ -514,6 +517,9 @@ public class ScheduleServiceImpl implements ScheduleService {
                             "您预订的《" + order.getMovieName() + "》场次已结束，待支付订单已自动取消。",
                             order.getId());
                 }
+
+                // 已出票订单置为已过期(场次已结束,不可再检票)
+                expirePaidOrders(schedule.getId());
             } catch (Exception e) {
                 log.error("Error auto-ending schedule {}", schedule.getId(), e);
             }
@@ -527,6 +533,28 @@ public class ScheduleServiceImpl implements ScheduleService {
     @Scheduled(fixedRate = 60000)
     public void scanExpiredSchedules() {
         autoEndExpiredSchedules();
+    }
+
+    /**
+     * 将指定场次下已出票(paid)订单置为已过期(expired)。
+     * 场次结束后票据失效,不可再检票/退票。座位不释放(场次已结束,无需回收)。
+     */
+    private void expirePaidOrders(Long scheduleId) {
+        List<org.dherhf.order.entity.Order> paidOrders = orderMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<org.dherhf.order.entity.Order>()
+                        .eq(org.dherhf.order.entity.Order::getScheduleId, scheduleId)
+                        .eq(org.dherhf.order.entity.Order::getStatus, org.dherhf.order.enums.OrderStatus.PAID.getCode()));
+        for (org.dherhf.order.entity.Order order : paidOrders) {
+            order.setStatus(org.dherhf.order.enums.OrderStatus.EXPIRED.getCode());
+            orderMapper.updateById(order);
+            notificationService.sendNotification(
+                    order.getUserId(), "EXPIRED", "场次已结束",
+                    "您购买的《" + order.getMovieName() + "》场次已结束，票据已失效。",
+                    order.getId());
+        }
+        if (!paidOrders.isEmpty()) {
+            log.info("Expired {} paid orders for schedule {}", paidOrders.size(), scheduleId);
+        }
     }
 
     private void checkConflict(Long hallId, LocalDate showDate, LocalTime startTime, LocalTime endTime, Long excludeId) {

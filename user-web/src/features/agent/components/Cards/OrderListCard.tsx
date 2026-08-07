@@ -10,6 +10,7 @@ const FILTERS = [
   { key: 'paid', label: '已出票' },
   { key: 'checked', label: '已检票' },
   { key: 'refunded', label: '已退票' },
+  { key: 'expired', label: '已过期' },
 ] as const
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
@@ -18,6 +19,7 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
   checked: { label: '已检票', color: 'processing' },
   cancelled: { label: '已取消', color: 'default' },
   refunded: { label: '已退票', color: 'error' },
+  expired: { label: '已过期', color: 'default' },
 }
 
 function fmtDate(dateStr: string, timeStr: string) {
@@ -223,7 +225,7 @@ export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>
                     </div>
                   )}
                   {order.status === 'paid' && (
-                    <div style={S.actions}>
+                    <div className="flex gap-2 px-3.5 pt-0 pb-3">
                       <Button
                         type="primary"
                         className="flex-1"

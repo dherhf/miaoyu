@@ -33,6 +33,7 @@ const ORDER_STATUS_MAP: Record<OrderStatus, { label: string; color: string }> = 
   cancelled: { label: '已取消', color: 'gray' },
   refunded: { label: '已退票', color: 'red' },
   checked: { label: '已检票', color: 'blue' },
+  expired: { label: '已过期', color: 'default' },
 };
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
