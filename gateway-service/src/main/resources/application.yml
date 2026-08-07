@@ -21,13 +21,13 @@ spring:
           routes:
             # Agent 对话接口 → agent-service（优先匹配）
             - id: agent-chat
-              uri: http://localhost:8081
+              uri: ${AGENT_SERVICE_URL:http://localhost:8081}
               predicates:
                 - Path=/api/v1/chat/**
 
             # 其余 /api/v1/** → ticket-service
             - id: ticket-service
-              uri: http://localhost:8080
+              uri: ${TICKET_SERVICE_URL:http://localhost:8080}
               predicates:
                 - Path=/api/v1/**
 
