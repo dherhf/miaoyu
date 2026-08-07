@@ -3,7 +3,7 @@ FROM node:22-alpine AS user-web-builder
 
 WORKDIR /build
 COPY user-web/package*.json ./
-RUN npm ci
+RUN npm ci --registry=https://registry.npmmirror.com
 COPY user-web/ .
 RUN npm run build
 
@@ -12,7 +12,7 @@ FROM node:22-alpine AS admin-builder
 
 WORKDIR /build
 COPY admin-web/package*.json ./
-RUN npm ci
+RUN npm ci --registry=https://registry.npmmirror.com
 COPY admin-web/ .
 RUN npm run build
 
