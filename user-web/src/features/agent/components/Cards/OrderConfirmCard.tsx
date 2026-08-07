@@ -99,6 +99,7 @@ export default function OrderConfirmCard({ data }: BaseCardProps<OrderConfirmCar
         </div>
       )}
 
+
       {isCancelled && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-surface-alt/90">
           <div className="mb-2 text-[40px]">❌</div>
