@@ -1,7 +1,15 @@
+import { useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Header } from './Header'
+import { useGeoStore } from '@/shared/amap'
 
 export function MainLayout() {
+  const fetchLocation = useGeoStore((s) => s.fetchLocation)
+
+  useEffect(() => {
+    fetchLocation().catch(() => {})
+  }, [fetchLocation])
+
   return (
     <div className="flex flex-col h-svh overflow-hidden">
       <Header />

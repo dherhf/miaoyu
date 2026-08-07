@@ -7,6 +7,7 @@ import { createSession, deleteSession, getSessionDetail, listSessions, sendMessa
 import CardRenderer from './components/CardRenderer'
 import type { ChatMessage, SessionSummary, SseCallbacks } from './types'
 import { useHeaderBack } from '@/layouts/navBarStore'
+import { useGeoStore } from '@/shared/amap'
 
 export default function ChatPage() {
   const { id } = useParams<{ id: string }>()
@@ -21,6 +22,7 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const locallyCreatedRef = useRef<string | null>(null)
+  const location = useGeoStore((s) => s.location)
 
   useHeaderBack(true, '/')
 
@@ -168,9 +170,13 @@ export default function ChatPage() {
     setMessages((prev) => [...prev, userMsg, assistantMsg])
 
     setSending(true)
-    await sendMessage(sid, content, createSseCallbacks())
+    await sendMessage(sid, content, createSseCallbacks(), {
+      longitude: location?.longitude,
+      latitude: location?.latitude,
+      city: location?.city,
+    })
     setSending(false)
-  }, [activeId, createSseCallbacks, ensureSession])
+  }, [activeId, createSseCallbacks, ensureSession, location])
 
   const handleSend = async () => {
     const content = input.trim()

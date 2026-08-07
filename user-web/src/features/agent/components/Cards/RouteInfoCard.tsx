@@ -1,5 +1,5 @@
 import { CarOutlined, EnvironmentOutlined } from '@ant-design/icons'
-import type { BaseCardProps, RouteInfoCardData, RouteData } from '../../types'
+import type { BaseCardProps, RouteInfoCardData } from '../../types'
 
 const S: Record<string, React.CSSProperties> = {
   wrap: { width: '100%', borderRadius: 12, overflow: 'hidden', border: '1px solid #e5e7eb', background: '#fff' },

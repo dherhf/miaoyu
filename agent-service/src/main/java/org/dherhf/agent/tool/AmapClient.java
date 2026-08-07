@@ -12,7 +12,7 @@ import java.util.Map;
 /**
  * 高德地图代理客户端，通过 WeaveFox 代理调用高德 API。
  * <p>
- * 代理地址: https://www.weavefox.cn/api/v1/amap
+ * 代理地址: <a href="https://www.weavefox.cn/api/v1/amap">WeaveFox api</a>
  * 返回原始 JSON 字符串，不做解析，交给 LLM 理解。
  * 错误时返回与 {@link org.dherhf.common.result.Result} 一致的 JSON 结构。
  * </p>
