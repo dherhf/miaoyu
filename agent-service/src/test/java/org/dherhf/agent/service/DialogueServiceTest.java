@@ -37,6 +37,7 @@ class DialogueServiceTest {
     private AmapClient amapClient;
     private IdempotentService idempotentService;
     private ObjectMapper objectMapper;
+    private UserPreferenceService userPreferenceService;
 
     @BeforeEach
     void setUp() {
@@ -52,6 +53,7 @@ class DialogueServiceTest {
         amapClient = mock(AmapClient.class);
         idempotentService = mock(IdempotentService.class);
         objectMapper = new ObjectMapper();
+        userPreferenceService = mock(UserPreferenceService.class);
 
         when(promptService.getSystemPrompt()).thenReturn("test prompt");
         when(outputValidatorService.validate(anyString())).thenReturn(true);
@@ -63,7 +65,7 @@ class DialogueServiceTest {
         service = new DialogueService(
                 streamingChatModel, promptService, inputFilterService,
                 outputValidatorService, contextService, chatSessionService,
-                titleAgentService, intentRecognitionService, ticketClient, amapClient, idempotentService, objectMapper
+                titleAgentService, intentRecognitionService, ticketClient, amapClient, idempotentService, objectMapper, userPreferenceService
         ) {
             @Override
             protected DialogueService.ChatAssistant buildChatAssistant(String sessionId, TicketTools tools) {
@@ -245,9 +247,9 @@ class DialogueServiceTest {
 
         private String buildContextPrompt(String content, SlotState slotState, List<ChatMessage> history) throws Exception {
             java.lang.reflect.Method method = DialogueService.class
-                    .getDeclaredMethod("buildContextPrompt", String.class, SlotState.class, List.class, Double.class, Double.class, String.class, String.class);
+                    .getDeclaredMethod("buildContextPrompt", Long.class, String.class, SlotState.class, List.class, Double.class, Double.class, String.class, String.class);
             method.setAccessible(true);
-            return (String) method.invoke(service, content, slotState, history, null, null, null, null);
+            return (String) method.invoke(service, 1L, content, slotState, history, null, null, null, null);
         }
 
         @Test
