@@ -215,6 +215,9 @@ public class MovieServiceImpl implements MovieService {
     }
 
     private PageResult<MovieListVO> queryAndPaged(LambdaQueryWrapper<Movie> wrapper, String type, Integer page, Integer size, String sort) {
+        if (type != null && !type.isBlank()) {
+            wrapper.apply("JSON_CONTAINS(types, JSON_QUOTE({0}))", type);
+        }
         if ("rating_desc".equals(sort)) {
             wrapper.orderByDesc(Movie::getRating);
         } else {
@@ -223,7 +226,6 @@ public class MovieServiceImpl implements MovieService {
 
         IPage<Movie> result = movieMapper.selectPage(new Page<>(page, size), wrapper);
         List<MovieListVO> records = result.getRecords().stream()
-                .filter(m -> type == null || type.isBlank() || (m.getTypes() != null && m.getTypes().contains(type)))
                 .map(this::toListVO)
                 .collect(Collectors.toList());
 
