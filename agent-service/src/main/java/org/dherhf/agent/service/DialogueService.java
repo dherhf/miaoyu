@@ -225,7 +225,7 @@ public class DialogueService {
                         try {
                             sendSseEvent(emitter, SseEvent.message(toSend));
                         } catch (IOException e) {
-                            log.error("[processDialogue] SSE 推送失败: {}", e.getMessage());
+                            log.error("[processDialogue] SSE 推送失败(meta前): {}", e.getMessage());
                         }
                     }
                     sentUpTo[0] = metaIdx;
@@ -247,7 +247,7 @@ public class DialogueService {
                     try {
                         sendSseEvent(emitter, SseEvent.message(toSend));
                     } catch (IOException e) {
-                        log.error("[processDialogue] SSE 推送失败: {}", e.getMessage());
+                        log.error("[processDialogue] SSE 推送失败(流式片段): {}", e.getMessage());
                     }
                 }
                 sentUpTo[0] = safeEnd;
@@ -272,7 +272,7 @@ public class DialogueService {
                                 try {
                                     intent = IntentEnum.valueOf(metaNode.get("intent").asString());
                                 } catch (IllegalArgumentException e) {
-                                    intent = IntentEnum.OTHER;
+                                    log.warn("[processDialogue] 未知意图: {}", metaNode.get("intent").asString());
                                 }
                             }
                             if (metaNode.has("slots") && !metaNode.get("slots").isNull()) {
@@ -335,7 +335,7 @@ public class DialogueService {
                     emitter.complete();
                     streamFuture.complete(null);
                 } catch (Exception e) {
-                    log.error("[processDialogue] 完成处理异常: {}", e.getMessage(), e);
+                    log.error("[processDialogue] onCompleteResponse 处理异常: {}", e.getMessage(), e);
                     try {
                         sendSseEvent(emitter, SseEvent.error("500", "处理异常，请重试"));
                     } catch (IOException ignored) {}
@@ -344,7 +344,7 @@ public class DialogueService {
                 }
             })
             .onError(error -> {
-                log.error("[processDialogue] LLM 流式响应异常: {}", error.getMessage(), error);
+                log.error("[processDialogue] LLM onError 回调异常: {}", error.getMessage(), error);
                 try {
                     sendSseEvent(emitter, SseEvent.error("50001", "AI 响应超时，请重试"));
                     emitter.complete();
@@ -357,14 +357,14 @@ public class DialogueService {
         try {
             streamFuture.get(sseTimeoutSeconds, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
-            log.error("[processDialogue] LLM 流式响应超时");
+            log.error("[processDialogue] streamFuture.get 超时", e);
             try {
                 sendSseEvent(emitter, SseEvent.error("50001", "AI 响应超时，请重试"));
             } catch (IOException ignored) {}
             emitter.complete();
         } catch (ExecutionException e) {
-            log.error("[processDialogue] 流式响应异常: {}",
-                    e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
+            log.error("[processDialogue] streamFuture.get 执行异常: {}",
+                    e.getCause() != null ? e.getCause().getMessage() : e.getMessage(), e);
             emitter.complete();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
