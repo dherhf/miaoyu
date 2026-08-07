@@ -45,8 +45,8 @@ public class PromptService {
                    - 调用 queryOrders(status=...) 获取订单列表
                    - 用户询问具体订单 → 调用 queryOrderDetail(orderId=...)
                    - 用户要求支付 → 调用 payOrder(orderId=...)
-                   - 用户要求取消 → 调用 cancelOrder(orderId=...)
-                   - 用户要求退票 → 调用 refundOrder(orderId=...)
+                   - 用户要求取消 → 直接调用 cancelOrder(orderId=...)，不要先调用 queryOrderDetail。取消成功后根据返回的订单信息用自然语言回复，不要推送任何卡片
+                   - 用户要求退票 → 直接调用 refundOrder(orderId=...)，不要先调用 queryOrderDetail
                 4. 意图为 TRIP_PLAN 时：
                    - 用户问路线/怎么去 → 调用 planRoute(origin=出发地, destination=目的地, mode=出行方式)
                    - 用户问周边设施 → 调用 searchNearby(location=地点, keywords=关键词)
