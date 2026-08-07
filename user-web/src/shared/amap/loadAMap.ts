@@ -6,20 +6,20 @@ let amapPromise: Promise<typeof AMap> | null = null
  * 加载高德 JS SDK（全局单例，预加载 Geolocation 插件）。
  *
  * 需要配置环境变量：
- * - USER_AMAP_JS_KEY: 高德 JS API Key（必填）
- * - USER_AMAP_SECURITY_CODE: 安全密钥（JS API 2.0 需要，可选）
+ * - VITE_USER_AMAP_JS_KEY: 高德 JS API Key（必填）
+ * - VITE_USER_AMAP_SECURITY_CODE: 安全密钥（JS API 2.0 需要，可选）
  */
 export function loadAMap(): Promise<typeof AMap> {
   if (amapPromise) return amapPromise
 
-  const key = import.meta.env.USER_AMAP_JS_KEY
+  const key = import.meta.env.VITE_USER_AMAP_JS_KEY
   if (!key) {
     return Promise.reject(
-      new Error('USER_AMAP_JS_KEY 未配置，请在 .env 中设置高德地图 JS API Key'),
+      new Error('VITE_USER_AMAP_JS_KEY 未配置，请在 .env 中设置高德地图 JS API Key'),
     )
   }
 
-  const securityCode = import.meta.env.USER_AMAP_SECURITY_CODE
+  const securityCode = import.meta.env.VITE_USER_AMAP_SECURITY_CODE
   if (securityCode) {
     window._AMapSecurityConfig = { securityJsCode: securityCode }
   }
