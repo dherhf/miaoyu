@@ -41,7 +41,7 @@ export function Sidebar({ collapsed }: SidebarProps) {
     >
       {/* Logo区域 */}
       <div className={styles.logo}>
-        <img src="/favicon.svg" alt="妙语购票" className={styles.logoIcon} />
+        <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="妙语购票" className={styles.logoIcon} />
         {!collapsed && (
           <span className={styles.logoText}>妙语购票</span>
         )}
