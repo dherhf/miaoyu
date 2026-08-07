@@ -30,6 +30,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -193,5 +194,26 @@ class ScheduleServiceTest {
         assertEquals(2, result.getSeats().size());
         assertEquals(1, result.getAvailableSeats());
         System.out.println("[ScheduleServiceTest] ✓ getSeatMap_success PASSED");
+    }
+
+    @Test
+    void autoEndExpiredSchedules_expiresPaidOrders() {
+        System.out.println("[ScheduleServiceTest] ▶ autoEndExpiredSchedules_expiresPaidOrders");
+        Schedule schedule = Schedule.builder().id(1L).status("onsale")
+                .showDate(LocalDate.now().minusDays(1)).endTime(LocalTime.of(14, 0)).build();
+        when(scheduleMapper.selectList(any())).thenReturn(List.of(schedule));
+        when(scheduleSeatMapper.selectList(any())).thenReturn(List.of());
+
+        org.dherhf.order.entity.Order paidOrder = org.dherhf.order.entity.Order.builder()
+                .id(10L).userId(100L).status("paid").movieName("流浪地球3").build();
+        // 第一次 selectList 返回空(无待支付订单),第二次返回已出票订单
+        when(orderMapper.selectList(any())).thenReturn(List.of()).thenReturn(List.of(paidOrder));
+
+        scheduleService.autoEndExpiredSchedules();
+
+        assertEquals("ended", schedule.getStatus());
+        assertEquals("expired", paidOrder.getStatus());
+        verify(notificationService).sendNotification(eq(100L), eq("EXPIRED"), any(), any(), eq(10L));
+        System.out.println("[ScheduleServiceTest] ✓ autoEndExpiredSchedules_expiresPaidOrders PASSED");
     }
 }

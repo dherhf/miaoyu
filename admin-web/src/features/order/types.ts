@@ -15,7 +15,7 @@ export interface OrderRecord {
   seatInfo: string;
   ticketCount: number;
   totalAmount: number;
-  status: 'pending' | 'paid' | 'cancelled' | 'refunded' | 'checked';
+  status: 'pending' | 'paid' | 'cancelled' | 'refunded' | 'checked' | 'expired';
   createdAt: string;
   paidAt?: string;
   cancelReason?: string;
@@ -49,7 +49,7 @@ export interface OrderListParams {
 // ---------- Store 层 ----------
 
 /** 订单状态 */
-export type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded' | 'checked';
+export type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded' | 'checked' | 'expired';
 
 /** 订单座位 */
 export interface OrderSeat {
