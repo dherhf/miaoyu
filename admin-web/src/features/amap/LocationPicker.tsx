@@ -23,7 +23,7 @@ let amapPromise: Promise<typeof AMap> | null = null;
 function loadAMap(): Promise<typeof AMap> {
   if (!amapPromise) {
     amapPromise = AMapLoader.load({
-      key: import.meta.env.AIDMIN_AMAP_JS_KEY || 'your_amap_js_key_here',
+      key: import.meta.env.ADMIN_AMAP_JS_KEY || 'your_amap_js_key_here',
       version: '2.0',
     });
   }
