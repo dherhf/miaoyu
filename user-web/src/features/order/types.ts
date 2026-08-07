@@ -17,4 +17,10 @@ export interface OrderVO {
 export interface OrderDetailVO extends OrderVO {
   pickupCode?: string
   cancelReason?: string
+  checkedAt?: string
+}
+
+export interface PickupCodeVO {
+  pickupCode: string
+  expiresIn: number
 }

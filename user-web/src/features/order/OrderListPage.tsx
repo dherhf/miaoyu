@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import type { ReactNode } from 'react'
 import { App, Button, Empty, Modal, Pagination, Popconfirm, Spin, Tag } from 'antd'
-import { getOrderDetail, listOrders, payOrder, cancelOrder, refundOrder } from './api'
+import { getOrderDetail, listOrders, payOrder, cancelOrder, refundOrder, getPickupCode } from './api'
 import type { OrderDetailVO, OrderVO } from './types'
 import { useHeaderBack } from '@/layouts/navBarStore'
 
@@ -13,6 +13,7 @@ const STATUS_OPTIONS = [
   { label: '已支付', value: 'paid' },
   { label: '已取消', value: 'cancelled' },
   { label: '已退票', value: 'refunded' },
+  { label: '已检票', value: 'checked' },
 ]
 
 const STATUS_TAG: Record<string, { color: string; label: string }> = {
@@ -20,6 +21,7 @@ const STATUS_TAG: Record<string, { color: string; label: string }> = {
   paid: { color: 'success', label: '已支付' },
   cancelled: { color: 'default', label: '已取消' },
   refunded: { color: 'default', label: '已退票' },
+  checked: { color: 'processing', label: '已检票' },
 }
 
 export default function OrderListPage() {
@@ -227,9 +229,77 @@ function OrderDetailInfo({ detail }: { detail: OrderDetailVO }) {
       <Row label="数量" value={`${detail.ticketCount}张`} />
       <Row label="金额" value={`¥${Number(detail.totalAmount).toFixed(1)}`} />
       <Row label="状态" value={<Tag color={st.color} className="m-0">{st.label}</Tag>} />
-      {detail.pickupCode && <Row label="取票码" value={<span className="font-mono text-lg tracking-[2px]">{detail.pickupCode}</span>} />}
+      {detail.status === 'paid' && <PickupCodeDisplay orderId={detail.id} />}
+      {detail.status === 'checked' && detail.checkedAt && (
+        <Row label="检票时间" value={detail.checkedAt} />
+      )}
       {detail.cancelReason && <Row label="取消原因" value={detail.cancelReason} />}
     </div>
+  )
+}
+
+function PickupCodeDisplay({ orderId }: { orderId: number }) {
+  const [code, setCode] = useState<string | null>(null)
+  const [expiresIn, setExpiresIn] = useState(60)
+  const [expired, setExpired] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const fetchCode = useCallback(async () => {
+    try {
+      const res = await getPickupCode(orderId)
+      setCode(res.pickupCode)
+      setExpiresIn(res.expiresIn)
+      setExpired(false)
+    } catch (err: unknown) {
+      const code = (err as { code?: number }).code
+      if (code === 409) {
+        setExpired(true)
+        if (timerRef.current) clearInterval(timerRef.current)
+      }
+    }
+  }, [orderId])
+
+  useEffect(() => {
+    fetchCode()
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+  }, [fetchCode])
+
+  useEffect(() => {
+    if (expiresIn <= 0 || expired) return
+    timerRef.current = setInterval(() => {
+      setExpiresIn((prev) => {
+        if (prev <= 1) {
+          fetchCode()
+          return 60
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+  }, [expiresIn, expired, fetchCode])
+
+  if (expired) {
+    return <Row label="取票码" value={<span className="text-muted">已检票</span>} />
+  }
+
+  return (
+    <Row
+      label="取票码"
+      value={
+        code ? (
+          <span className="flex items-center gap-2">
+            <span className="font-mono text-lg tracking-[2px]">{code}</span>
+            <span className="text-xs text-muted">{expiresIn}s</span>
+          </span>
+        ) : (
+          <Spin size="small" />
+        )
+      }
+    />
   )
 }
 

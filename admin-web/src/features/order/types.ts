@@ -15,7 +15,7 @@ export interface OrderRecord {
   seatInfo: string;
   ticketCount: number;
   totalAmount: number;
-  status: 'pending' | 'paid' | 'cancelled' | 'refunded';
+  status: 'pending' | 'paid' | 'cancelled' | 'refunded' | 'checked';
   createdAt: string;
   paidAt?: string;
   cancelReason?: string;
@@ -23,8 +23,8 @@ export interface OrderRecord {
 
 /** 订单详情 */
 export interface OrderDetail extends OrderRecord {
-  pickupCode?: string;
   cancelledAt?: string;
+  checkedAt?: string;
   seats?: OrderSeatRecord[];
 }
 
@@ -49,7 +49,7 @@ export interface OrderListParams {
 // ---------- Store 层 ----------
 
 /** 订单状态 */
-export type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded';
+export type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded' | 'checked';
 
 /** 订单座位 */
 export interface OrderSeat {
@@ -75,6 +75,7 @@ export interface OrderItem {
   createdAt: string;
   paidAt?: string;
   cancelledAt?: string;
+  checkedAt?: string;
   cancelReason?: string;
   seats?: OrderSeat[];
 }
@@ -99,8 +100,8 @@ export function mapOrderRecord(record: OrderRecord): OrderItem {
     createdAt: record.createdAt,
     paidAt: record.paidAt,
     cancelReason: record.cancelReason,
-    pickupCode: (record as OrderDetail).pickupCode,
     cancelledAt: (record as OrderDetail).cancelledAt,
+    checkedAt: (record as OrderDetail).checkedAt,
     seats: (record as OrderDetail).seats?.map((s) => ({
       seatLabel: s.seatLabel,
       status: s.status,

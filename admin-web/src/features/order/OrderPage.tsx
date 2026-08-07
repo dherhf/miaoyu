@@ -3,6 +3,7 @@ import {
   Search,
   Eye,
   Receipt,
+  TicketCheck,
 } from 'lucide-react';
 import {
   Table,
@@ -18,6 +19,7 @@ import {
   Divider,
   Card,
   Spin,
+  message,
 } from 'antd';
 import type { TableProps } from 'antd';
 import dayjs from 'dayjs';
@@ -30,6 +32,7 @@ const ORDER_STATUS_MAP: Record<OrderStatus, { label: string; color: string }> = 
   paid: { label: '已出票', color: 'green' },
   cancelled: { label: '已取消', color: 'gray' },
   refunded: { label: '已退票', color: 'red' },
+  checked: { label: '已检票', color: 'blue' },
 };
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
@@ -71,14 +74,6 @@ const OrderDetailContent: React.FC<{ order: OrderItem }> = ({ order }) => {
         <Tag color={statusCfg.color} className={styles.statusTag}>
           {statusCfg.label}
         </Tag>
-        {order.status === 'paid' && order.pickupCode && (
-          <div className={styles.pickupCodeWrapper}>
-            <Typography.Text type="secondary">取票码</Typography.Text>
-            <div className={styles.pickupCode}>
-              {order.pickupCode}
-            </div>
-          </div>
-        )}
       </div>
 
       <Descriptions column={2} size="small" bordered>
@@ -105,6 +100,9 @@ const OrderDetailContent: React.FC<{ order: OrderItem }> = ({ order }) => {
         {order.cancelledAt && (
           <Descriptions.Item label="取消时间" span={2}>{order.cancelledAt}</Descriptions.Item>
         )}
+        {order.status === 'checked' && order.checkedAt && (
+          <Descriptions.Item label="检票时间" span={2}>{order.checkedAt}</Descriptions.Item>
+        )}
         {order.cancelReason && (
           <Descriptions.Item label="取消原因" span={2}>
             <Typography.Text type="secondary">{order.cancelReason}</Typography.Text>
@@ -128,6 +126,97 @@ const OrderDetailContent: React.FC<{ order: OrderItem }> = ({ order }) => {
   );
 };
 
+// ===================== 检票弹窗 =====================
+interface CheckTicketModalProps {
+  open: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+const CheckTicketModal: React.FC<CheckTicketModalProps> = ({ open, onClose, onSuccess }) => {
+  const { checkTicket } = useOrderStore();
+  const [code, setCode] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<OrderItem | null>(null);
+
+  const handleSubmit = async () => {
+    if (code.length !== 6) {
+      message.warning('请输入6位取票码');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const detail = await checkTicket(code.toUpperCase());
+      if (detail) {
+        setResult(detail);
+        message.success('检票成功');
+      }
+    } catch {
+      // axios 拦截器已处理错误提示
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleClose = () => {
+    setCode('');
+    setResult(null);
+    onClose();
+    if (result) {
+      onSuccess();
+    }
+  };
+
+  return (
+    <Modal
+      title="检票"
+      open={open}
+      onCancel={handleClose}
+      footer={
+        result ? (
+          <Button type="primary" onClick={handleClose}>完成</Button>
+        ) : (
+          <Space>
+            <Button onClick={handleClose}>取消</Button>
+            <Button type="primary" loading={submitting} onClick={handleSubmit}>
+              确认检票
+            </Button>
+          </Space>
+        )
+      }
+      width={480}
+    >
+      {result ? (
+        <Descriptions column={2} size="small" bordered>
+          <Descriptions.Item label="订单编号" span={2}>{result.orderNo}</Descriptions.Item>
+          <Descriptions.Item label="影片名称" span={2}>{result.movieName}</Descriptions.Item>
+          <Descriptions.Item label="影院名称">{result.cinemaName}</Descriptions.Item>
+          <Descriptions.Item label="影厅">{result.hallName}</Descriptions.Item>
+          <Descriptions.Item label="放映日期">{result.showDate}</Descriptions.Item>
+          <Descriptions.Item label="放映时间">{result.startTime}</Descriptions.Item>
+          <Descriptions.Item label="座位" span={2}>{result.seatInfo}</Descriptions.Item>
+          <Descriptions.Item label="状态" span={2}>
+            <Tag color="blue">已检票</Tag>
+          </Descriptions.Item>
+        </Descriptions>
+      ) : (
+        <div style={{ paddingBottom: 8 }}>
+          <Typography.Text type="secondary">请输入用户出示的6位取票码</Typography.Text>
+          <Input
+            size="large"
+            placeholder="请输入取票码"
+            maxLength={6}
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+            onPressEnter={handleSubmit}
+            style={{ marginTop: 12, letterSpacing: 4, textAlign: 'center', fontFamily: 'monospace' }}
+          />
+        </div>
+      )}
+    </Modal>
+  );
+};
+
 // ===================== 主页面 =====================
 const OrderManage: React.FC = () => {
   const { orders, total, loading, fetchOrders, fetchOrderDetail } = useOrderStore();
@@ -146,6 +235,9 @@ const OrderManage: React.FC = () => {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailOrder, setDetailOrder] = useState<OrderItem | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+
+  // 检票弹窗状态
+  const [checkTicketOpen, setCheckTicketOpen] = useState(false);
 
   // 加载订单列表
   const loadOrders = useCallback(() => {
@@ -341,6 +433,13 @@ const OrderManage: React.FC = () => {
             查看所有用户订单，支持多维度筛选与详情查看
           </p>
         </div>
+        <Button
+          type="primary"
+          icon={<TicketCheck size={16} />}
+          onClick={() => setCheckTicketOpen(true)}
+        >
+          检票
+        </Button>
       </div>
 
       {/* 筛选栏 */}
@@ -436,6 +535,13 @@ const OrderManage: React.FC = () => {
         order={detailOrder}
         loading={detailLoading}
         onClose={() => setDetailOpen(false)}
+      />
+
+      {/* 检票弹窗 */}
+      <CheckTicketModal
+        open={checkTicketOpen}
+        onClose={() => setCheckTicketOpen(false)}
+        onSuccess={() => loadOrders()}
       />
     </div>
   );

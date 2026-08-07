@@ -1,6 +1,6 @@
 import request from '@/shared/request'
 import type { PageResult } from '@/features/movie/types'
-import type { OrderDetailVO, OrderVO } from './types'
+import type { OrderDetailVO, OrderVO, PickupCodeVO } from './types'
 
 export async function listOrders(
   params: { status?: string; page?: number; size?: number },
@@ -30,4 +30,9 @@ export async function refundOrder(orderId: number): Promise<void> {
   await request.post(`/orders/${orderId}/refund`, {}, {
     headers: { 'X-Request-Id': crypto.randomUUID() },
   })
+}
+
+export async function getPickupCode(orderId: number): Promise<PickupCodeVO> {
+  const res = await request.get<PickupCodeVO>(`/orders/${orderId}/pickup-code`)
+  return res.data
 }
