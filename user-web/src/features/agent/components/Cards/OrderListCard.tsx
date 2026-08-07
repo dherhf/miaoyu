@@ -223,7 +223,7 @@ export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>
                     </div>
                   )}
                   {order.status === 'paid' && (
-                    <div style={S.actions}>
+                    <div className="flex gap-2 px-3.5 pb-3">
                       <Button
                         type="primary"
                         className="flex-1"
@@ -231,16 +231,14 @@ export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>
                       >
                         查看取票码
                       </Button>
-                      {order.status === 'paid' && (
-                        <Button
-                          type="default"
-                          danger
-                          className="flex-1"
-                          onClick={() => handleRefund(order.id)}
-                        >
-                          退票
-                        </Button>
-                      )}
+                      <Button
+                        type="default"
+                        danger
+                        className="flex-1"
+                        onClick={() => handleRefund(order.id)}
+                      >
+                        退票
+                      </Button>
                     </div>
                   )}
                 </div>
