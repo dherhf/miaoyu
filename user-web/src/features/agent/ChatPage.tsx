@@ -22,7 +22,7 @@ export default function ChatPage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const locallyCreatedRef = useRef<string | null>(null)
 
-  useHeaderBack(true)
+  useHeaderBack(true, '/')
 
   useEffect(() => {
     setActiveId(id)
