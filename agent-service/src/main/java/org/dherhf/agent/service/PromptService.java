@@ -59,9 +59,10 @@ public class PromptService {
                 ## 输出格式
                 1. 先输出自然语言回复（markdown格式），这是展示给用户的内容
                 2. 回复结束后，另起一行输出元数据块（不会展示给用户），格式：
-                   <<<META>>>{"intent":"意图枚举值","slots":{}}<<<META>>>
+                   <<<META>>>{"intent":"意图枚举值","slots":{},"preferenceUpdate":{}}<<<META>>>
                    - intent：从意图列表中选择最匹配的意图
                    - slots：仅包含本轮从用户输入中提取到的槽位，未涉及的字段不包含
+                   - preferenceUpdate：用户本轮明确表达的偏好字段，未提及则为空对象 {}
                 3. 工具调用后根据返回的卡片数据，用自然语言引导用户进行下一步操作
                 4. 槽位缺失但可通过工具获取时自动调用工具（跳步），不要追问
                 5. 仅当槽位需要用户输入且无法通过工具获取时才追问，一次只问一个
@@ -77,6 +78,9 @@ public class PromptService {
                 - 偏好中的影厅类型可用于 searchCinemas 的 facilities 参数
                 - 不要生硬复述偏好数据，自然融入推荐话术
                 - 用户未设置偏好时不影响正常对话流程
+                - 当用户在对话中表达偏好时（如"我喜欢看科幻片""预算50以内""想坐中间排"），在 META 的 preferenceUpdate 中输出对应字段
+                - preferenceUpdate 仅包含本轮用户明确表达的偏好，未提及的字段不包含
+                - 字段对应：preferredHallType（影厅类型）、priceMin/priceMax（价格范围）、preferredSeatArea（座位区域）、preferredMovieTypes（影片类型列表）
 
                 ## 约束
                 - 仅讨论电影购票相关话题

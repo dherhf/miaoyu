@@ -33,7 +33,7 @@ public class UserPreferenceService {
     }
 
     /**
-     * 更新偏好（upsert）。updatedAt 由 @LastModifiedDate 自动管理。
+     * 更新偏好（全量覆盖）。updatedAt 由 @LastModifiedDate 自动管理。
      */
     public PreferenceVO updatePreference(Long userId, PreferenceUpdateDTO dto) {
         UserPreferenceDocument doc = repository.findByUserId(userId).orElseGet(() -> {
@@ -48,6 +48,34 @@ public class UserPreferenceService {
         doc.setPreferredMovieTypes(dto.getPreferredMovieTypes());
         UserPreferenceDocument saved = repository.save(doc);
         return toVO(saved);
+    }
+
+    /**
+     * 合并偏好（部分更新，仅覆盖非 null 字段）。
+     * 供 DialogueService 从对话中自动提取偏好时使用。
+     */
+    public void mergePreference(Long userId, PreferenceUpdateDTO dto) {
+        UserPreferenceDocument doc = repository.findByUserId(userId).orElseGet(() -> {
+            UserPreferenceDocument d = new UserPreferenceDocument();
+            d.setUserId(userId);
+            return d;
+        });
+        if (dto.getPreferredHallType() != null) {
+            doc.setPreferredHallType(dto.getPreferredHallType());
+        }
+        if (dto.getPriceMin() != null) {
+            doc.setPriceMin(dto.getPriceMin());
+        }
+        if (dto.getPriceMax() != null) {
+            doc.setPriceMax(dto.getPriceMax());
+        }
+        if (dto.getPreferredSeatArea() != null) {
+            doc.setPreferredSeatArea(dto.getPreferredSeatArea());
+        }
+        if (dto.getPreferredMovieTypes() != null) {
+            doc.setPreferredMovieTypes(dto.getPreferredMovieTypes());
+        }
+        repository.save(doc);
     }
 
     private PreferenceVO toVO(UserPreferenceDocument doc) {
