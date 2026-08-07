@@ -447,13 +447,9 @@ public class ScheduleServiceImpl implements ScheduleService {
                     if (status != null) {
                         seatVO.setStatus(status);
                     }
-                    if (ScheduleSeatStatus.AVAILABLE.getCode().equals(seatVO.getStatus())) {
-                        availableCount++;
-                    }
-                } else {
-                    if (ScheduleSeatStatus.AVAILABLE.getCode().equals(seatVO.getStatus())) {
-                        availableCount++;
-                    }
+                }
+                if (ScheduleSeatStatus.AVAILABLE.getCode().equals(seatVO.getStatus())) {
+                    availableCount++;
                 }
             }
         } else {
@@ -637,8 +633,7 @@ public class ScheduleServiceImpl implements ScheduleService {
             long lockedCountLong = lockedCount;
             vo.setLockedSeats((int) lockedCountLong);
         } else {
-            long soldCountFromBitmap = soldCount;
-            vo.setLockedSeats((int) (occupiedCount - soldCountFromBitmap));
+            vo.setLockedSeats((int) (occupiedCount - soldCount));
         }
 
         vo.setSoldSeats((int) soldCount);
