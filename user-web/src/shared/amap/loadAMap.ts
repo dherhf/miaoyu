@@ -27,7 +27,7 @@ export function loadAMap(): Promise<typeof AMap> {
   amapPromise = AMapLoader.load({
     key,
     version: '2.0',
-    plugins: ['AMap.Geolocation'],
+    plugins: ['AMap.Geolocation', 'AMap.Geocoder'],
   })
 
   return amapPromise

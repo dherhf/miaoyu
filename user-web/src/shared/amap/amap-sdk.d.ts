@@ -144,6 +144,30 @@ declare namespace AMap {
       callback: (status: 'complete' | 'error', result: CityInfoResult) => void,
     ): void
   }
+
+  // ==================== Geocoder 插件（逆地理编码）====================
+
+  interface ReGeocodeResult {
+    regeocode: {
+      formattedAddress: string
+      addressComponent: {
+        province: string
+        city: string | string[]
+        district: string
+        township?: string
+        adcode?: string
+      }
+    }
+  }
+
+  class Geocoder {
+    constructor(opts?: { city?: string; radius?: number; extensions?: string })
+    /** 逆地理编码：坐标 → 地址 */
+    getAddress(
+      lnglat: LngLat | [number, number],
+      callback: (status: 'complete' | 'error', result: ReGeocodeResult) => void,
+    ): void
+  }
 }
 
 interface Window {
