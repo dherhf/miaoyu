@@ -52,6 +52,7 @@ public class DialogueService {
     private final OutputValidatorService outputValidatorService;
     private final ContextService contextService;
     private final ChatSessionService chatSessionService;
+    private final TitleAgentService titleAgentService;
     private final TicketServiceClient ticketClient;
     private final org.dherhf.agent.tool.AmapClient amapClient;
     private final IdempotentService idempotentService;
@@ -141,6 +142,9 @@ public class DialogueService {
             return emitter;
         }
 
+        // 首条消息时由标题 Agent 生成标题
+        final boolean needTitle = "新对话".equals(session.getTitle());
+
         SlotState slotState = contextService.loadSlotState(sessionId);
 
         // 将前端传入的场次/座位信息写入槽位
@@ -168,7 +172,7 @@ public class DialogueService {
         Thread.startVirtualThread(() -> {
             try {
                 contextService.storeRequestContext(sessionId, requestCtx);
-                processDialogue(emitter, sessionId, content, slotState, longitude, latitude, city);
+                processDialogue(emitter, sessionId, content, slotState, longitude, latitude, city, needTitle);
             } catch (Exception ex) {
                 log.error("[handleMessage] 对话处理异常: sessionId={}", sessionId, ex);
                 try {
@@ -197,7 +201,8 @@ public class DialogueService {
             SlotState slotState,
             Double longitude,
             Double latitude,
-            String city
+            String city,
+            boolean needTitle
     ) {
         List<ChatMessage> recentMessages = contextService.getRecentMessages(sessionId);
         String contextPrompt = buildContextPrompt(content, slotState, recentMessages, longitude, latitude, city);
@@ -340,10 +345,17 @@ public class DialogueService {
 
                     contextService.updateContext(sessionId, updatedSlotState, aiMsg, aiMsg.getCreatedAt());
 
+                    // 首条消息时由标题 Agent 生成标题（含降级逻辑）
+                    String title = needTitle ? titleAgentService.generateTitle(content) : null;
+                    if (title != null) {
+                        chatSessionService.updateTitle(sessionId, title);
+                    }
+
                     // 避免重复推送：只推送一次完成状态
                     sendSseEvent(emitter, SseEvent.done(sessionId,
                             intent.name(),
-                            updatedSlotState));
+                            updatedSlotState,
+                            title));
                     emitter.complete();
                     streamFuture.complete(null);
                 } catch (Exception e) {

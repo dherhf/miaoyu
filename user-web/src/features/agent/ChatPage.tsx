@@ -109,7 +109,7 @@ export default function ChatPage() {
           return next
         })
       },
-      onDone: () => {
+      onDone: (event) => {
         setMessages((prev) => {
           const next = [...prev]
           const lastIndex = next.length - 1
@@ -118,6 +118,11 @@ export default function ChatPage() {
           }
           return next
         })
+        if (event.title) {
+          setSessions((prev) => prev.map((s) =>
+            s.sessionId === event.sessionId ? { ...s, title: event.title! } : s
+          ))
+        }
       },
       onError: (event) => {
         message.error(event.message || '对话异常')

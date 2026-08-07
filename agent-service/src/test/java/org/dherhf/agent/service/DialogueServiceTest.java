@@ -26,6 +26,7 @@ class DialogueServiceTest {
 
     private DialogueService service;
     private StreamingChatModel streamingChatModel;
+    private TitleAgentService titleAgentService;
     private PromptService promptService;
     private InputFilterService inputFilterService;
     private OutputValidatorService outputValidatorService;
@@ -39,6 +40,7 @@ class DialogueServiceTest {
     @BeforeEach
     void setUp() {
         streamingChatModel = mock(StreamingChatModel.class);
+        titleAgentService = mock(TitleAgentService.class);
         promptService = mock(PromptService.class);
         inputFilterService = mock(InputFilterService.class);
         outputValidatorService = mock(OutputValidatorService.class);
@@ -52,12 +54,13 @@ class DialogueServiceTest {
         when(promptService.getSystemPrompt()).thenReturn("test prompt");
         when(outputValidatorService.validate(anyString())).thenReturn(true);
         when(contextService.mergeSlots(any(), any())).thenReturn(new SlotState());
+        when(titleAgentService.generateTitle(anyString())).thenReturn("测试标题");
 
         // 直接通过构造器创建，覆写 buildChatAssistant 返回 mock（替代原 ReflectionTestUtils 注入 chatAssistant）
         service = new DialogueService(
                 streamingChatModel, promptService, inputFilterService,
                 outputValidatorService, contextService, chatSessionService,
-                ticketClient, amapClient, idempotentService, objectMapper
+                titleAgentService, ticketClient, amapClient, idempotentService, objectMapper
         ) {
             @Override
             protected DialogueService.ChatAssistant buildChatAssistant(String sessionId, TicketTools tools) {
