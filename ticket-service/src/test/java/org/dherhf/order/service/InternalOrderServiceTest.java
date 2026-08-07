@@ -94,12 +94,12 @@ class InternalOrderServiceTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        when(idempotentService.getIfPresent(any(), any())).thenReturn(null);
+        when(idempotentService.getIfPresent(any(), any(), any())).thenReturn(null);
         when(redissonClient.getLock(anyString())).thenReturn(rLock);
         when(rLock.tryLock(anyLong(), anyLong(), any(TimeUnit.class))).thenReturn(true);
         when(rLock.isHeldByCurrentThread()).thenReturn(true);
         doNothing().when(rLock).unlock();
-        doNothing().when(idempotentService).put(anyString(), any());
+        doNothing().when(idempotentService).put(any(), anyString(), any());
         doNothing().when(orderTimeoutService).schedule(any());
         doNothing().when(orderTimeoutService).cancel(any());
         doNothing().when(notificationService).sendNotification(anyLong(), anyString(), anyString(), anyString(), any());
@@ -153,7 +153,7 @@ class InternalOrderServiceTest {
         LockSeatResultVO cached = LockSeatResultVO.builder()
                 .id(1L).status("pending").totalAmount(new BigDecimal("90.00"))
                 .build();
-        when(idempotentService.getIfPresent("req-internal-002", LockSeatResultVO.class)).thenReturn(cached);
+        when(idempotentService.getIfPresent(any(), eq("req-internal-002"), eq(LockSeatResultVO.class))).thenReturn(cached);
 
         InternalLockSeatDTO dto = InternalLockSeatDTO.builder()
                 .userId(1L).scheduleId(1L).seatIds(List.of(10L)).ticketCount(1)

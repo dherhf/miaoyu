@@ -237,7 +237,7 @@ public class TicketTools {
         log.info("[Tool:lockAndCreateOrder] userId={}, scheduleId={}, seatIds={}, count={}, requestId={}",
                 userId, scheduleIdLong, seatIdList, count, requestId);
 
-        String cached = idempotentService.getIfPresent(requestId, String.class);
+        String cached = idempotentService.getIfPresent(userId, requestId, String.class);
         if (cached != null) {
             log.info("[Tool:lockAndCreateOrder] 幂等命中缓存: requestId={}", requestId);
             return cached;
@@ -246,7 +246,7 @@ public class TicketTools {
         Result<Object> result = ticketClient.lockSeat(userId, scheduleIdLong, seatIdList, count, requestId);
         String json = toJson(result);
         if (result.getCode() == 0) {
-            idempotentService.put(requestId, json);
+            idempotentService.put(userId, requestId, json);
             emitCard("order_confirm", result.getData());
         }
         return json;
@@ -275,7 +275,7 @@ public class TicketTools {
         String requestId = getRequestId();
         log.info("[Tool:payOrder] userId={}, orderId={}, requestId={}", userId, orderIdLong, requestId);
 
-        String cached = idempotentService.getIfPresent(requestId, String.class);
+        String cached = idempotentService.getIfPresent(userId, requestId, String.class);
         if (cached != null) {
             log.info("[Tool:payOrder] 幂等命中缓存: requestId={}", requestId);
             return cached;
@@ -284,7 +284,7 @@ public class TicketTools {
         Result<Object> result = ticketClient.payOrder(userId, orderIdLong, requestId);
         String json = toJson(result);
         if (result.getCode() == 0) {
-            idempotentService.put(requestId, json);
+            idempotentService.put(userId, requestId, json);
             emitCard("order_success", result.getData());
         }
         return json;
@@ -299,7 +299,7 @@ public class TicketTools {
         String requestId = getRequestId();
         log.info("[Tool:cancelOrder] userId={}, orderId={}, requestId={}", userId, orderIdLong, requestId);
 
-        String cached = idempotentService.getIfPresent(requestId, String.class);
+        String cached = idempotentService.getIfPresent(userId, requestId, String.class);
         if (cached != null) {
             log.info("[Tool:cancelOrder] 幂等命中缓存: requestId={}", requestId);
             return cached;
@@ -308,7 +308,7 @@ public class TicketTools {
         Result<Object> result = ticketClient.cancelOrder(userId, orderIdLong, requestId);
         String json = toJson(result);
         if (result.getCode() == 0) {
-            idempotentService.put(requestId, json);
+            idempotentService.put(userId, requestId, json);
         }
         // 取消成功后清空卡片缓冲区，避免上游工具（如 queryOrderDetail）的卡片被推送
         cardBuffer.clear();
@@ -324,7 +324,7 @@ public class TicketTools {
         String requestId = getRequestId();
         log.info("[Tool:refundOrder] userId={}, orderId={}, requestId={}", userId, orderIdLong, requestId);
 
-        String cached = idempotentService.getIfPresent(requestId, String.class);
+        String cached = idempotentService.getIfPresent(userId, requestId, String.class);
         if (cached != null) {
             log.info("[Tool:refundOrder] 幂等命中缓存: requestId={}", requestId);
             return cached;
@@ -333,7 +333,7 @@ public class TicketTools {
         Result<Object> result = ticketClient.refundOrder(userId, orderIdLong, requestId);
         String json = toJson(result);
         if (result.getCode() == 0) {
-            idempotentService.put(requestId, json);
+            idempotentService.put(userId, requestId, json);
         }
         return json;
     }

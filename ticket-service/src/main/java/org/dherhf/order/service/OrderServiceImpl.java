@@ -71,7 +71,7 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public LockSeatResultVO lockSeat(Long userId, LockSeatDTO dto, String requestId) {
         // Redis 幂等校验
-        LockSeatResultVO cached = idempotentService.getIfPresent(requestId, LockSeatResultVO.class);
+        LockSeatResultVO cached = idempotentService.getIfPresent(userId, requestId, LockSeatResultVO.class);
         if (cached != null) {
             return cached;
         }
@@ -106,7 +106,7 @@ public class OrderServiceImpl implements OrderService {
 
             try {
                 LockSeatResultVO result = doLockSeat(userId, dto, schedule);
-                idempotentService.put(requestId, result);
+                idempotentService.put(userId, requestId, result);
                 orderTimeoutService.schedule(result.getId());
                 notificationService.sendNotification(
                         userId, "LOCK_SUCCESS", "座位已锁定",
@@ -197,7 +197,7 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public PayResultVO payOrder(Long userId, Long orderId, String requestId) {
         // Redis 幂等校验
-        PayResultVO cached = idempotentService.getIfPresent(requestId, PayResultVO.class);
+        PayResultVO cached = idempotentService.getIfPresent(userId, requestId, PayResultVO.class);
         if (cached != null) {
             return cached;
         }
@@ -264,7 +264,7 @@ public class OrderServiceImpl implements OrderService {
                 .totalAmount(order.getTotalAmount())
                 .build();
 
-        idempotentService.put(requestId, vo);
+        idempotentService.put(userId, requestId, vo);
         return vo;
     }
 
@@ -272,7 +272,7 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public void cancelOrder(Long userId, Long orderId, String requestId) {
         // Redis 幂等校验
-        String cached = idempotentService.getIfPresent(requestId, String.class);
+        String cached = idempotentService.getIfPresent(userId, requestId, String.class);
         if (cached != null) {
             return;
         }
@@ -314,14 +314,14 @@ public class OrderServiceImpl implements OrderService {
             seatBitmapService.clearOccupiedIfNotSold(order.getScheduleId(), seat.getSeatIndex());
         }
 
-        idempotentService.put(requestId, "ok");
+        idempotentService.put(userId, requestId, "ok");
     }
 
     @Override
     @Transactional
     public void refundOrder(Long userId, Long orderId, String requestId) {
         // Redis 幂等校验
-        String cached = idempotentService.getIfPresent(requestId, String.class);
+        String cached = idempotentService.getIfPresent(userId, requestId, String.class);
         if (cached != null) {
             return;
         }
@@ -375,7 +375,7 @@ public class OrderServiceImpl implements OrderService {
         // 清理取票码
         pickupCodeService.removeCode(orderId);
 
-        idempotentService.put(requestId, "ok");
+        idempotentService.put(userId, requestId, "ok");
     }
 
     @Override
