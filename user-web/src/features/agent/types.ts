@@ -76,6 +76,7 @@ export interface SseDoneEvent {
   sessionId: string
   intent: string
   slots: unknown
+  title?: string
 }
 
 export interface SseErrorEvent {

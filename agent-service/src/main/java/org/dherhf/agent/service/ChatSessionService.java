@@ -59,6 +59,20 @@ public class ChatSessionService {
     }
 
     /**
+     * 更新会话标题（首次消息后自动生成）。
+     *
+     * @param sessionId 会话 ID
+     * @param title     新标题
+     */
+    public void updateTitle(String sessionId, String title) {
+        mongoTemplate.updateFirst(
+                Query.query(Criteria.where("sessionId").is(sessionId)),
+                new org.springframework.data.mongodb.core.query.Update().set("title", title),
+                ChatSessionDocument.class
+        );
+    }
+
+    /**
      * 查询会话列表（分页，按 lastMessageAt 倒序）。
      */
     public List<ChatSessionDocument> listSessions(Long userId, int page, int size) {
