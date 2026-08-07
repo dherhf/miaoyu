@@ -189,7 +189,7 @@ export type OrderSuccessCardData = {
 export interface OrderItem {
   id: number
   orderNo: string
-  status: 'pending' | 'paid' | 'cancelled' | 'refunded'
+  status: 'pending' | 'paid' | 'checked' | 'cancelled' | 'refunded'
   movieName: string
   cinemaName: string
   showDate: string
@@ -202,6 +202,8 @@ export interface OrderItem {
 export type OrderListCardData = {
   records: OrderItem[]
   total?: number
+  page?: number
+  size?: number
 }
 
 // 推荐/异常卡片
