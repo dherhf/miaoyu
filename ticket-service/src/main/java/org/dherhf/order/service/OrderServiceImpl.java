@@ -156,6 +156,7 @@ public class OrderServiceImpl implements OrderService {
                 .map(HallCell::getSeatLabel)
                 .collect(Collectors.joining(","));
 
+        LocalDateTime now = LocalDateTime.now();
         Order order = Order.builder()
                 .orderNo(generateOrderNo())
                 .userId(userId)
@@ -169,6 +170,7 @@ public class OrderServiceImpl implements OrderService {
                 .ticketCount(dto.getTicketCount())
                 .totalAmount(schedule.getPrice().multiply(BigDecimal.valueOf(dto.getTicketCount())))
                 .status(OrderStatus.PENDING.getCode())
+                .createdAt(now)
                 .build();
         orderMapper.insert(order);
 
@@ -186,6 +188,8 @@ public class OrderServiceImpl implements OrderService {
 
         LockSeatResultVO vo = new LockSeatResultVO();
         BeanUtils.copyProperties(order, vo);
+        vo.setExpireAt(order.getCreatedAt().plusSeconds(ORDER_TIMEOUT_SECONDS));
+        vo.setRemainingTime(ORDER_TIMEOUT_SECONDS);
         return vo;
     }
 

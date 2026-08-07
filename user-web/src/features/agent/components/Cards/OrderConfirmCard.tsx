@@ -51,7 +51,7 @@ const S: Record<string, React.CSSProperties> = {
 
 export default function OrderConfirmCard({ data, onAction }: BaseCardProps<OrderConfirmCardData>) {
   const { modal } = App.useApp()
-  const { status, movieName, cinemaName, hallName, showDate, startTime, seatInfo, ticketCount, totalAmount, orderNo, remainingTime, expireAt } = data || {}
+  const { id, status, movieName, cinemaName, hallName, showDate, startTime, seatInfo, ticketCount, totalAmount, orderNo, remainingTime, expireAt } = data || {}
   const calcInitial = () => {
     if (!expireAt) return remainingTime ?? 0
     const diff = Math.max(0, Math.ceil((new Date(expireAt).getTime() - Date.now()) / 1000))
@@ -60,6 +60,7 @@ export default function OrderConfirmCard({ data, onAction }: BaseCardProps<Order
 
   const [seconds, setSeconds] = useState(calcInitial)
   const [paying, setPaying] = useState(false)
+  const [cancelled, setCancelled] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
   const expired = seconds <= 0
   const urgent = seconds > 0 && seconds <= 60
@@ -78,31 +79,32 @@ export default function OrderConfirmCard({ data, onAction }: BaseCardProps<Order
   }, [expired])
 
   const handlePay = useCallback(async () => {
-    if (expired || status !== 'pending' || paying) return
+    if (expired || cancelled || status !== 'pending' || paying) return
     setPaying(true)
     try {
       onAction(`支付订单${orderNo}`)
     } finally {
       setPaying(false)
     }
-  }, [expired, status, paying, orderNo, onAction])
+  }, [expired, cancelled, status, paying, orderNo, onAction])
 
   const handleCancel = useCallback(() => {
-    if (expired) return
+    if (expired || cancelled) return
     modal.confirm({
       title: '取消订单',
       content: '确定放弃这些座位吗？取消后座位将被释放。',
       okText: '确认取消',
       cancelText: '关闭',
       onOk: () => {
-        onAction(`取消订单${orderNo}`)
+        setCancelled(true)
+        onAction(`取消订单${id}`)
       },
     })
-  }, [expired, orderNo, onAction])
+  }, [expired, cancelled, id, onAction])
 
   const isPaid = status === 'paid'
-  const isCancelled = status === 'cancelled'
-  const disabled = expired || status !== 'pending'
+  const isCancelled = status === 'cancelled' || cancelled
+  const disabled = expired || cancelled || status !== 'pending'
 
   const fmtShowTime = showDate && startTime ? `${showDate} ${startTime}` : '-'
 
@@ -114,22 +116,23 @@ export default function OrderConfirmCard({ data, onAction }: BaseCardProps<Order
     )
   }
 
-  if (isCancelled) {
-    return (
-      <div style={S.wrap}>
-        <div style={{ ...S.doneBanner, background: '#f3f4f6', color: '#6b7280' }}>订单已取消</div>
-      </div>
-    )
-  }
-
   return (
     <div style={S.wrap}>
       {/* 超时遮罩 */}
-      {expired && (
+      {expired && !isCancelled && (
         <div style={S.overlay}>
           <div style={{ fontSize: 40, marginBottom: 8 }}>⏰</div>
           <div style={{ fontSize: 16, fontWeight: 700, color: '#6b7280' }}>订单已超时</div>
           <div style={{ fontSize: 13, color: '#9ca3af', marginTop: 4 }}>请重新选座</div>
+        </div>
+      )}
+
+      {/* 取消遮罩 */}
+      {isCancelled && (
+        <div style={S.overlay}>
+          <div style={{ fontSize: 40, marginBottom: 8 }}>❌</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#6b7280' }}>订单已取消</div>
+          <div style={{ fontSize: 13, color: '#9ca3af', marginTop: 4 }}>座位已释放</div>
         </div>
       )}
 
