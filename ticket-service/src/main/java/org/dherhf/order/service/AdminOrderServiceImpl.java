@@ -11,6 +11,7 @@ import org.dherhf.common.exception.BusinessException;
 import org.dherhf.common.result.PageResult;
 import org.dherhf.cinema.entity.HallCell;
 import org.dherhf.order.entity.Order;
+import org.dherhf.order.enums.OrderStatus;
 import org.dherhf.schedule.entity.ScheduleSeat;
 import org.dherhf.auth.entity.User;
 import org.dherhf.cinema.mapper.HallCellMapper;
@@ -20,6 +21,7 @@ import org.dherhf.auth.mapper.UserMapper;
 import org.dherhf.common.util.CryptoUtil;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -35,6 +37,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     private final UserMapper userMapper;
     private final ScheduleSeatMapper scheduleSeatMapper;
     private final HallCellMapper hallCellMapper;
+    private final PickupCodeService pickupCodeService;
 
     @Override
     public PageResult<AdminOrderListVO> list(String orderNo, String movieName, String cinemaName, String status, String dateFrom, String dateTo, Integer page, Integer size) {
@@ -87,6 +90,27 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         }
         vo.setSeats(seats);
         return vo;
+    }
+
+    @Override
+    @Transactional
+    public AdminOrderDetailVO checkTicket(String pickupCode) {
+        Long orderId = pickupCodeService.verifyCode(pickupCode);
+        if (orderId == null) {
+            throw new BusinessException(404, "取票码无效或已过期");
+        }
+        Order order = orderMapper.selectById(orderId);
+        if (order == null) {
+            throw new BusinessException(404, "订单不存在");
+        }
+        if (!OrderStatus.PAID.getCode().equals(order.getStatus())) {
+            throw new BusinessException(409, "该订单状态不支持检票");
+        }
+        order.setStatus(OrderStatus.CHECKED.getCode());
+        order.setCheckedAt(LocalDateTime.now());
+        orderMapper.updateById(order);
+        pickupCodeService.removeCode(orderId);
+        return detail(orderId);
     }
 
     private AdminOrderListVO toListVO(Order order) {

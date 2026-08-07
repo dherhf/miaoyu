@@ -56,7 +56,9 @@ public interface TicketFeignClient {
     @GetMapping("/internal/orders")
     Result<Object> queryUserOrders(
             @RequestParam Long userId,
-            @RequestParam(required = false) String status
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "20") Integer size
     );
 
     @GetMapping("/internal/orders/{id}")

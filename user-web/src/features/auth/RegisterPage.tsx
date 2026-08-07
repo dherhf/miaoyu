@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { App, Button, Form, Input } from 'antd'
 import { useAuthStore } from './store'
+import * as authApi from './api'
 import { useHeaderBack } from '@/layouts/navBarStore'
 
 export default function RegisterPage() {
@@ -9,17 +10,83 @@ export default function RegisterPage() {
   const { message } = App.useApp()
   const register = useAuthStore((s) => s.register)
   const [loading, setLoading] = useState(false)
+  const [captchaId, setCaptchaId] = useState('')
+  const [captchaImage, setCaptchaImage] = useState('')
+  const [smsSending, setSmsSending] = useState(false)
+  const [countdown, setCountdown] = useState(0)
+  const [form] = Form.useForm()
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useHeaderBack(true)
 
-  const handleSubmit = async (values: { phone: string; password: string }) => {
+  const refreshCaptcha = useCallback(async () => {
+    try {
+      const data = await authApi.getCaptcha()
+      setCaptchaId(data.captchaId)
+      setCaptchaImage(data.image)
+    } catch {
+      // 拦截器已统一提示
+    }
+  }, [])
+
+  useEffect(() => {
+    refreshCaptcha()
+  }, [refreshCaptcha])
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+  }, [])
+
+  const startCountdown = () => {
+    setCountdown(60)
+    timerRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          if (timerRef.current) clearInterval(timerRef.current)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }
+
+  const handleSendSms = async () => {
+    const phone = form.getFieldValue('phone')
+    const captchaCode = form.getFieldValue('captchaCode')
+    if (!phone || !/^1[3-9]\d{9}$/.test(phone)) {
+      message.error('请输入正确的手机号')
+      return
+    }
+    if (!captchaCode) {
+      message.error('请先输入图形验证码')
+      return
+    }
+    setSmsSending(true)
+    try {
+      await authApi.sendSmsCode({ phone, captchaId, captchaCode, scene: 'register' })
+      message.success('短信验证码已发送')
+      startCountdown()
+    } catch {
+      refreshCaptcha()
+    } finally {
+      setSmsSending(false)
+    }
+  }
+
+  const handleSubmit = async (values: {
+    phone: string
+    password: string
+    smsCode: string
+  }) => {
     setLoading(true)
     try {
-      await register(values.phone, values.password)
+      await register(values.phone, values.password, values.smsCode)
       message.success('注册成功')
       navigate('/login')
     } catch {
-      // 拦截器已统一提示
+      refreshCaptcha()
     } finally {
       setLoading(false)
     }
@@ -28,7 +95,7 @@ export default function RegisterPage() {
   return (
     <div className="flex-1 p-3 sm:p-4 md:p-6 lg:max-w-[960px] lg:mx-auto lg:w-full lg:px-6 lg:py-8 xl:max-w-[1200px] xl:p-8">
       <div className="max-w-[400px] mx-auto w-full">
-        <Form layout="vertical" onFinish={handleSubmit}>
+        <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Form.Item
             name="phone"
             label="手机号"
@@ -48,6 +115,53 @@ export default function RegisterPage() {
             ]}
           >
             <Input.Password placeholder="请输入密码" size="large" />
+          </Form.Item>
+          <Form.Item
+            name="captchaCode"
+            label="图形验证码"
+            rules={[{ required: true, message: '图形验证码不能为空' }]}
+          >
+            <div className="flex gap-2">
+              <Input
+                placeholder="请输入图形验证码"
+                allowClear
+                size="large"
+                maxLength={4}
+                className="flex-1"
+              />
+              {captchaImage && (
+                <img
+                  src={captchaImage}
+                  alt="验证码"
+                  onClick={refreshCaptcha}
+                  className="h-[40px] w-[120px] cursor-pointer rounded border border-gray-200 object-contain"
+                />
+              )}
+            </div>
+          </Form.Item>
+          <Form.Item
+            name="smsCode"
+            label="短信验证码"
+            rules={[{ required: true, message: '短信验证码不能为空' }]}
+          >
+            <div className="flex gap-2">
+              <Input
+                placeholder="请输入短信验证码"
+                allowClear
+                size="large"
+                maxLength={6}
+                className="flex-1"
+              />
+              <Button
+                size="large"
+                disabled={countdown > 0}
+                loading={smsSending}
+                onClick={handleSendSms}
+                className="w-[120px]"
+              >
+                {countdown > 0 ? `${countdown}s` : '发送验证码'}
+              </Button>
+            </div>
           </Form.Item>
           <Form.Item className="mb-0!">
             <Button block type="primary" htmlType="submit" size="large" loading={loading}>

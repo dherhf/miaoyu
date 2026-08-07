@@ -26,4 +26,8 @@ public class RegisterDTO {
     @NotBlank(message = "密码不能为空")
     @Size(min = 6, max = 20, message = "密码长度需为6-20位")
     private String password;
+
+    /** 短信验证码 */
+    @NotBlank(message = "短信验证码不能为空")
+    private String smsCode;
 }

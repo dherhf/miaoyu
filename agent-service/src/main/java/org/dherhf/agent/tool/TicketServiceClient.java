@@ -105,11 +105,13 @@ public class TicketServiceClient {
      *
      * @param userId 用户 ID（由请求上下文获取）
      * @param status 订单状态过滤，如 "pending"（待支付）、"paid"（已支付）、"refunded"（已退票）；查全部传空字符串
+     * @param page   页码（从 1 开始）
+     * @param size   每页条数
      * @return {@code Result<Object>}，data 为订单列表数据；调用失败时 code 非 0 并携带错误信息
      */
-    public Result<Object> queryUserOrders(Long userId, String status) {
+    public Result<Object> queryUserOrders(Long userId, String status, Integer page, Integer size) {
         try {
-            return feignClient.queryUserOrders(userId, blankToNull(status));
+            return feignClient.queryUserOrders(userId, blankToNull(status), page, size);
         } catch (Exception ex) {
             log.warn("订单查询失败: {}", ex.getMessage());
             return Result.error(ErrorCodeEnum.TOOL_ERROR.getCode(), "订单查询失败：" + ex.getMessage());

@@ -18,6 +18,12 @@ export interface SendMessageRequest {
   scheduleId?: string
   ticketCount?: number
   requestId?: string
+  /** 用户当前经度（GCJ-02，由前端高德定位提供） */
+  longitude?: number
+  /** 用户当前纬度（GCJ-02） */
+  latitude?: number
+  /** 用户当前城市 */
+  city?: string
 }
 
 export interface SessionSummary {
@@ -70,6 +76,7 @@ export interface SseDoneEvent {
   sessionId: string
   intent: string
   slots: unknown
+  title?: string
 }
 
 export interface SseErrorEvent {
@@ -96,6 +103,9 @@ export type CardType =
   | 'recommendTip'
   | 'pendingOrder'
   | 'orderList'
+  | 'routeInfo'
+  | 'nearbyPoi'
+  | 'weatherInfo'
 
 // 影片卡片数据
 export interface MovieItem {
@@ -186,7 +196,7 @@ export type OrderSuccessCardData = {
 export interface OrderItem {
   id: number
   orderNo: string
-  status: 'pending' | 'paid' | 'cancelled' | 'refunded'
+  status: 'pending' | 'paid' | 'checked' | 'cancelled' | 'refunded'
   movieName: string
   cinemaName: string
   showDate: string
@@ -199,6 +209,8 @@ export interface OrderItem {
 export type OrderListCardData = {
   records: OrderItem[]
   total?: number
+  page?: number
+  size?: number
 }
 
 // 推荐/异常卡片
@@ -235,6 +247,67 @@ export type CardPayload =
   | { type: 'recommendTip'; data: RecommendTipCardData }
   | { type: 'pendingOrder'; data: PendingOrderCardData }
   | { type: 'orderList'; data: OrderListCardData }
+  | { type: 'routeInfo'; data: RouteInfoCardData }
+  | { type: 'nearbyPoi'; data: NearbyPoiCardData }
+  | { type: 'weatherInfo'; data: WeatherInfoCardData }
+
+// 路线信息卡片
+export interface RouteInfoCardData {
+  code?: number
+  data?: RouteData[]
+  message?: string
+}
+export interface RouteData {
+  distance: number
+  duration: number
+  steps?: Record<string, unknown>[]
+}
+
+// 周边POI卡片
+export interface NearbyPoiCardData {
+  code?: number
+  data?: NearbyPoiItem[]
+  message?: string
+}
+export interface NearbyPoiItem {
+  id?: string
+  name: string
+  address?: string
+  location?: string
+  type?: string
+  tel?: string
+  distance?: string
+}
+
+// 天气信息卡片
+export interface WeatherInfoCardData {
+  code?: number
+  data?: WeatherData
+  message?: string
+}
+export interface WeatherData {
+  city: string
+  adcode?: string
+  province?: string
+  weather?: string
+  temperature?: string
+  windDirection?: string
+  windPower?: string
+  humidity?: string
+  reportTime?: string
+  casts?: WeatherCast[]
+  forecasts?: WeatherCast[]
+}
+export interface WeatherCast {
+  date: string
+  week?: string
+  dayweather: string
+  nightweather?: string
+  daytemp: string
+  nighttemp?: string
+  daywind?: string
+  daypower?: string
+}
 
 // 卡片统一回调（点击选择后发送对话消息）
 export type CardActionCallback = (userInputText: string) => void

@@ -40,7 +40,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
+
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -62,6 +62,7 @@ public class OrderServiceImpl implements OrderService {
     private final HallCellMapper hallCellMapper;
     private final IdempotentService idempotentService;
     private final OrderTimeoutService orderTimeoutService;
+    private final PickupCodeService pickupCodeService;
     private final RedissonClient redissonClient;
     private final org.dherhf.notification.service.NotificationService notificationService;
     private final org.dherhf.schedule.service.SeatBitmapService seatBitmapService;
@@ -70,7 +71,7 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public LockSeatResultVO lockSeat(Long userId, LockSeatDTO dto, String requestId) {
         // Redis 幂等校验
-        LockSeatResultVO cached = idempotentService.getIfPresent(requestId, LockSeatResultVO.class);
+        LockSeatResultVO cached = idempotentService.getIfPresent(userId, requestId, LockSeatResultVO.class);
         if (cached != null) {
             return cached;
         }
@@ -105,7 +106,7 @@ public class OrderServiceImpl implements OrderService {
 
             try {
                 LockSeatResultVO result = doLockSeat(userId, dto, schedule);
-                idempotentService.put(requestId, result);
+                idempotentService.put(userId, requestId, result);
                 orderTimeoutService.schedule(result.getId());
                 notificationService.sendNotification(
                         userId, "LOCK_SUCCESS", "座位已锁定",
@@ -155,6 +156,7 @@ public class OrderServiceImpl implements OrderService {
                 .map(HallCell::getSeatLabel)
                 .collect(Collectors.joining(","));
 
+        LocalDateTime now = LocalDateTime.now();
         Order order = Order.builder()
                 .orderNo(generateOrderNo())
                 .userId(userId)
@@ -168,6 +170,7 @@ public class OrderServiceImpl implements OrderService {
                 .ticketCount(dto.getTicketCount())
                 .totalAmount(schedule.getPrice().multiply(BigDecimal.valueOf(dto.getTicketCount())))
                 .status(OrderStatus.PENDING.getCode())
+                .createdAt(now)
                 .build();
         orderMapper.insert(order);
 
@@ -185,6 +188,8 @@ public class OrderServiceImpl implements OrderService {
 
         LockSeatResultVO vo = new LockSeatResultVO();
         BeanUtils.copyProperties(order, vo);
+        vo.setExpireAt(order.getCreatedAt().plusSeconds(ORDER_TIMEOUT_SECONDS));
+        vo.setRemainingTime(ORDER_TIMEOUT_SECONDS);
         return vo;
     }
 
@@ -192,7 +197,7 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public PayResultVO payOrder(Long userId, Long orderId, String requestId) {
         // Redis 幂等校验
-        PayResultVO cached = idempotentService.getIfPresent(requestId, PayResultVO.class);
+        PayResultVO cached = idempotentService.getIfPresent(userId, requestId, PayResultVO.class);
         if (cached != null) {
             return cached;
         }
@@ -212,8 +217,10 @@ public class OrderServiceImpl implements OrderService {
         // 模拟支付：直接更新状态
         order.setStatus(OrderStatus.PAID.getCode());
         order.setPaidAt(LocalDateTime.now());
-        order.setPickupCode(UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase());
         orderMapper.updateById(order);
+
+        // 生成动态取票码（Redis, 60秒刷新）
+        String pickupCode = pickupCodeService.getOrCreateCode(order.getId());
 
         // 更新座位状态 locked -> sold
         List<ScheduleSeat> seats = scheduleSeatMapper.selectList(
@@ -239,14 +246,14 @@ public class OrderServiceImpl implements OrderService {
         // 异步发送支付成功通知
         notificationService.sendNotification(
                 userId, "PAY_SUCCESS", "支付成功",
-                "影院地址：" + (cinema != null ? cinema.getAddress() : "") + "，放映时间：" + order.getShowDate() + " " + order.getStartTime() + "，取票码：" + order.getPickupCode(),
+                "影院地址：" + (cinema != null ? cinema.getAddress() : "") + "，放映时间：" + order.getShowDate() + " " + order.getStartTime() + "，取票码：" + pickupCode,
                 orderId);
 
         PayResultVO vo = PayResultVO.builder()
                 .id(order.getId())
                 .orderNo(order.getOrderNo())
                 .status(order.getStatus())
-                .pickupCode(order.getPickupCode())
+                .pickupCode(pickupCode)
                 .movieName(order.getMovieName())
                 .cinemaName(order.getCinemaName())
                 .cinemaAddress(cinema != null ? cinema.getAddress() : null)
@@ -257,7 +264,7 @@ public class OrderServiceImpl implements OrderService {
                 .totalAmount(order.getTotalAmount())
                 .build();
 
-        idempotentService.put(requestId, vo);
+        idempotentService.put(userId, requestId, vo);
         return vo;
     }
 
@@ -265,7 +272,7 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public void cancelOrder(Long userId, Long orderId, String requestId) {
         // Redis 幂等校验
-        String cached = idempotentService.getIfPresent(requestId, String.class);
+        String cached = idempotentService.getIfPresent(userId, requestId, String.class);
         if (cached != null) {
             return;
         }
@@ -299,19 +306,22 @@ public class OrderServiceImpl implements OrderService {
         // 取消延迟队列中的超时取消任务
         orderTimeoutService.cancel(orderId);
 
+        // 清理取票码
+        pickupCodeService.removeCode(orderId);
+
         // SETBIT schedule:seat:occupied:{scheduleId} {seat_index} 0
         for (ScheduleSeat seat : seats) {
             seatBitmapService.clearOccupiedIfNotSold(order.getScheduleId(), seat.getSeatIndex());
         }
 
-        idempotentService.put(requestId, "ok");
+        idempotentService.put(userId, requestId, "ok");
     }
 
     @Override
     @Transactional
     public void refundOrder(Long userId, Long orderId, String requestId) {
         // Redis 幂等校验
-        String cached = idempotentService.getIfPresent(requestId, String.class);
+        String cached = idempotentService.getIfPresent(userId, requestId, String.class);
         if (cached != null) {
             return;
         }
@@ -362,7 +372,10 @@ public class OrderServiceImpl implements OrderService {
                 "退票成功，订单已取消，座位已释放。影片：《" + order.getMovieName() + "》，退款金额：¥" + order.getTotalAmount(),
                 orderId);
 
-        idempotentService.put(requestId, "ok");
+        // 清理取票码
+        pickupCodeService.removeCode(orderId);
+
+        idempotentService.put(userId, requestId, "ok");
     }
 
     @Override
@@ -394,7 +407,12 @@ public class OrderServiceImpl implements OrderService {
         BeanUtils.copyProperties(order, vo);
         if (!OrderStatus.PAID.getCode().equals(order.getStatus())) {
             vo.setPickupCode(null);
+        } else {
+            vo.setPickupCode(pickupCodeService.getOrCreateCode(order.getId()));
         }
+        Schedule schedule = scheduleMapper.selectById(order.getScheduleId());
+        Cinema cinema = cinemaMapper.selectById(schedule != null ? schedule.getCinemaId() : null);
+        vo.setCinemaAddress(cinema != null ? cinema.getAddress() : null);
         return vo;
     }
 
@@ -457,6 +475,20 @@ public class OrderServiceImpl implements OrderService {
                 .expired(remaining <= 0)
                 .build();
         return vo;
+    }
+
+    @Override
+    public PickupCodeVO getPickupCode(Long userId, Long orderId) {
+        Order order = orderMapper.selectById(orderId);
+        if (order == null || !order.getUserId().equals(userId)) {
+            throw new BusinessException(404, "订单不存在");
+        }
+        if (!OrderStatus.PAID.getCode().equals(order.getStatus())) {
+            throw new BusinessException(409, "仅已出票订单可获取取票码");
+        }
+        String code = pickupCodeService.getOrCreateCode(orderId);
+        int expiresIn = pickupCodeService.getRemainingTtl(orderId);
+        return PickupCodeVO.builder().pickupCode(code).expiresIn(expiresIn).build();
     }
 
     @Override

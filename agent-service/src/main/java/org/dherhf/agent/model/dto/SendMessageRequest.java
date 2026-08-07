@@ -26,4 +26,13 @@ public class SendMessageRequest {
 
     /** 幂等请求 ID（UUID 格式，前端生成），用于写操作（锁座/支付/取消/退票）的幂等控制 */
     private String requestId;
+
+    /** 用户当前经度（GCJ-02，由前端高德定位提供） */
+    private Double longitude;
+
+    /** 用户当前纬度（GCJ-02） */
+    private Double latitude;
+
+    /** 用户当前城市 */
+    private String city;
 }

@@ -74,6 +74,8 @@ class InternalOrderServiceTest {
     @Mock
     private org.dherhf.schedule.service.SeatBitmapService seatBitmapService;
     @Mock
+    private PickupCodeService pickupCodeService;
+    @Mock
     private RLock rLock;
 
     @InjectMocks
@@ -92,12 +94,12 @@ class InternalOrderServiceTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        when(idempotentService.getIfPresent(any(), any())).thenReturn(null);
+        when(idempotentService.getIfPresent(any(), any(), any())).thenReturn(null);
         when(redissonClient.getLock(anyString())).thenReturn(rLock);
         when(rLock.tryLock(anyLong(), anyLong(), any(TimeUnit.class))).thenReturn(true);
         when(rLock.isHeldByCurrentThread()).thenReturn(true);
         doNothing().when(rLock).unlock();
-        doNothing().when(idempotentService).put(anyString(), any());
+        doNothing().when(idempotentService).put(any(), anyString(), any());
         doNothing().when(orderTimeoutService).schedule(any());
         doNothing().when(orderTimeoutService).cancel(any());
         doNothing().when(notificationService).sendNotification(anyLong(), anyString(), anyString(), anyString(), any());
@@ -151,7 +153,7 @@ class InternalOrderServiceTest {
         LockSeatResultVO cached = LockSeatResultVO.builder()
                 .id(1L).status("pending").totalAmount(new BigDecimal("90.00"))
                 .build();
-        when(idempotentService.getIfPresent("req-internal-002", LockSeatResultVO.class)).thenReturn(cached);
+        when(idempotentService.getIfPresent(any(), eq("req-internal-002"), eq(LockSeatResultVO.class))).thenReturn(cached);
 
         InternalLockSeatDTO dto = InternalLockSeatDTO.builder()
                 .userId(1L).scheduleId(1L).seatIds(List.of(10L)).ticketCount(1)
@@ -188,6 +190,8 @@ class InternalOrderServiceTest {
 
         Cinema cinema = Cinema.builder().address("北京市朝阳区").build();
         when(cinemaMapper.selectById(1L)).thenReturn(cinema);
+
+        when(pickupCodeService.getOrCreateCode(1L)).thenReturn("AB3K9X");
 
         PayResultVO result = orderService.internalPayOrder(1L, 1L, "req-internal-pay-001");
 
@@ -334,14 +338,14 @@ class InternalOrderServiceTest {
 
         Order order = Order.builder()
                 .id(1L).userId(1L).status("paid")
-                .pickupCode("ABC123")
                 .movieName("流浪地球3")
                 .build();
         when(orderMapper.selectById(1L)).thenReturn(order);
+        when(pickupCodeService.getOrCreateCode(1L)).thenReturn("AB3K9X");
 
         OrderDetailVO result = orderService.detail(1L, 1L);
 
-        assertEquals("ABC123", result.getPickupCode());
+        assertEquals("AB3K9X", result.getPickupCode());
         assertEquals("流浪地球3", result.getMovieName());
         System.out.println("[InternalOrderServiceTest] ✓ internalDetail_success PASSED");
     }

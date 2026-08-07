@@ -25,6 +25,8 @@ public interface OrderService {
 
     RemainingTimeVO remainingTime(Long userId, Long orderId);
 
+    PickupCodeVO getPickupCode(Long userId, Long orderId);
+
     LockSeatResultVO internalLockSeat(InternalLockSeatDTO dto);
 
     PayResultVO internalPayOrder(Long userId, Long orderId, String requestId);

@@ -6,11 +6,13 @@
  *   node test_agent.cjs                          # 默认测试（影片→影院→订单）
  *   node test_agent.cjs "我想看科幻电影"          # 自定义消息
  *   node test_agent.cjs "消息1" "消息2" "消息3"   # 多条消息
+ *   node test_agent.cjs --admin-schedule         # 管理端新增排期 API 测试
  *
  * 前置条件:
+ *   - gateway-service 运行在 localhost:9000
  *   - ticket-service 运行在 localhost:8080
  *   - agent-service 运行在 localhost:8081
- *   - 两个服务均已连接 Redis / MongoDB / MySQL
+ *   - 三个服务均已连接 Redis / MongoDB / MySQL
  *
  * 环境变量:
  *   AGENT_TOKEN  - 用户 JWT（默认用 .env 中的 JWT_CURRENT_SECRET 生成）
@@ -21,7 +23,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-const BASE = 'http://localhost:8081';
+const BASE = 'http://localhost:9000';
 const TICKET_BASE = 'http://localhost:8080';
 
 // --- JWT 生成（避免依赖外部库） ---
@@ -88,7 +90,10 @@ function apiRequest(method, urlPath, body, token) {
 
 function checkTicketService() {
   return new Promise((resolve) => {
-    const req = http.request(`${TICKET_BASE}/internal/movies?page=1&size=1`, { method: 'GET' }, (res) => {
+    const req = http.request(`${TICKET_BASE}/internal/movies?page=1&size=1`, {
+      method: 'GET',
+      headers: { 'X-Internal-Token': 'miaoyu-internal-token-2026' },
+    }, (res) => {
       let buf = '';
       res.on('data', (c) => buf += c);
       res.on('end', () => {
@@ -137,7 +142,7 @@ function sendMessage(sessionId, content, token) {
             } else if (label === 'card') {
               try {
                 const parsed = JSON.parse(data);
-                const count = parsed.cardData?.movies?.length || parsed.cardData?.cinemas?.length || parsed.cardData?.records?.length || 0;
+                const count = getCardCount(parsed);
                 console.log(`  📇 ${parsed.cardType} (${count} items)`);
               } catch { console.log(`  📇 ${data.slice(0, 80)}...`); }
             } else if (label === 'done') {
@@ -161,10 +166,149 @@ function sendMessage(sessionId, content, token) {
   });
 }
 
+// --- 卡片计数：兼容 movie_list / cinema_list / session_list / pending_order / order_confirm / seat_map ---
+function getCardCount(parsed) {
+  const d = parsed.cardData;
+  if (!d) return 0;
+  return d.movies?.length ?? d.cinemas?.length ?? d.sessions?.length ?? d.records?.length ?? d.orders?.length ?? 0;
+}
+
+// ========== 管理端新增排期 API 测试 ==========
+async function testAdminScheduleCreate(secret) {
+  const token = generateJwt(1, 'admin', secret);
+
+  console.log('🔍 前置：查询影片/影院/影厅数据...');
+  const headers = {
+    'Authorization': `Bearer ${token}`,
+    'X-Internal-Token': 'miaoyu-internal-token-2026',
+  };
+
+  // 查影片
+  const movies = await fetchJson(`${TICKET_BASE}/internal/movies?page=1&size=1`, headers);
+  if (movies.code !== 0 || !movies.data?.records?.length) {
+    console.log('❌ 无可用影片，无法测试新增排期');
+    return false;
+  }
+  const movieId = movies.data.records[0].id;
+
+  // 查影院
+  const cinemas = await fetchJson(`${TICKET_BASE}/internal/cinemas?page=1&size=100`, headers);
+  if (cinemas.code !== 0 || !cinemas.data?.records?.length) {
+    console.log('❌ 无可用影院');
+    return false;
+  }
+  const cinemaId = cinemas.data.records[0].id;
+
+  // 查影厅（通过 ticket-service admin API: GET /api/v1/admin/halls?cinemaId={id}）
+  const halls = await fetchJson(`${TICKET_BASE}/api/v1/admin/halls?cinemaId=${cinemaId}&size=100`, { 'Authorization': `Bearer ${token}` });
+  if (halls.code !== 0 || !halls.data?.records?.length) {
+    console.log(`❌ 影院 ${cinemaId} 无可用影厅: ${JSON.stringify(halls)}`);
+    return false;
+  }
+  const hallId = halls.data.records[0].id;
+  console.log(`✅ 影片=${movieId}, 影院=${cinemaId}, 影厅=${hallId}`);
+
+  // 构造排期（明天 10:00）
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const showDate = tomorrow.toISOString().slice(0, 10);
+
+  const scheduleBody = {
+    movieId: movieId,
+    cinemaId: cinemaId,
+    hallId: hallId,
+    showDate: showDate,
+    startTime: '22:00',
+    price: 45.00,
+    languageVersion: '国语2D',
+  };
+
+  console.log(`📝 POST /api/v1/admin/schedules (movieId=${movieId}, cinemaId=${cinemaId}, hallId=${hallId}, date=${showDate})`);
+  const result = await postJson(`${BASE}/api/v1/admin/schedules`, scheduleBody, token);
+
+  if (result.code === 0) {
+    console.log(`✅ 排期创建成功: scheduleId=${result.data?.id}, status=${result.data?.status}`);
+    return true;
+  } else if (result.code === 409) {
+    console.log(`✅ 排期冲突校验正常（409: ${result.message}）`);
+    return true;
+  } else {
+    console.log(`❌ 排期创建失败: code=${result.code}, msg=${result.message}`);
+    return false;
+  }
+}
+
+function fetchJson(url, headers = {}) {
+  return new Promise((resolve) => {
+    const req = http.request(url, { method: 'GET', headers }, (res) => {
+      let buf = '';
+      res.on('data', (c) => buf += c);
+      res.on('end', () => {
+        try { resolve(JSON.parse(buf)); } catch { resolve({ raw: buf }); }
+      });
+    });
+    req.on('error', () => resolve({ code: -1, message: 'request error' }));
+    req.end();
+  });
+}
+
+function postJson(url, body, token) {
+  return new Promise((resolve) => {
+    const data = JSON.stringify(body);
+    const headers = {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(data),
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const req = http.request(url, { method: 'POST', headers }, (res) => {
+      let buf = '';
+      res.on('data', (c) => buf += c);
+      res.on('end', () => {
+        try { resolve(JSON.parse(buf)); } catch { resolve({ raw: buf }); }
+      });
+    });
+    req.on('error', () => resolve({ code: -1, message: 'request error' }));
+    req.write(data);
+    req.end();
+  });
+}
+
 // --- Main ---
 async function main() {
   const args = process.argv.slice(2);
-  const messages = args.length > 0 ? args : ['列出所有影片', '列出所有影院', '查看我的订单'];
+
+  // --admin-schedule: 单独测试管理端新增排期
+  if (args.includes('--admin-schedule')) {
+    const secret = loadSecret();
+    console.log('='.repeat(60));
+    console.log('🔧 管理端新增排期 API 测试');
+    console.log('='.repeat(60));
+    const ok = await testAdminScheduleCreate(secret);
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(ok ? '🎉 排期创建测试通过' : '❌ 排期创建测试失败');
+    console.log('='.repeat(60));
+    process.exit(ok ? 0 : 1);
+  }
+
+  const messages = args.length > 0 ? args : [
+    // 影片查询链路
+    '有哪些上映的电影',
+    '我想看科幻电影',
+    // 影院查询链路（按影片过滤）
+    '流浪地球3在哪些影院有排片',
+    // 场次查询链路（中文日期）
+    '帮我查星际穿越2明天长沙学院的场次',
+    // 缺槽追问链路
+    '想看电影',
+    // 订单查询链路（验证卡片推送）
+    '查看我的订单',
+    // 模糊推荐链路
+    '周末想看个轻松的喜剧',
+    // 按日期查影片
+    '今天有什么电影可以看',
+    // 历史问题验证：从影院查影片
+    '长沙学院有什么电影可以看',
+  ];
   const secret = process.env.AGENT_TOKEN ? null : loadSecret();
   const token = process.env.AGENT_TOKEN || generateJwt(1, 'user', secret);
 
@@ -194,6 +338,12 @@ async function main() {
     console.log('='.repeat(60));
     await sendMessage(sessionId, messages[i], token);
   }
+
+  // 管理端新增排期 API 测试
+  console.log(`\n${'='.repeat(60)}`);
+  console.log('🔧 管理端新增排期 API 测试');
+  console.log('='.repeat(60));
+  await testAdminScheduleCreate(loadSecret());
 
   console.log('\n🎉 测试完成\n');
 }

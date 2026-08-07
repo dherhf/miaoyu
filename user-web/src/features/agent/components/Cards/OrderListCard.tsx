@@ -1,51 +1,21 @@
-import { useState } from 'react'
-import { Button, Tag, Empty, Modal } from 'antd'
-import type { BaseCardProps, OrderListCardData } from '../../types'
-
-const S: Record<string, React.CSSProperties> = {
-  wrap: {
-    width: '100%', background: '#fff', borderRadius: 12,
-    border: '1px solid #e5e7eb', overflow: 'hidden',
-  },
-  filterBar: {
-    display: 'flex', gap: 8, padding: '12px 16px',
-    borderBottom: '1px solid #f3f4f6', overflowX: 'auto' as const,
-    alignItems: 'center',
-  },
-  list: {
-    padding: '8px 12px', display: 'flex', flexDirection: 'column' as const, gap: 8,
-  },
-  orderItem: {
-    border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden',
-  },
-  itemHeader: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '10px 14px', borderBottom: '1px solid #f9fafb',
-  },
-  movieName: { fontWeight: 700, fontSize: 15, color: '#111' },
-  itemBody: {
-    padding: '8px 14px 12px',
-  },
-  infoRow: {
-    display: 'flex', justifyContent: 'space-between',
-    padding: '3px 0', fontSize: 13, color: '#6b7280',
-  },
-  amount: { fontWeight: 700, color: '#dc2626' },
-  actions: {
-    display: 'flex', gap: 8, padding: '8px 14px 12px',
-  },
-}
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { Button, Tag, Pagination, Empty, App, Spin, Modal, Descriptions } from 'antd'
+import request from '@/shared/request'
+import { payOrder, cancelOrder, refundOrder } from '@/features/order/api'
+import type { BaseCardProps, OrderListCardData, OrderItem } from '../../types'
 
 const FILTERS = [
   { key: '', label: '全部' },
   { key: 'pending', label: '待支付' },
   { key: 'paid', label: '已出票' },
+  { key: 'checked', label: '已检票' },
   { key: 'refunded', label: '已退票' },
 ] as const
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
   pending: { label: '待支付', color: 'warning' },
   paid: { label: '已出票', color: 'success' },
+  checked: { label: '已检票', color: 'processing' },
   cancelled: { label: '已取消', color: 'default' },
   refunded: { label: '已退票', color: 'error' },
 }
@@ -58,144 +28,280 @@ function fmtDate(dateStr: string, timeStr: string) {
   return `${m}月${day}日 ${timeStr}`
 }
 
-export default function OrderListCard({ data, onAction }: BaseCardProps<OrderListCardData>) {
-  const { records, total } = data || {}
-  const [activeFilter, setActiveFilter] = useState('')
+const PAGE_SIZE = 10
 
-  const filtered = activeFilter
-    ? (records || []).filter((o) => o.status === activeFilter)
-    : (records || [])
+export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>) {
+  const { modal, message } = App.useApp()
+  const initFromProps = (d: OrderListCardData | undefined) => ({
+    records: d?.records || [],
+    total: d?.total || 0,
+    page: d?.page || 1,
+  })
+  const [state, setState] = useState(() => initFromProps(data))
+  const [activeFilter, setActiveFilter] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [cancelledIds, setCancelledIds] = useState<Set<number>>(new Set())
+  const [pickupModal, setPickupModal] = useState<{
+    open: boolean; loading: boolean; orderId: number | null; data: Record<string, any> | null
+  }>({ open: false, loading: false, orderId: null, data: null })
+  const dataRef = useRef(data)
+
+  useEffect(() => {
+    if (data !== dataRef.current && data) {
+      dataRef.current = data
+      setState(initFromProps(data))
+      setActiveFilter('')
+      setCancelledIds(new Set())
+    }
+  }, [data])
+
+  const fetchPage = useCallback(async (page: number, status: string) => {
+    setLoading(true)
+    try {
+      const res = await request.get('/orders', {
+        params: { status: status || undefined, page, size: PAGE_SIZE },
+      })
+      setState(res.data as { records: OrderItem[]; total: number; page: number; size: number })
+    } catch {
+      // 错误由拦截器统一提示
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   const handleFilter = (key: string) => {
     setActiveFilter(key)
+    fetchPage(1, key)
   }
 
-  const handleRefund = (orderNo: string) => {
-    Modal.confirm({
+  const handlePay = useCallback(async (orderId: number) => {
+    try {
+      await payOrder(orderId)
+      message.success('支付成功')
+      fetchPage(state.page, activeFilter)
+    } catch {
+      // 拦截器已统一提示
+    }
+  }, [message, fetchPage, state.page, activeFilter])
+
+  const handleCancel = useCallback((orderId: number) => {
+    modal.confirm({
+      title: '取消订单',
+      content: '确定放弃这些座位吗？取消后座位将被释放。',
+      okText: '确认取消',
+      cancelText: '关闭',
+      onOk: async () => {
+        try {
+          await cancelOrder(orderId)
+          setCancelledIds((prev) => new Set(prev).add(orderId))
+          message.success('订单已取消')
+        } catch {
+          // 拦截器已统一提示
+        }
+      },
+    })
+  }, [modal, message])
+
+  const handleRefund = useCallback((orderId: number) => {
+    modal.confirm({
       title: '确认退票',
       content: '确认退票？放映前可退，将释放座位。款项将原路返还。',
       okText: '确认退票',
       cancelText: '取消',
-      onOk: () => {
-        onAction(`退票${orderNo}`)
+      onOk: async () => {
+        try {
+          await refundOrder(orderId)
+          message.success('退票成功')
+          fetchPage(state.page, activeFilter)
+        } catch {
+          // 拦截器已统一提示
+        }
       },
     })
+  }, [modal, message, fetchPage, state.page, activeFilter])
+
+  const handleViewPickupCode = async (orderId: number) => {
+    setPickupModal({ open: true, loading: true, orderId, data: null })
+    try {
+      let res = await request.get(`/orders/${orderId}`)
+      let detail: Record<string, any> = res.data as Record<string, any>
+      if (!detail.pickupCode) {
+        const codeRes = await request.get(`/orders/${orderId}/pickup-code`)
+        detail = { ...detail, pickupCode: (codeRes.data as any)?.pickupCode }
+      }
+      setPickupModal({ open: true, loading: false, orderId, data: detail })
+    } catch {
+      setPickupModal({ open: false, loading: false, orderId: null, data: null })
+    }
   }
 
+  const { records, total, page } = state
+
   return (
-    <div style={S.wrap}>
+    <div className="w-full overflow-hidden rounded-xl border border-border bg-surface">
       {/* 筛选栏 */}
-      <div style={S.filterBar}>
+      <div className="flex items-center gap-2 overflow-x-auto border-b border-border/50 px-4 py-3">
         {FILTERS.map((f) => (
           <Tag
             key={f.key}
             color={activeFilter === f.key ? 'blue' : undefined}
-            style={activeFilter === f.key
-              ? { background: '#1677ff', color: '#fff', borderColor: '#1677ff', borderRadius: 999, cursor: 'pointer' }
-              : { borderRadius: 999, cursor: 'pointer' }
-            }
+            className={`!cursor-pointer !rounded-full ${activeFilter === f.key ? '!border-[#1677ff] !bg-[#1677ff] !text-white' : ''}`}
             onClick={() => handleFilter(f.key)}
           >
             {f.label}
           </Tag>
         ))}
-        <span style={{ marginLeft: 'auto', fontSize: 12, color: '#9ca3af', whiteSpace: 'nowrap' }}>
-          共{total ?? (records || []).length}条
+        <span className="ml-auto whitespace-nowrap text-xs text-muted/70">
+          共{total}条
         </span>
       </div>
 
       {/* 订单列表 */}
-      <div style={S.list}>
-        {filtered.length === 0 ? (
-          <Empty description="暂无订单" />
-        ) : (
-          filtered.map((order) => {
-            const st = STATUS_MAP[order.status] || STATUS_MAP.pending
-            const isCancelled = order.status === 'cancelled'
-            const isRefunded = order.status === 'refunded'
+      <Spin spinning={loading}>
+        <div className="flex min-h-[120px] flex-col gap-2 px-3 py-2">
+          {records.length === 0 ? (
+            <Empty description="暂无订单" />
+          ) : (
+            records.map((order) => {
+              const locallyCancelled = cancelledIds.has(order.id)
+              const effectiveStatus = locallyCancelled ? 'cancelled' : order.status
+              const st = STATUS_MAP[effectiveStatus] || STATUS_MAP.pending
+              const isCancelled = effectiveStatus === 'cancelled'
+              const isRefunded = effectiveStatus === 'refunded'
 
-            return (
-              <div key={order.id} style={{
-                ...S.orderItem,
-                opacity: (isCancelled || isRefunded) ? 0.6 : 1,
-              }}>
-                {/* 头部：影片名 + 状态标签 */}
-                <div style={S.itemHeader}>
-                  <span style={S.movieName}>🎬 {order.movieName}</span>
-                  <Tag color={st.color} style={{ borderRadius: 999 }}>
-                    {st.label}
-                  </Tag>
+              return (
+                <div key={order.id} className={`overflow-hidden rounded-lg border border-border ${(isCancelled || isRefunded) ? 'opacity-60' : ''}`}>
+                  <div className="flex items-center justify-between border-b border-border/30 px-3.5 py-2.5">
+                    <span className="text-[15px] font-bold text-heading">🎬 {order.movieName}</span>
+                    <Tag color={st.color} className="!rounded-full !m-0">
+                      {st.label}
+                    </Tag>
+                  </div>
+
+                  <div className="px-3.5 pt-2 pb-3">
+                    <div className="flex justify-between py-0.5 text-[13px] text-muted">
+                      <span>场次</span>
+                      <span>{fmtDate(order.showDate, order.startTime)} | {order.cinemaName}</span>
+                    </div>
+                    <div className="flex justify-between py-0.5 text-[13px] text-muted">
+                      <span>座位</span>
+                      <span>{order.seatInfo}</span>
+                    </div>
+                    <div className="flex justify-between py-0.5 text-[13px] text-muted">
+                      <span>票数</span>
+                      <span>{order.ticketCount}张</span>
+                    </div>
+                    <div className="flex justify-between py-0.5 text-[13px] text-muted">
+                      <span>金额</span>
+                      <span className={isCancelled || isRefunded ? 'text-muted/70' : 'font-bold text-[#dc2626]'}>
+                        ¥{order.totalAmount}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-0.5 text-[11px] text-muted/70">
+                      <span>订单号</span>
+                      <span className="font-mono">{order.orderNo}</span>
+                    </div>
+                  </div>
+
+                  {order.status === 'pending' && !locallyCancelled && (
+                    <div className="flex gap-2 px-3.5 pt-0 pb-3">
+                      <Button
+                        type="primary"
+                        className="flex-1"
+                        onClick={() => handlePay(order.id)}
+                      >
+                        去支付
+                      </Button>
+                      <Button
+                        type="default"
+                        className="flex-1"
+                        disabled={locallyCancelled}
+                        onClick={() => handleCancel(order.id)}
+                      >
+                        取消订单
+                      </Button>
+                    </div>
+                  )}
+                  {(order.status === 'paid' || order.status === 'checked') && (
+                    <div className="flex gap-2 px-3.5 pt-0 pb-3">
+                      <Button
+                        type="primary"
+                        className="flex-1"
+                        onClick={() => handleViewPickupCode(order.id)}
+                      >
+                        查看取票码
+                      </Button>
+                      {order.status === 'paid' && (
+                        <Button
+                          type="default"
+                          danger
+                          className="flex-1"
+                          onClick={() => handleRefund(order.id)}
+                        >
+                          退票
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
+              )
+            })
+          )}
+        </div>
+      </Spin>
 
-                {/* 详情 */}
-                <div style={S.itemBody}>
-                  <div style={S.infoRow}>
-                    <span>场次</span>
-                    <span>{fmtDate(order.showDate, order.startTime)} | {order.cinemaName}</span>
-                  </div>
-                  <div style={S.infoRow}>
-                    <span>座位</span>
-                    <span>{order.seatInfo}</span>
-                  </div>
-                  <div style={S.infoRow}>
-                    <span>票数</span>
-                    <span>{order.ticketCount}张</span>
-                  </div>
-                  <div style={S.infoRow}>
-                    <span>金额</span>
-                    <span style={isCancelled || isRefunded ? { color: '#9ca3af' } : S.amount}>
-                      ¥{order.totalAmount}
-                    </span>
-                  </div>
-                  <div style={{ ...S.infoRow, fontSize: 11, color: '#9ca3af' }}>
-                    <span>订单号</span>
-                    <span style={{ fontFamily: 'monospace' }}>{order.orderNo}</span>
-                  </div>
+      {/* 分页 */}
+      {total > PAGE_SIZE && (
+        <div className="flex justify-center border-t border-border/50 px-4 py-2.5">
+          <Pagination
+            current={page}
+            total={total}
+            pageSize={PAGE_SIZE}
+            size="small"
+            showSizeChanger={false}
+            onChange={(p) => fetchPage(p, activeFilter)}
+          />
+        </div>
+      )}
+
+      {/* 取票码弹窗 */}
+      <Modal
+        title="取票码"
+        open={pickupModal.open}
+        onCancel={() => setPickupModal({ open: false, loading: false, orderId: null, data: null })}
+        footer={null}
+        destroyOnClose
+      >
+        <Spin spinning={pickupModal.loading}>
+          {pickupModal.data ? (
+            <div>
+              <div className="mb-4 rounded-lg bg-surface-alt px-4 py-4 text-center">
+                <div className="mb-1 text-xs text-muted/70">取票码</div>
+                <div
+                  className="cursor-pointer select-all text-[40px] font-bold tracking-[6px] text-heading"
+                  onClick={() => {
+                    const code = pickupModal.data?.pickupCode || ''
+                    navigator.clipboard.writeText(code).catch(() => {})
+                    message.success(`取票码 ${code} 已复制`)
+                  }}
+                >
+                  {pickupModal.data.pickupCode || '-'}
                 </div>
-
-                {/* 操作按钮 */}
-                {order.status === 'pending' && (
-                  <div style={S.actions}>
-                    <Button
-                      type="primary"
-                      style={{ flex: 1 }}
-                      onClick={() => onAction(`支付订单${order.orderNo}`)}
-                    >
-                      去支付
-                    </Button>
-                    <Button
-                      type="default"
-                      style={{ flex: 1 }}
-                      onClick={() => onAction(`取消订单${order.orderNo}`)}
-                    >
-                      取消订单
-                    </Button>
-                  </div>
-                )}
-                {order.status === 'paid' && (
-                  <div style={S.actions}>
-                    <Button
-                      type="primary"
-                      style={{ flex: 1 }}
-                      onClick={() => onAction(`查看订单${order.orderNo}取票码`)}
-                    >
-                      查看取票码
-                    </Button>
-                    <Button
-                      type="default"
-                      danger
-                      style={{ flex: 1 }}
-                      onClick={() => handleRefund(order.orderNo)}
-                    >
-                      退票
-                    </Button>
-                  </div>
-                )}
+                <div className="mt-1 text-xs text-muted/70">点击复制取票码</div>
               </div>
-            )
-          })
-        )}
-      </div>
+              <Descriptions column={1} size="small" colon={false}>
+                <Descriptions.Item label="影片">{pickupModal.data.movieName}</Descriptions.Item>
+                <Descriptions.Item label="影院">{pickupModal.data.cinemaName}</Descriptions.Item>
+                <Descriptions.Item label="地址">{pickupModal.data.cinemaAddress || '-'}</Descriptions.Item>
+                <Descriptions.Item label="影厅">{pickupModal.data.hallName}</Descriptions.Item>
+                <Descriptions.Item label="时间">{pickupModal.data.showDate ? fmtDate(pickupModal.data.showDate, pickupModal.data.startTime) : '-'}</Descriptions.Item>
+                <Descriptions.Item label="座位">{pickupModal.data.seatInfo}</Descriptions.Item>
+                <Descriptions.Item label="订单号"><span className="font-mono">{pickupModal.data.orderNo}</span></Descriptions.Item>
+              </Descriptions>
+            </div>
+          ) : null}
+        </Spin>
+      </Modal>
     </div>
   )
 }

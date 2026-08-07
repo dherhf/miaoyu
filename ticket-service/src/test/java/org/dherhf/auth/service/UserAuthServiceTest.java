@@ -3,6 +3,7 @@ package org.dherhf.auth.service;
 import org.dherhf.auth.dto.LoginDTO;
 import org.dherhf.auth.vo.LoginVO;
 import org.dherhf.auth.dto.RegisterDTO;
+import org.dherhf.auth.dto.ResetPasswordDTO;
 import org.dherhf.auth.vo.UserInfoVO;
 import org.dherhf.common.exception.BusinessException;
 import org.dherhf.auth.entity.User;
@@ -23,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -39,6 +41,9 @@ class UserAuthServiceTest {
     @Mock
     private AuthHelper authHelper;
 
+    @Mock
+    private SmsService smsService;
+
     @InjectMocks
     private UserAuthService userAuthService;
 
@@ -46,6 +51,8 @@ class UserAuthServiceTest {
 
     private static final String PHONE = "13800138000";
     private static final String PASSWORD = "password123";
+    private static final String SMS_CODE = "123456";
+    private static final String NEW_PASSWORD = "newpassword456";
 
     @BeforeAll
     static void setUpCrypto() {
@@ -71,8 +78,12 @@ class UserAuthServiceTest {
         @Test
         @DisplayName("注册成功返回脱敏用户信息")
         void shouldRegisterSuccessfully() {
-            RegisterDTO request = RegisterDTO.builder().phone(PHONE).password(PASSWORD).build();
+            RegisterDTO request = RegisterDTO.builder()
+                    .phone(PHONE).password(PASSWORD)
+                    .smsCode(SMS_CODE)
+                    .build();
 
+            when(smsService.checkVerifyCode(PHONE, SMS_CODE)).thenReturn(true);
             when(userMapper.selectCount(any())).thenReturn(0L);
             when(authHelper.maskPhone(PHONE)).thenReturn("138****8000");
 
@@ -81,13 +92,37 @@ class UserAuthServiceTest {
             assertThat(vo.getPhone()).isEqualTo("138****8000");
             assertThat(vo.getNickname()).isEqualTo("用户8000");
             assertThat(vo.getStatus()).isEqualTo(1);
+            verify(smsService).checkVerifyCode(PHONE, SMS_CODE);
+        }
+
+        @Test
+        @DisplayName("短信验证码错误抛出 400")
+        void shouldThrow400WhenSmsCodeInvalid() {
+            RegisterDTO request = RegisterDTO.builder()
+                    .phone(PHONE).password(PASSWORD)
+                    .smsCode("wrong")
+                    .build();
+
+            when(smsService.checkVerifyCode(PHONE, "wrong")).thenReturn(false);
+
+            assertThatThrownBy(() -> userAuthService.register(request))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(e -> {
+                        BusinessException be = (BusinessException) e;
+                        assertThat(be.getCode()).isEqualTo(400);
+                        assertThat(be.getMessage()).isEqualTo("短信验证码错误或已过期");
+                    });
         }
 
         @Test
         @DisplayName("手机号已注册抛出 409")
         void shouldThrow409WhenPhoneAlreadyRegistered() {
-            RegisterDTO request = RegisterDTO.builder().phone(PHONE).password(PASSWORD).build();
+            RegisterDTO request = RegisterDTO.builder()
+                    .phone(PHONE).password(PASSWORD)
+                    .smsCode(SMS_CODE)
+                    .build();
 
+            when(smsService.checkVerifyCode(PHONE, SMS_CODE)).thenReturn(true);
             when(userMapper.selectCount(any())).thenReturn(1L);
 
             assertThatThrownBy(() -> userAuthService.register(request))
@@ -225,6 +260,86 @@ class UserAuthServiceTest {
                     .satisfies(e -> {
                         BusinessException be = (BusinessException) e;
                         assertThat(be.getCode()).isEqualTo(404);
+                    });
+        }
+    }
+
+    @Nested
+    @DisplayName("isPhoneRegistered")
+    class IsPhoneRegisteredTest {
+
+        @Test
+        @DisplayName("手机号已注册返回 true")
+        void shouldReturnTrueWhenPhoneRegistered() {
+            when(userMapper.selectCount(any())).thenReturn(1L);
+
+            assertThat(userAuthService.isPhoneRegistered(PHONE)).isTrue();
+        }
+
+        @Test
+        @DisplayName("手机号未注册返回 false")
+        void shouldReturnFalseWhenPhoneNotRegistered() {
+            when(userMapper.selectCount(any())).thenReturn(0L);
+
+            assertThat(userAuthService.isPhoneRegistered(PHONE)).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("resetPassword")
+    class ResetPasswordTest {
+
+        @Test
+        @DisplayName("重置密码成功")
+        void shouldResetPasswordSuccessfully() {
+            ResetPasswordDTO request = ResetPasswordDTO.builder()
+                    .phone(PHONE).newPassword(NEW_PASSWORD).smsCode(SMS_CODE)
+                    .build();
+
+            User user = createUser();
+
+            when(smsService.checkVerifyCode(PHONE, SMS_CODE)).thenReturn(true);
+            when(userMapper.selectOne(any())).thenReturn(user);
+
+            userAuthService.resetPassword(request);
+
+            verify(userMapper).updateById(any(User.class));
+        }
+
+        @Test
+        @DisplayName("短信验证码错误抛出 400")
+        void shouldThrow400WhenSmsCodeInvalid() {
+            ResetPasswordDTO request = ResetPasswordDTO.builder()
+                    .phone(PHONE).newPassword(NEW_PASSWORD).smsCode("wrong")
+                    .build();
+
+            when(smsService.checkVerifyCode(PHONE, "wrong")).thenReturn(false);
+
+            assertThatThrownBy(() -> userAuthService.resetPassword(request))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(e -> {
+                        BusinessException be = (BusinessException) e;
+                        assertThat(be.getCode()).isEqualTo(400);
+                        assertThat(be.getMessage()).isEqualTo("短信验证码错误或已过期");
+                    });
+        }
+
+        @Test
+        @DisplayName("用户不存在抛出 404")
+        void shouldThrow404WhenUserNotFound() {
+            ResetPasswordDTO request = ResetPasswordDTO.builder()
+                    .phone(PHONE).newPassword(NEW_PASSWORD).smsCode(SMS_CODE)
+                    .build();
+
+            when(smsService.checkVerifyCode(PHONE, SMS_CODE)).thenReturn(true);
+            when(userMapper.selectOne(any())).thenReturn(null);
+
+            assertThatThrownBy(() -> userAuthService.resetPassword(request))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(e -> {
+                        BusinessException be = (BusinessException) e;
+                        assertThat(be.getCode()).isEqualTo(404);
+                        assertThat(be.getMessage()).isEqualTo("该手机号未注册");
                     });
         }
     }

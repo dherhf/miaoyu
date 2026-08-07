@@ -33,7 +33,7 @@ public class AdminOrderDetailVO {
     private LocalDateTime createdAt;
     private LocalDateTime paidAt;
     private String cancelReason;
-    private String pickupCode;
     private LocalDateTime cancelledAt;
+    private LocalDateTime checkedAt;
     private List<AdminSeatVO> seats;
 }

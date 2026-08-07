@@ -1,6 +1,7 @@
 package org.dherhf.order.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.dherhf.order.dto.CheckTicketDTO;
 import org.dherhf.order.service.AdminOrderService;
 import org.dherhf.order.vo.AdminOrderDetailVO;
 import org.dherhf.order.vo.AdminOrderListVO;
@@ -8,6 +9,7 @@ import org.dherhf.common.result.PageResult;
 import org.dherhf.common.result.Result;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "订单明细(管理端)", description = "管理端订单列表/详情")
@@ -36,5 +38,11 @@ public class AdminOrderController {
     @GetMapping("/{id}")
     public Result<AdminOrderDetailVO> detail(@PathVariable Long id) {
         return Result.success(adminOrderService.detail(id));
+    }
+
+    @Operation(summary = "检票(管理端)")
+    @PostMapping("/check-ticket")
+    public Result<AdminOrderDetailVO> checkTicket(@Validated @RequestBody CheckTicketDTO dto) {
+        return Result.success(adminOrderService.checkTicket(dto.getPickupCode()));
     }
 }

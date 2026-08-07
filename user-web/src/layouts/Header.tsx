@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Dropdown, Typography } from 'antd'
-import { LeftOutlined, LogoutOutlined, MessageOutlined, ProfileOutlined, UserOutlined } from '@ant-design/icons'
+import { Button, Dropdown, Tooltip, Typography } from 'antd'
+import { EnvironmentOutlined, LeftOutlined, LogoutOutlined, MessageOutlined, ProfileOutlined, UserOutlined } from '@ant-design/icons'
 import { useAuthStore } from '@/features/auth'
 import { getNotifications, markNotificationRead } from '@/features/notification'
 import type { NotificationVO } from '@/features/notification/types'
 import NotificationBell from '@/shared/NotificationBell'
+import { useGeoStore } from '@/shared/amap'
 import { useHeaderState } from './navBarStore'
 import type { MenuProps } from 'antd'
 
@@ -18,7 +19,25 @@ export function Header() {
   const fetchCurrentUser = useAuthStore((s) => s.fetchCurrentUser)
   const logout = useAuthStore((s) => s.logout)
   const token = useAuthStore((s) => s.token)
+  const geoLoading = useGeoStore((s) => s.loading)
+  const location = useGeoStore((s) => s.location)
   const [notifications, setNotifications] = useState<NotificationVO[]>([])
+
+  const addressText = location
+    ? location.address || location.district || location.city || location.province
+    : geoLoading
+      ? '定位中...'
+      : '未定位'
+
+  useEffect(() => {
+    if (location && location.source === 'gps') {
+      console.log('[Header] GPS 定位结果:', {
+        经度: location.longitude,
+        纬度: location.latitude,
+        地址: location.address,
+      })
+    }
+  }, [location])
 
   useEffect(() => {
     if (!token) return
@@ -98,10 +117,14 @@ export function Header() {
       </Typography.Title>
       {token ? (
         <div className="flex items-center gap-1 shrink-0">
-          <NotificationBell
-            items={notifications}
-            onRead={handleNotificationRead}
-          />
+          <Tooltip title={addressText} placement="bottom">
+            <span
+              className="flex items-center gap-1 text-sm text-muted max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap cursor-default"
+            >
+              <EnvironmentOutlined />
+              <span className="hidden sm:inline">{addressText}</span>
+            </span>
+          </Tooltip>
           <Button
             type="text"
             icon={<ProfileOutlined />}
@@ -109,13 +132,17 @@ export function Header() {
           />
           <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
             <Button type="text" icon={<UserOutlined />}>
-              {userInfo?.nickname ?? '用户'}
+              <span className="hidden sm:inline">{userInfo?.nickname ?? '用户'}</span>
             </Button>
           </Dropdown>
           <Button
             type="text"
             icon={<MessageOutlined />}
             onClick={() => navigate('/chat')}
+          />
+          <NotificationBell
+            items={notifications}
+            onRead={handleNotificationRead}
           />
         </div>
       ) : (

@@ -78,6 +78,8 @@ class OrderServiceTest {
     @Mock
     private org.dherhf.schedule.service.SeatBitmapService seatBitmapService;
     @Mock
+    private PickupCodeService pickupCodeService;
+    @Mock
     private RLock rLock;
 
     @InjectMocks
@@ -102,12 +104,12 @@ class OrderServiceTest {
         lockSeatDTO = LockSeatDTO.builder().scheduleId(1L).seatIds(List.of(10L, 11L)).ticketCount(2).build();
 
         // Common stubs for all tests
-        when(idempotentService.getIfPresent(any(), any())).thenReturn(null);
+        when(idempotentService.getIfPresent(any(), any(), any())).thenReturn(null);
         when(redissonClient.getLock(anyString())).thenReturn(rLock);
         when(rLock.tryLock(anyLong(), anyLong(), any(TimeUnit.class))).thenReturn(true);
         when(rLock.isHeldByCurrentThread()).thenReturn(true);
         doNothing().when(rLock).unlock();
-        doNothing().when(idempotentService).put(anyString(), any());
+        doNothing().when(idempotentService).put(any(), anyString(), any());
         doNothing().when(orderTimeoutService).schedule(any());
         doNothing().when(orderTimeoutService).cancel(any());
         doNothing().when(notificationService).sendNotification(anyLong(), anyString(), anyString(), anyString(), any());
@@ -190,6 +192,8 @@ class OrderServiceTest {
         Cinema cinema = Cinema.builder().address("北京市朝阳区").build();
         when(cinemaMapper.selectById(1L)).thenReturn(cinema);
 
+        when(pickupCodeService.getOrCreateCode(1L)).thenReturn("AB3K9X");
+
         PayResultVO result = orderService.payOrder(1L, 1L, "req-002");
 
         assertEquals("paid", result.getStatus());
@@ -235,6 +239,7 @@ class OrderServiceTest {
         orderService.cancelOrder(1L, 1L, "req-003");
 
         assertEquals("cancelled", order.getStatus());
+        verify(pickupCodeService).removeCode(1L);
         System.out.println("[OrderServiceTest] ✓ cancelOrder_success PASSED");
     }
 
@@ -267,6 +272,7 @@ class OrderServiceTest {
         orderService.refundOrder(1L, 1L, "req-004");
 
         assertEquals("refunded", order.getStatus());
+        verify(pickupCodeService).removeCode(1L);
         System.out.println("[OrderServiceTest] ✓ refundOrder_success PASSED");
     }
 
@@ -336,12 +342,13 @@ class OrderServiceTest {
     @Test
     void detail_success() {
         System.out.println("[OrderServiceTest] ▶ detail_success");
-        Order order = Order.builder().id(1L).userId(1L).status("paid").pickupCode("ABC123").build();
+        Order order = Order.builder().id(1L).userId(1L).status("paid").build();
         when(orderMapper.selectById(1L)).thenReturn(order);
+        when(pickupCodeService.getOrCreateCode(1L)).thenReturn("AB3K9X");
 
         OrderDetailVO result = orderService.detail(1L, 1L);
 
-        assertEquals("ABC123", result.getPickupCode());
+        assertEquals("AB3K9X", result.getPickupCode());
         System.out.println("[OrderServiceTest] ✓ detail_success PASSED");
     }
 

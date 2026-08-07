@@ -1,6 +1,7 @@
-import { useEffect, useState, useMemo, useCallback } from 'react'
-import { Modal, Spin, Button, Tag, Result, message } from 'antd'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
+import { Modal, Spin, Button, Tag, Result, App } from 'antd'
 import { getSeatMap, lockSeat, payOrder } from '../api'
+import { getPickupCode } from '@/features/order/api'
 import type { ScheduleListVO, SeatMapVO, SeatVO, LockSeatResultVO, PayResultVO } from '../types'
 
 const MAX_SEATS = 6
@@ -14,6 +15,7 @@ export default function SeatMapModal({
   schedule: ScheduleListVO | null
   onClose: () => void
 }) {
+  const { message } = App.useApp()
   const [seatMap, setSeatMap] = useState<SeatMapVO | null>(null)
   const [loading, setLoading] = useState(false)
   const [selectedSeats, setSelectedSeats] = useState<SeatVO[]>([])
@@ -21,6 +23,9 @@ export default function SeatMapModal({
   const [lockResult, setLockResult] = useState<LockSeatResultVO | null>(null)
   const [payResult, setPayResult] = useState<PayResultVO | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [pickupCode, setPickupCode] = useState<string | null>(null)
+  const [pickupExpiresIn, setPickupExpiresIn] = useState(60)
+  const pickupTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const fetchSeatMap = useCallback(() => {
     if (!schedule) return
@@ -29,6 +34,8 @@ export default function SeatMapModal({
     setSelectedSeats([])
     setLockResult(null)
     setPayResult(null)
+    setPickupCode(null)
+    setPickupExpiresIn(60)
     getSeatMap(schedule.id)
       .then(setSeatMap)
       .catch(() => {})
@@ -109,6 +116,7 @@ export default function SeatMapModal({
     try {
       const result = await payOrder(lockResult.id)
       setPayResult(result)
+      setPickupCode(result.pickupCode || null)
       setPhase('success')
     } catch {
       // 拦截器已统一提示
@@ -116,6 +124,33 @@ export default function SeatMapModal({
       setSubmitting(false)
     }
   }
+
+  const refreshPickupCode = useCallback(async (orderId: number) => {
+    try {
+      const res = await getPickupCode(orderId)
+      setPickupCode(res.pickupCode)
+      setPickupExpiresIn(res.expiresIn)
+    } catch {
+      // 拦截器已统一提示
+    }
+  }, [])
+
+  useEffect(() => {
+    if (phase !== 'success' || !payResult?.id) return
+    refreshPickupCode(payResult.id)
+    pickupTimerRef.current = setInterval(() => {
+      setPickupExpiresIn((prev) => {
+        if (prev <= 1) {
+          refreshPickupCode(payResult.id)
+          return 60
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => {
+      if (pickupTimerRef.current) clearInterval(pickupTimerRef.current)
+    }
+  }, [phase, payResult, refreshPickupCode])
 
   const handleClose = () => {
     onClose()
@@ -142,7 +177,7 @@ export default function SeatMapModal({
           title="支付成功"
           subTitle={
             <div className="text-left">
-              <p className="mb-1">取票码：<strong className="text-accent text-lg">{payResult.pickupCode}</strong></p>
+              <p className="mb-1">取票码：<strong className="text-accent text-lg font-mono tracking-[2px]">{pickupCode || '...'}</strong> <span className="text-muted text-xs">{pickupExpiresIn}s 后刷新</span></p>
               <p className="mb-1 text-muted text-sm">影片：{payResult.movieName}</p>
               <p className="mb-1 text-muted text-sm">影院：{payResult.cinemaName}（{payResult.cinemaAddress}）</p>
               <p className="mb-1 text-muted text-sm">影厅：{payResult.hallName}</p>
