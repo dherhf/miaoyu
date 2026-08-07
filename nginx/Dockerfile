@@ -5,6 +5,12 @@ WORKDIR /build
 COPY user-web/package*.json ./
 RUN npm ci --registry=https://registry.npmmirror.com
 COPY user-web/ .
+
+ARG VITE_USER_AMAP_JS_KEY
+ARG VITE_USER_AMAP_SECURITY_CODE
+ENV VITE_USER_AMAP_JS_KEY=${VITE_USER_AMAP_JS_KEY}
+ENV VITE_USER_AMAP_SECURITY_CODE=${VITE_USER_AMAP_SECURITY_CODE}
+
 RUN npm run build
 
 # ====== 构建 admin-web ======
@@ -14,6 +20,10 @@ WORKDIR /build
 COPY admin-web/package*.json ./
 RUN npm ci --registry=https://registry.npmmirror.com
 COPY admin-web/ .
+
+ARG VITE_ADMIN_AMAP_JS_KEY
+ENV VITE_ADMIN_AMAP_JS_KEY=${VITE_ADMIN_AMAP_JS_KEY}
+
 RUN npm run build
 
 # ====== Nginx 运行阶段 ======
