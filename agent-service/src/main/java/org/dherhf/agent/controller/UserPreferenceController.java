@@ -1,5 +1,6 @@
 package org.dherhf.agent.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.dherhf.agent.model.dto.PreferenceUpdateDTO;
 import org.dherhf.agent.model.vo.PreferenceVO;
@@ -34,7 +35,7 @@ public class UserPreferenceController {
     @PutMapping("/preferences")
     public Result<PreferenceVO> updatePreference(
             @RequestHeader("X-User-Id") Long userId,
-            @RequestBody PreferenceUpdateDTO dto) {
+            @Valid @RequestBody PreferenceUpdateDTO dto) {
         return Result.success(userPreferenceService.updatePreference(userId, dto));
     }
 }

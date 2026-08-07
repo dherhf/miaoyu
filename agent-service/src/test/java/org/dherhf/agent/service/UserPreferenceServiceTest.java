@@ -169,6 +169,56 @@ class UserPreferenceServiceTest {
         }
     }
 
+    @Nested
+    @DisplayName("mergePreference 部分更新")
+    class MergePreferenceTest {
+
+        @Test
+        @DisplayName("仅更新指定字段，保留其他字段不变")
+        void partialUpdateKeepsExistingFields() {
+            UserPreferenceDocument existing = buildDoc(TestConstants.USER_ID, "IMAX",
+                    new BigDecimal("30"), new BigDecimal("80"),
+                    "5-8排中间", List.of("科幻"));
+            when(repository.findByUserId(TestConstants.USER_ID)).thenReturn(Optional.of(existing));
+            when(repository.save(any(UserPreferenceDocument.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            PreferenceUpdateDTO dto = PreferenceUpdateDTO.builder()
+                    .preferredHallType("杜比")
+                    .build();
+
+            userPreferenceService.mergePreference(TestConstants.USER_ID, dto);
+
+            ArgumentCaptor<UserPreferenceDocument> captor = ArgumentCaptor.forClass(UserPreferenceDocument.class);
+            verify(repository).save(captor.capture());
+            assertThat(captor.getValue().getPreferredHallType()).isEqualTo("杜比");
+            assertThat(captor.getValue().getPriceMin()).isEqualByComparingTo("30");
+            assertThat(captor.getValue().getPriceMax()).isEqualByComparingTo("80");
+            assertThat(captor.getValue().getPreferredSeatArea()).isEqualTo("5-8排中间");
+            assertThat(captor.getValue().getPreferredMovieTypes()).containsExactly("科幻");
+        }
+
+        @Test
+        @DisplayName("首次合并（文档不存在时创建）")
+        void mergeWhenNotExist() {
+            when(repository.findByUserId(TestConstants.USER_ID)).thenReturn(Optional.empty());
+            when(repository.save(any(UserPreferenceDocument.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            PreferenceUpdateDTO dto = PreferenceUpdateDTO.builder()
+                    .priceMax(new BigDecimal("100"))
+                    .preferredMovieTypes(List.of("动作"))
+                    .build();
+
+            userPreferenceService.mergePreference(TestConstants.USER_ID, dto);
+
+            ArgumentCaptor<UserPreferenceDocument> captor = ArgumentCaptor.forClass(UserPreferenceDocument.class);
+            verify(repository).save(captor.capture());
+            assertThat(captor.getValue().getUserId()).isEqualTo(TestConstants.USER_ID);
+            assertThat(captor.getValue().getPriceMax()).isEqualByComparingTo("100");
+            assertThat(captor.getValue().getPreferredMovieTypes()).containsExactly("动作");
+            assertThat(captor.getValue().getPreferredHallType()).isNull();
+        }
+    }
+
     private UserPreferenceDocument buildDoc(Long userId, String hallType,
                                             BigDecimal priceMin, BigDecimal priceMax,
                                             String seatArea, List<String> movieTypes) {
