@@ -8,7 +8,8 @@ public enum OrderStatus {
     PAID("paid", "已出票"),
     CANCELLED("cancelled", "已取消"),
     REFUNDED("refunded", "已退票"),
-    CHECKED("checked", "已检票");
+    CHECKED("checked", "已检票"),
+    EXPIRED("expired", "已过期");
 
     private final String code;
     private final String desc;

@@ -1,7 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   PlusOutlined,
-  SearchOutlined,
   EditOutlined,
   DeleteOutlined,
   EnvironmentOutlined,
@@ -9,8 +8,9 @@ import {
   TeamOutlined,
   ArrowLeftOutlined,
 } from '@ant-design/icons';
-import { Table, Modal, Input, Button, Select, Tag, Space, Typography, Card, Form, App } from 'antd';
-import type { TableProps } from 'antd';
+import { Modal, Button, Tag, Space, Typography, Card, Form, App } from 'antd';
+import { ProTable } from '@ant-design/pro-components';
+import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCinemaStore } from '../cinema';
 import {
@@ -29,77 +29,22 @@ import styles from './HallPage.module.css';
 export function HallPage() {
   const navigate = useNavigate();
   const { message, modal } = App.useApp();
+  const actionRef = useRef<ActionType>(null);
   const [searchParams] = useSearchParams();
   const cinemaIdParam = searchParams.get('cinemaId');
   const { cinemas } = useCinemaStore();
-  const { halls, loading, fetchHalls, getHallsByCinemaId, addHall, updateHall, deleteHall } = useHallStore();
+  const { fetchHalls, addHall, updateHall, deleteHall } = useHallStore();
   const { schedules } = useScheduleStore();
   const [form] = Form.useForm<HallFormValues>();
 
   const [selectedCinemaId, setSelectedCinemaId] = useState<string>(cinemaIdParam || '');
-  const [keyword, setKeyword] = useState('');
-  const [typeFilter, setTypeFilter] = useState<string>();
-  const [, setSelectedIds] = useState<string[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingHall, setEditingHall] = useState<HallItem | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => { if (cinemaIdParam) setSelectedCinemaId(cinemaIdParam); }, [cinemaIdParam]);
-  useEffect(() => { if (selectedCinemaId) void fetchHalls({ cinemaId: selectedCinemaId }); }, [selectedCinemaId, fetchHalls]);
   const currentCinema = useMemo(() => cinemas.find(c => String(c.id) === String(selectedCinemaId)), [cinemas, selectedCinemaId]);
-  const filteredHalls = useMemo(() => {
-    let list = selectedCinemaId ? getHallsByCinemaId(selectedCinemaId) : [...halls];
-    if (keyword) list = list.filter(h => h.name.toLowerCase().includes(keyword.toLowerCase()));
-    if (typeFilter) list = list.filter(h => h.type === typeFilter);
-    return list;
-  }, [halls, selectedCinemaId, keyword, typeFilter, getHallsByCinemaId]);
 
-  // 表格列配置
-  const tableColumns: TableProps<HallItem>['columns'] = [
-    {
-      title: '影厅名称',
-      dataIndex: 'name',
-      render: (name, row) => {
-        const typeItem = HALL_TYPES.find(t => t.value === row.type);
-        return (
-          <Space size={12}>
-            <div className={styles.hallIconBox} style={{ background: `${typeItem?.color || 'blue'}10` }}>
-              <AppstoreOutlined style={{ fontSize: 20, color: `${typeItem?.color || '#1677ff'}` }} />
-            </div>
-            <div>
-              <Typography.Text strong>{name}</Typography.Text>
-              <div><Typography.Text type='secondary' className={styles.hallTypeLabel}>{typeItem?.label}</Typography.Text></div>
-            </div>
-          </Space>
-        );
-      },
-    },
-    { title: '座位布局', dataIndex: 'rowCount', align: 'center', render: (r, row) => `${r} × ${row.colCount}` },
-    { title: '可用座位', dataIndex: 'totalSeats', align: 'center', render: v => <Space size={4}><TeamOutlined style={{ fontSize: 14 }} /><Typography.Text className={styles.availableSeatsText}>{v}</Typography.Text></Space> },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      align: 'center',
-      render: val => {
-        const cfg = HALL_STATUS_LABELS[val] || HALL_STATUS_LABELS.active;
-        return <Tag color={cfg.color}>{cfg.label}</Tag>;
-      },
-    },
-    {
-      title: '操作',
-      width: 160,
-      align: 'center',
-      render: (_v, row) => (
-        <Space size={8}>
-          <Button size='small' icon={<EditOutlined style={{ fontSize: 14 }} />} onClick={() => openEdit(row)}>编辑</Button>
-          <Button size='small' danger icon={<DeleteOutlined style={{ fontSize: 14 }} />} onClick={() => handleDelete(row)}>删除</Button>
-        </Space>
-      ),
-    },
-  ];
-
-  const handleSearch = () => setSelectedIds([]);
-  const handleReset = () => { setKeyword(''); setTypeFilter(undefined); setSelectedIds([]); };
   const openAdd = () => {
     if (!selectedCinemaId) return message.error('请先选择影院');
     setEditingHall(null);
@@ -141,6 +86,7 @@ export function HallPage() {
         message.success('新增影厅成功');
       }
       setModalOpen(false);
+      actionRef.current?.reload();
     } catch (e: any) {
       if (e?.errorFields) return; // antd 校验失败，不额外提示
       message.error(e.message || '操作失败');
@@ -152,9 +98,83 @@ export function HallPage() {
   const handleDelete = (hall: HallItem) => {
     const hasSchedule = schedules.some(s => String(s.hallId) === String(hall.id) && s.status !== 'cancelled' && s.status !== 'ended');
     if (hasSchedule) return message.error('该影厅有排期，无法删除');
-    modal.confirm({ title: '删除确认', content: `确定删除【${hall.name}】？删除不可恢复`, okText: '确认删除', okButtonProps: { danger: true }, onOk: async () => { await deleteHall(hall.id); message.success('删除成功'); setSelectedIds(prev => prev.filter(id => id !== hall.id)); } });
+    modal.confirm({ title: '删除确认', content: `确定删除【${hall.name}】？删除不可恢复`, okText: '确认删除', okButtonProps: { danger: true }, onOk: async () => { await deleteHall(hall.id); message.success('删除成功'); actionRef.current?.reload(); } });
   };
   const backCinema = () => { setSelectedCinemaId(''); navigate('/halls'); };
+
+  const columns: ProColumns<HallItem>[] = [
+    {
+      title: '影厅名称',
+      dataIndex: 'name',
+      render: (_, record) => {
+        const typeItem = HALL_TYPES.find(t => t.value === record.type);
+        return (
+          <Space size={12}>
+            <div className={styles.hallIconBox} style={{ background: `${typeItem?.color || 'blue'}10` }}>
+              <AppstoreOutlined style={{ fontSize: 20, color: `${typeItem?.color || '#1677ff'}` }} />
+            </div>
+            <div>
+              <Typography.Text strong>{record.name}</Typography.Text>
+              <div><Typography.Text type='secondary' className={styles.hallTypeLabel}>{typeItem?.label}</Typography.Text></div>
+            </div>
+          </Space>
+        );
+      },
+    },
+    {
+      title: '类型',
+      dataIndex: 'type',
+      hideInTable: true,
+      valueType: 'select',
+      valueEnum: Object.fromEntries(HALL_TYPES.map(t => [t.value, { text: t.label }])),
+    },
+    {
+      title: '座位布局',
+      dataIndex: 'rowCount',
+      align: 'center',
+      search: false,
+      render: (_, record) => `${record.rowCount} × ${record.colCount}`,
+    },
+    {
+      title: '可用座位',
+      dataIndex: 'totalSeats',
+      align: 'center',
+      search: false,
+      render: (_, record) => (
+        <Space size={4}>
+          <TeamOutlined style={{ fontSize: 14 }} />
+          <Typography.Text className={styles.availableSeatsText}>{record.totalSeats}</Typography.Text>
+        </Space>
+      ),
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      align: 'center',
+      valueType: 'select',
+      valueEnum: {
+        active: { text: '启用' },
+        inactive: { text: '停用' },
+      },
+      render: (_, record) => {
+        const cfg = HALL_STATUS_LABELS[record.status] || HALL_STATUS_LABELS.active;
+        return <Tag color={cfg.color}>{cfg.label}</Tag>;
+      },
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 160,
+      align: 'center',
+      search: false,
+      render: (_, record) => (
+        <Space size={8}>
+          <Button size='small' icon={<EditOutlined style={{ fontSize: 14 }} />} onClick={() => openEdit(record)}>编辑</Button>
+          <Button size='small' danger icon={<DeleteOutlined style={{ fontSize: 14 }} />} onClick={() => handleDelete(record)}>删除</Button>
+        </Space>
+      ),
+    },
+  ];
 
   return (
     <div className={styles.pageWrap}>
@@ -196,31 +216,34 @@ export function HallPage() {
         </div>
       )}
 
-      {/* 已选影院：筛选+表格 */}
+      {/* 已选影院：ProTable */}
       {selectedCinemaId && (
-        <>
-          <div className={styles.filterBox}>
-            <Space size={12}>
-              <Input placeholder='搜索影厅名称' value={keyword} onChange={e => setKeyword(e.target.value)} className={styles.searchInput} prefix={<SearchOutlined style={{ fontSize: 14, color: '#999' }} />} allowClear />
-              <Select placeholder='全部类型' allowClear value={typeFilter} onChange={v => setTypeFilter(v)} className={styles.typeSelect}>
-                {HALL_TYPES.map(t => <Select.Option key={t.value} value={t.value}>{t.label}</Select.Option>)}
-              </Select>
-              <Button type='primary' onClick={handleSearch}>搜索</Button>
-              {(keyword || typeFilter) && <Button onClick={handleReset}>重置</Button>}
-            </Space>
-          </div>
-          <Card styles={{ body: { padding: 0 } }}>
-            <Table<HallItem>
-              rowKey='id'
-              columns={tableColumns}
-              dataSource={filteredHalls}
-              loading={loading}
-              pagination={{ pageSize: 10 }}
-              bordered
-              scroll={{ x: 'max-content' }}
-            />
-          </Card>
-        </>
+        <ProTable<HallItem>
+          actionRef={actionRef}
+          rowKey="id"
+          columns={columns}
+          request={async (params) => {
+            await fetchHalls({
+              cinemaId: selectedCinemaId,
+              name: params.name || undefined,
+              screenType: params.type || undefined,
+              status: params.status === 'active' ? 1 : params.status === 'inactive' ? 0 : undefined,
+              page: params.current ?? 1,
+              size: params.pageSize ?? 10,
+            });
+            const state = useHallStore.getState();
+            return {
+              data: state.halls,
+              success: true,
+              total: state.total,
+            };
+          }}
+          search={{ labelWidth: 'auto', span: 6, defaultCollapsed: false }}
+          pagination={{ pageSize: 10, pageSizeOptions: [10, 20, 50], showSizeChanger: true }}
+          bordered
+          scroll={{ x: 'max-content' }}
+          headerTitle={`${currentCinema?.name ?? ''} 影厅列表`}
+        />
       )}
 
       {/* 新增/编辑影厅弹窗 */}

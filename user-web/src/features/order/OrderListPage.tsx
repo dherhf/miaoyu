@@ -14,6 +14,7 @@ const STATUS_OPTIONS = [
   { label: '已取消', value: 'cancelled' },
   { label: '已退票', value: 'refunded' },
   { label: '已检票', value: 'checked' },
+  { label: '已过期', value: 'expired' },
 ]
 
 const STATUS_TAG: Record<string, { color: string; label: string }> = {
@@ -22,6 +23,7 @@ const STATUS_TAG: Record<string, { color: string; label: string }> = {
   cancelled: { color: 'default', label: '已取消' },
   refunded: { color: 'default', label: '已退票' },
   checked: { color: 'processing', label: '已检票' },
+  expired: { color: 'default', label: '已过期' },
 }
 
 export default function OrderListPage() {

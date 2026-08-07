@@ -158,7 +158,7 @@ CREATE TABLE `orders` (
   `seat_info`     VARCHAR(500)  NOT NULL COMMENT '座位信息,如 5排6座,5排7座',
   `ticket_count`  INT           NOT NULL COMMENT '票数,等于所选座位数',
   `total_amount`  DECIMAL(10,2) NOT NULL COMMENT '订单总金额 = 票价 × 票数,后端计算',
-  `status`        ENUM('pending','paid','cancelled','refunded','checked') NOT NULL DEFAULT 'pending' COMMENT '待支付/已出票/已取消/已退票/已检票',
+  `status`        ENUM('pending','paid','cancelled','refunded','checked','expired') NOT NULL DEFAULT 'pending' COMMENT '待支付/已出票/已取消/已退票/已检票/已过期',
   `cancel_reason` VARCHAR(50)   DEFAULT NULL COMMENT '取消原因:超时取消/用户主动取消/用户退票',
   `created_at`    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间(下单时间)',
   `paid_at`       DATETIME      DEFAULT NULL COMMENT '支付时间',

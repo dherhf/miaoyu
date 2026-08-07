@@ -103,6 +103,9 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         if (order == null) {
             throw new BusinessException(404, "订单不存在");
         }
+        if (OrderStatus.EXPIRED.getCode().equals(order.getStatus())) {
+            throw new BusinessException(409, "场次已结束，无法检票");
+        }
         if (!OrderStatus.PAID.getCode().equals(order.getStatus())) {
             throw new BusinessException(409, "该订单状态不支持检票");
         }

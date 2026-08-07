@@ -36,14 +36,12 @@ export function Sidebar({ collapsed }: SidebarProps) {
       collapsed={collapsed}
       width={256}
       collapsedWidth={64}
-      theme="dark"
+      theme="light"
       className={styles.sider}
     >
       {/* Logo区域 */}
       <div className={styles.logo}>
-        <div className={styles.logoIcon}>
-          <Film size={20} color="#fff" />
-        </div>
+        <img src="/favicon.svg" alt="妙语购票" className={styles.logoIcon} />
         {!collapsed && (
           <span className={styles.logoText}>妙语购票</span>
         )}
