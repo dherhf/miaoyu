@@ -328,7 +328,7 @@ public class TicketTools {
 
     @Tool("路径规划。用户问怎么去影院/导航/路线时调用。同时查询驾车和公交两种方案，返回原始 JSON 数据。")
     public String planRoute(
-            @P("出发地点名称或地址，如'湖南大学'、'长沙南站'") String origin,
+            @P("出发地，可为地点名称、地址或坐标（经度,纬度），如'湖南大学'、'长沙南站'、'113.008977,28.233355'；当上下文存在【用户位置】时直接使用其坐标") String origin,
             @P("目的地名称或地址，如'长沙学院'或影院名称") String destination,
             @P("出行方式：driving(驾车)/transit(公交)/walking(步行)；用户未指定时传空字符串，将同时查询驾车和公交") String mode
     ) {
@@ -398,7 +398,7 @@ public class TicketTools {
 
     @Tool("周边搜索。用户问影院附近有什么（餐饮/停车/地铁等）时调用。先通过地理编码将地名转为坐标，再调用高德周边搜索。返回原始 JSON 数据。")
     public String searchNearby(
-            @P("中心地点名称或地址，如'长沙学院'或影院名称") String location,
+            @P("中心地点，可为名称、地址或坐标（经度,纬度），如'长沙学院'、'113.008977,28.233355'；当上下文存在【用户位置】时直接使用其坐标") String location,
             @P("搜索关键词，如'餐厅'、'停车场'、'地铁站'；无特定要求时传空字符串") String keywords
     ) {
         log.info("[Tool:searchNearby] location={}, keywords={}", location, keywords);
@@ -428,8 +428,16 @@ public class TicketTools {
      * 将地名/地址解析为坐标（经度,纬度）。
      * 先查影院表（有预存坐标），未命中再调高德地理编码。
      */
+    private static final java.util.regex.Pattern COORD_PATTERN =
+            java.util.regex.Pattern.compile("^-?\\d+\\.\\d+,-?\\d+\\.\\d+$");
+
     private String resolveCoordinates(String placeName) {
         if (placeName == null || placeName.isBlank()) return null;
+        // 已是坐标格式则直接返回
+        String trimmed = placeName.trim();
+        if (COORD_PATTERN.matcher(trimmed).matches()) {
+            return trimmed;
+        }
         // 尝试从影院表查坐标
         Result<Object> cinemaResult = ticketClient.searchCinemas(null, placeName, null);
         if (cinemaResult.getCode() == 0) {
