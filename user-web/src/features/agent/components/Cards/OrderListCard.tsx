@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, Tag, Empty, Modal } from 'antd'
+import { Button, Tag, Empty, App } from 'antd'
 import type { BaseCardProps, OrderListCardData } from '../../types'
 
 const S: Record<string, React.CSSProperties> = {
@@ -59,6 +59,7 @@ function fmtDate(dateStr: string, timeStr: string) {
 }
 
 export default function OrderListCard({ data, onAction }: BaseCardProps<OrderListCardData>) {
+  const { modal } = App.useApp()
   const { records, total } = data || {}
   const [activeFilter, setActiveFilter] = useState('')
 
@@ -71,7 +72,7 @@ export default function OrderListCard({ data, onAction }: BaseCardProps<OrderLis
   }
 
   const handleRefund = (orderNo: string) => {
-    Modal.confirm({
+    modal.confirm({
       title: '确认退票',
       content: '确认退票？放映前可退，将释放座位。款项将原路返还。',
       okText: '确认退票',

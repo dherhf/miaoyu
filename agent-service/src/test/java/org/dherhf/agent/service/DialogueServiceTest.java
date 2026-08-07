@@ -8,6 +8,7 @@ import org.dherhf.agent.document.ChatSessionDocument;
 import org.dherhf.agent.enums.SessionStatusEnum;
 import org.dherhf.agent.model.ticket.SlotState;
 import org.dherhf.agent.tool.TicketServiceClient;
+import org.dherhf.agent.tool.AmapClient;
 import org.dherhf.agent.tool.TicketTools;
 import org.junit.jupiter.api.*;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -31,6 +32,7 @@ class DialogueServiceTest {
     private ContextService contextService;
     private ChatSessionService chatSessionService;
     private TicketServiceClient ticketClient;
+    private AmapClient amapClient;
     private IdempotentService idempotentService;
     private ObjectMapper objectMapper;
 
@@ -43,6 +45,7 @@ class DialogueServiceTest {
         contextService = mock(ContextService.class);
         chatSessionService = mock(ChatSessionService.class);
         ticketClient = mock(TicketServiceClient.class);
+        amapClient = mock(AmapClient.class);
         idempotentService = mock(IdempotentService.class);
         objectMapper = new ObjectMapper();
 
@@ -54,7 +57,7 @@ class DialogueServiceTest {
         service = new DialogueService(
                 streamingChatModel, promptService, inputFilterService,
                 outputValidatorService, contextService, chatSessionService,
-                ticketClient, idempotentService, objectMapper
+                ticketClient, amapClient, idempotentService, objectMapper
         ) {
             @Override
             protected DialogueService.ChatAssistant buildChatAssistant(String sessionId, TicketTools tools) {

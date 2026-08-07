@@ -263,4 +263,29 @@ public class HallServiceImpl implements HallService {
         BeanUtils.copyProperties(cell, vo);
         return vo;
     }
+
+    @Override
+    @Transactional
+    public void deleteHall(Long id) {
+        Hall hall = hallMapper.selectById(id);
+        if (hall == null) {
+            throw new BusinessException(404, "影厅不存在");
+        }
+
+        // 检查是否有未结束/未取消的排片
+        Long activeScheduleCount = scheduleMapper.selectCount(
+                new LambdaQueryWrapper<Schedule>()
+                        .eq(Schedule::getHallId, id)
+                        .eq(Schedule::getStatus, ScheduleStatus.ON_SALE.getCode()));
+        if (activeScheduleCount > 0) {
+            throw new BusinessException(409, "该影厅有在售场次，无法删除");
+        }
+
+        // 删除座位格
+        hallCellMapper.delete(
+                new LambdaQueryWrapper<HallCell>().eq(HallCell::getHallId, id));
+
+        // 删除影厅
+        hallMapper.deleteById(id);
+    }
 }

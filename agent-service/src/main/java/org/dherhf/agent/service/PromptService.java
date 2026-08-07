@@ -47,6 +47,12 @@ public class PromptService {
                    - 用户要求支付 → 调用 payOrder(orderId=...)
                    - 用户要求取消 → 调用 cancelOrder(orderId=...)
                    - 用户要求退票 → 调用 refundOrder(orderId=...)
+                4. 意图为 TRIP_PLAN 时：
+                   - 用户问路线/怎么去 → 调用 planRoute(origin=出发地, destination=目的地, mode=出行方式)
+                   - 用户问周边设施 → 调用 searchNearby(location=地点, keywords=关键词)
+                   - 用户问天气 → 调用 getWeather(city=城市名)，用户未指定城市时默认传"长沙"，不要追问
+                   - 用户选定影院后可主动提示："需要帮您规划路线或查看周边吗？"
+                   - 已调用过 planRoute 后，用户追问更详细信息（如"公交换乘详情""步行方案"），直接根据已有数据用自然语言详细描述，不要重复调用 planRoute
 
                 ## 输出格式
                 1. 先输出自然语言回复（markdown格式），这是展示给用户的内容
