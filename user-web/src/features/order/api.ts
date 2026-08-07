@@ -14,10 +14,27 @@ export async function getOrderDetail(id: number): Promise<OrderDetailVO> {
   return res.data
 }
 
-export async function payOrder(orderId: number): Promise<void> {
-  await request.post(`/orders/${orderId}/pay`, {}, {
+export interface PayResultVO {
+  id: number
+  orderNo: string
+  status: string
+  payUrl?: string
+  paymentNo?: string
+  payExpireAt?: string
+  movieName: string
+  cinemaName: string
+  hallName: string
+  showDate: string
+  startTime: string
+  seatInfo: string
+  totalAmount: number
+}
+
+export async function payOrder(orderId: number): Promise<PayResultVO> {
+  const res = await request.post<PayResultVO>(`/orders/${orderId}/pay`, {}, {
     headers: { 'X-Request-Id': crypto.randomUUID() },
   })
+  return res.data
 }
 
 export async function cancelOrder(orderId: number): Promise<void> {

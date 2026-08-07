@@ -18,6 +18,8 @@ public class InternalWebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(internalTokenInterceptor)
-                .addPathPatterns("/internal/**");
+                .addPathPatterns("/internal/**")
+                // 支付回调由 HMAC 验签，不走内部 Token 拦截器
+                .excludePathPatterns("/internal/payment/callback");
     }
 }

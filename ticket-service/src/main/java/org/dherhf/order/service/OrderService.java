@@ -40,4 +40,16 @@ public interface OrderService {
     void timeoutCancel(Long orderId);
 
     void cancelTimeoutOrders(LocalDateTime deadline);
+
+    /**
+     * 处理支付回调（AI知托付→妙语）。
+     *
+     * @param paymentNo       支付单号
+     * @param merchantOrderNo 妙语订单号
+     * @param businessNo      转账流水号
+     * @param status          支付状态 SUCCESS / FAILED / EXPIRED
+     * @param amount          回调金额
+     * @return "SUCCESS" 处理成功, "FAIL" 处理失败
+     */
+    String handlePaymentCallback(String paymentNo, String merchantOrderNo, String businessNo, String status, String amount);
 }

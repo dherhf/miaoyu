@@ -18,6 +18,9 @@ export interface OrderDetailVO extends OrderVO {
   pickupCode?: string
   cancelReason?: string
   checkedAt?: string
+  payUrl?: string
+  paymentNo?: string
+  payExpireAt?: string
 }
 
 export interface PickupCodeVO {

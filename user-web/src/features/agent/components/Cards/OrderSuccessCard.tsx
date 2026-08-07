@@ -30,8 +30,9 @@ const BAR_WIDTHS = [2, 4, 2, 6, 2, 8, 2, 4, 2, 6, 2, 4, 2, 8, 2, 4, 2, 6, 2, 4, 
 
 export default function OrderSuccessCard({ data, onAction }: BaseCardProps<OrderSuccessCardData>) {
   const { message } = App.useApp()
-  const { pickupCode, movieName, cinemaName, cinemaAddress, hallName, showDate, startTime, seatInfo, totalAmount, orderNo } = data || {}
+  const { pickupCode, payUrl, paymentNo, movieName, cinemaName, cinemaAddress, hallName, showDate, startTime, seatInfo, totalAmount, orderNo } = data || {}
 
+  const isPendingPayment = !!payUrl
   const code = pickupCode || '888888'
 
   const copyCode = async () => {
@@ -59,23 +60,40 @@ export default function OrderSuccessCard({ data, onAction }: BaseCardProps<Order
 
   return (
     <div style={S.wrap}>
-      {/* 成功头部 */}
+      {/* 头部 */}
       <div style={S.hero}>
         <div style={S.checkmark}>
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="5 12 10 17 19 7" />
-          </svg>
+          {isPendingPayment ? (
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="5" width="20" height="14" rx="2" />
+              <line x1="2" y1="10" x2="22" y2="10" />
+            </svg>
+          ) : (
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="5 12 10 17 19 7" />
+            </svg>
+          )}
         </div>
-        <div style={S.title}>支付成功！</div>
-        <div style={S.subtitle}>您的电影票已预订成功</div>
+        <div style={S.title}>{isPendingPayment ? '订单已创建' : '支付成功！'}</div>
+        <div style={S.subtitle}>{isPendingPayment ? '请前往AI知托付完成支付' : '您的电影票已预订成功'}</div>
       </div>
 
-      {/* 取票码 */}
-      <div style={S.codeSection}>
-        <div style={S.codeLabel}>取票码</div>
-        <div style={S.code} onClick={copyCode}>{code}</div>
-        <div style={S.codeHint}>长按或点击复制</div>
-      </div>
+      {/* 取票码 或 支付按钮 */}
+      {isPendingPayment ? (
+        <div style={{ ...S.codeSection, borderBottom: '1px dashed #e5e7eb' }}>
+          <div style={S.codeLabel}>支付金额</div>
+          <div style={{ ...S.amount, fontSize: 28, textAlign: 'center' as const, marginBottom: 12 }}>¥{totalAmount}</div>
+          <Button type="primary" danger block onClick={() => {
+            if (payUrl) window.open(payUrl, '_blank')
+          }}>去AI知托付支付</Button>
+        </div>
+      ) : (
+        <div style={S.codeSection}>
+          <div style={S.codeLabel}>取票码</div>
+          <div style={S.code} onClick={copyCode}>{code}</div>
+          <div style={S.codeHint}>长按或点击复制</div>
+        </div>
+      )}
 
       {/* 详情 */}
       <div style={S.detailSection}>
@@ -92,15 +110,17 @@ export default function OrderSuccessCard({ data, onAction }: BaseCardProps<Order
         </div>
       </div>
 
-      {/* 条形码 */}
-      <div style={S.barcodeSection}>
-        <div style={S.bars}>
-          {BAR_WIDTHS.map((w, i) => (
-            <div key={i} style={{ width: w, height: '100%', background: '#1f2937', borderRadius: 1 }} />
-          ))}
+      {/* 条形码（仅支付成功后显示） */}
+      {!isPendingPayment && (
+        <div style={S.barcodeSection}>
+          <div style={S.bars}>
+            {BAR_WIDTHS.map((w, i) => (
+              <div key={i} style={{ width: w, height: '100%', background: '#1f2937', borderRadius: 1 }} />
+            ))}
+          </div>
+          <div style={S.barCodeText}>{orderNo}</div>
         </div>
-        <div style={S.barCodeText}>{orderNo}</div>
-      </div>
+      )}
 
       {/* 按钮 */}
       <div style={S.actions}>

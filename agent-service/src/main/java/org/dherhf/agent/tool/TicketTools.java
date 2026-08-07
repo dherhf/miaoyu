@@ -266,7 +266,7 @@ public class TicketTools {
         return toJson(result);
     }
 
-    @Tool("支付订单。用户确认支付待支付订单时调用。返回后端原始 JSON 数据（含取票码）。")
+    @Tool("支付订单。用户确认支付待支付订单时调用。返回后端原始 JSON 数据，含支付页地址 payUrl，用户需跳转AI知托付完成支付。")
     public String payOrder(
             @P("订单 ID（由 queryOrders 或 lockAndCreateOrder 返回）") String orderId
     ) {

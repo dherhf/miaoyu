@@ -1,5 +1,5 @@
 server:
-  port: 8081
+  port: 8084
   servlet:
     context-path: /
 
@@ -28,7 +28,7 @@ spring:
 
 # 票务服务内部调用地址
 ticket-service:
-  base-url: http://localhost:8080
+  base-url: http://localhost:8083
   # 内部调用 Token（与 ticket-service 约定的静态 Token）
   internal-token: ${INTERNAL_TOKEN:miaoyu-internal-token-2026}
 

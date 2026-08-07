@@ -173,7 +173,9 @@ export type OrderConfirmCardData = {
 
 // 支付成功卡片
 export type OrderSuccessCardData = {
-  pickupCode: string
+  pickupCode?: string
+  payUrl?: string
+  paymentNo?: string
   movieName: string
   cinemaName: string
   cinemaAddress: string

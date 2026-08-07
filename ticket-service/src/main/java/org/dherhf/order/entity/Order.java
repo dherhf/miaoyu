@@ -58,4 +58,14 @@ public class Order {
     private LocalDateTime checkedAt;
 
     private LocalDateTime updatedAt;
+
+    private String paymentNo;
+
+    private String paymentToken;
+
+    private String payUrl;
+
+    private LocalDateTime payExpireAt;
+
+    private String businessNo;
 }

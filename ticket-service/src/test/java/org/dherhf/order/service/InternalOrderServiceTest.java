@@ -13,6 +13,8 @@ import org.dherhf.common.exception.BusinessException;
 import org.dherhf.movie.mapper.MovieMapper;
 import org.dherhf.order.dto.InternalLockSeatDTO;
 import org.dherhf.order.entity.Order;
+import org.dherhf.order.client.PaymentClient;
+import org.dherhf.order.config.PaymentProperties;
 import org.dherhf.order.vo.LockSeatResultVO;
 import org.dherhf.order.vo.OrderDetailVO;
 import org.dherhf.order.vo.OrderListVO;
@@ -75,6 +77,10 @@ class InternalOrderServiceTest {
     private org.dherhf.schedule.service.SeatBitmapService seatBitmapService;
     @Mock
     private PickupCodeService pickupCodeService;
+    @Mock
+    private PaymentClient paymentClient;
+    @Mock
+    private PaymentProperties paymentProperties;
     @Mock
     private RLock rLock;
 
@@ -177,26 +183,30 @@ class InternalOrderServiceTest {
 
         Order order = Order.builder()
                 .id(1L).userId(1L).status("pending").scheduleId(1L)
-                .movieName("流浪地球3").build();
+                .movieName("流浪地球3").orderNo("MY20260807000001")
+                .totalAmount(new BigDecimal("88.00")).build();
         when(orderMapper.selectById(1L)).thenReturn(order);
-
-        ScheduleSeat lockedSeat = ScheduleSeat.builder().id(200L).seatIndex(0).status("locked").build();
-        when(scheduleSeatMapper.selectList(any())).thenReturn(List.of(lockedSeat));
-        when(scheduleSeatMapper.updateById(any(ScheduleSeat.class))).thenReturn(1);
         when(orderMapper.updateById(any(Order.class))).thenReturn(1);
 
-        Schedule schedule = Schedule.builder().cinemaId(1L).build();
-        when(scheduleMapper.selectById(1L)).thenReturn(schedule);
+        when(paymentProperties.getExpireMinutes()).thenReturn(15);
+        when(paymentProperties.getPayeeUserId()).thenReturn("platform-001");
 
-        Cinema cinema = Cinema.builder().address("北京市朝阳区").build();
-        when(cinemaMapper.selectById(1L)).thenReturn(cinema);
-
-        when(pickupCodeService.getOrCreateCode(1L)).thenReturn("AB3K9X");
+        PaymentClient.CreatePaymentResponse payResp = new PaymentClient.CreatePaymentResponse();
+        PaymentClient.CreatePaymentData payData = new PaymentClient.CreatePaymentData();
+        payData.setPaymentIntent("PAY20260807.intent.sig");
+        payData.setPayUrl("https://aiztf.com/pay?intent=xxx");
+        payData.setExpiresAt("2026-08-07T13:00:00+08:00");
+        payResp.setSuccess(true);
+        payResp.setCode("0");
+        payResp.setData(payData);
+        when(paymentClient.createPayment(anyString(), anyString(), anyString()))
+                .thenReturn(payResp);
 
         PayResultVO result = orderService.internalPayOrder(1L, 1L, "req-internal-pay-001");
 
-        assertEquals("paid", result.getStatus());
-        assertNotNull(result.getPickupCode());
+        assertEquals("pending", result.getStatus());
+        assertNotNull(result.getPayUrl());
+        assertEquals("PAY20260807.intent.sig", result.getPaymentNo());
         System.out.println("[InternalOrderServiceTest] ✓ internalPayOrder_success PASSED");
     }
 

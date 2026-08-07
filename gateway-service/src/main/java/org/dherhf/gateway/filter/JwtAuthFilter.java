@@ -42,7 +42,8 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             "/api/v1/auth/captcha",
             "/api/v1/auth/sms-code",
             "/api/v1/auth/reset-password",
-            "/api/v1/admin/auth/login"
+            "/api/v1/admin/auth/login",
+            "/internal/payment/callback"
     );
 
     private final JwtUtil jwtUtil;

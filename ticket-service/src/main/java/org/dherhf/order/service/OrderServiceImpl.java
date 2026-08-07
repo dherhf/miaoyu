@@ -20,6 +20,8 @@ import org.dherhf.schedule.mapper.ScheduleSeatMapper;
 import org.dherhf.order.dto.InternalLockSeatDTO;
 import org.dherhf.order.dto.LockSeatDTO;
 import org.dherhf.movie.entity.Movie;
+import org.dherhf.order.client.PaymentClient;
+import org.dherhf.order.config.PaymentProperties;
 import org.dherhf.order.entity.Order;
 import org.dherhf.order.enums.OrderStatus;
 import org.dherhf.order.vo.*;
@@ -66,6 +68,8 @@ public class OrderServiceImpl implements OrderService {
     private final RedissonClient redissonClient;
     private final org.dherhf.notification.service.NotificationService notificationService;
     private final org.dherhf.schedule.service.SeatBitmapService seatBitmapService;
+    private final PaymentClient paymentClient;
+    private final PaymentProperties paymentProperties;
 
     @Override
     @Transactional
@@ -214,49 +218,42 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException(409, "订单已完成支付");
         }
 
-        // 模拟支付：直接更新状态
-        order.setStatus(OrderStatus.PAID.getCode());
-        order.setPaidAt(LocalDateTime.now());
+        // 调用AI知托付创建支付单
+        PaymentClient.CreatePaymentResponse paymentResp;
+        try {
+            paymentResp = paymentClient.createPayment(
+                    order.getOrderNo(),
+                    order.getTotalAmount().toPlainString(),
+                    paymentProperties.getPayeeUserId()
+            );
+        } catch (Exception e) {
+            log.error("创建支付单失败: orderId={}", orderId, e);
+            throw new BusinessException(500, "支付服务暂时不可用，请稍后重试");
+        }
+
+        if (paymentResp == null || !paymentResp.isSuccess() || paymentResp.getData() == null) {
+            log.error("创建支付单失败: orderId={}, resp={}", orderId, paymentResp);
+            throw new BusinessException(500, "支付服务暂时不可用，请稍后重试");
+        }
+
+        PaymentClient.CreatePaymentData payData = paymentResp.getData();
+
+        // 保存支付信息到订单，状态保持 PENDING
+        // 对方的 paymentIntent 作为 paymentNo 存储（回调中也用 businessNo 标识）
+        order.setPaymentNo(payData.getPaymentIntent());
+        order.setPayUrl(payData.getPayUrl());
+        order.setPayExpireAt(payData.getExpiresAt() != null ? java.time.OffsetDateTime.parse(payData.getExpiresAt()).toLocalDateTime() : null);
         orderMapper.updateById(order);
-
-        // 生成动态取票码（Redis, 60秒刷新）
-        String pickupCode = pickupCodeService.getOrCreateCode(order.getId());
-
-        // 更新座位状态 locked -> sold
-        List<ScheduleSeat> seats = scheduleSeatMapper.selectList(
-                new LambdaQueryWrapper<ScheduleSeat>()
-                        .eq(ScheduleSeat::getOrderId, orderId)
-                        .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.LOCKED.getCode()));
-        for (ScheduleSeat seat : seats) {
-            seat.setStatus(ScheduleSeatStatus.SOLD.getCode());
-            scheduleSeatMapper.updateById(seat);
-        }
-
-        // 取消延迟队列中的超时取消任务
-        orderTimeoutService.cancel(orderId);
-
-        // SETBIT schedule:seat:sold:{scheduleId} {seat_index} 1
-        for (ScheduleSeat seat : seats) {
-            seatBitmapService.setSold(order.getScheduleId(), seat.getSeatIndex());
-        }
-
-        Schedule schedule = scheduleMapper.selectById(order.getScheduleId());
-        Cinema cinema = cinemaMapper.selectById(schedule != null ? schedule.getCinemaId() : null);
-
-        // 异步发送支付成功通知
-        notificationService.sendNotification(
-                userId, "PAY_SUCCESS", "支付成功",
-                "影院地址：" + (cinema != null ? cinema.getAddress() : "") + "，放映时间：" + order.getShowDate() + " " + order.getStartTime() + "，取票码：" + pickupCode,
-                orderId);
 
         PayResultVO vo = PayResultVO.builder()
                 .id(order.getId())
                 .orderNo(order.getOrderNo())
                 .status(order.getStatus())
-                .pickupCode(pickupCode)
+                .payUrl(payData.getPayUrl())
+                .paymentNo(payData.getPaymentIntent())
+                .payExpireAt(order.getPayExpireAt())
                 .movieName(order.getMovieName())
                 .cinemaName(order.getCinemaName())
-                .cinemaAddress(cinema != null ? cinema.getAddress() : null)
                 .hallName(order.getHallName())
                 .showDate(order.getShowDate())
                 .startTime(order.getStartTime())
@@ -405,7 +402,15 @@ public class OrderServiceImpl implements OrderService {
         }
         OrderDetailVO vo = new OrderDetailVO();
         BeanUtils.copyProperties(order, vo);
-        if (!OrderStatus.PAID.getCode().equals(order.getStatus())) {
+        if (OrderStatus.PENDING.getCode().equals(order.getStatus())) {
+            vo.setPickupCode(null);
+            // 待支付订单返回支付页地址，前端可继续跳转支付
+            if (order.getPaymentNo() != null) {
+                vo.setPayUrl(order.getPayUrl());
+                vo.setPaymentNo(order.getPaymentNo());
+                vo.setPayExpireAt(order.getPayExpireAt());
+            }
+        } else if (!OrderStatus.PAID.getCode().equals(order.getStatus())) {
             vo.setPickupCode(null);
         } else {
             vo.setPickupCode(pickupCodeService.getOrCreateCode(order.getId()));
@@ -547,6 +552,34 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException(409, "订单状态非待支付，无法超时取消");
         }
 
+        // 如果有支付单，先查询支付状态，避免误取消已付款订单
+        if (order.getPaymentNo() != null) {
+            try {
+                // paymentNo 存的是对方的 paymentIntent，但 transfer-verifications 需要 businessNo + merchantOrderNo
+                // 回调时 order.businessNo 会被设置，查询用 businessNo；没有 businessNo 则跳过查询等回调
+                if (order.getBusinessNo() != null) {
+                    PaymentClient.QueryPaymentResponse queryResp = paymentClient.queryPayment(order.getBusinessNo(), order.getOrderNo());
+                    if (queryResp != null && queryResp.getData() != null) {
+                        String payStatus = queryResp.getData().getOrderStatus();
+                        if ("SUCCESS".equals(payStatus)) {
+                            // 支付已成功，直接确认出票
+                            log.info("Order {} payment SUCCESS on timeout check, confirming", orderId);
+                            confirmOrderPaid(order, order.getBusinessNo());
+                            return;
+                        }
+                        if ("PROCESSING".equals(payStatus) || "EXCEPTION_HANDLING".equals(payStatus)) {
+                            // 支付仍在进行中，不取消，等待回调
+                            log.info("Order {} payment still {}, deferring timeout cancel", orderId, payStatus);
+                            return;
+                        }
+                        // FAILED / REVERSED → 继续执行取消
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Order {} payment query failed on timeout, proceeding with cancel: {}", orderId, e.getMessage());
+            }
+        }
+
         // 释放座位
         List<ScheduleSeat> seats = scheduleSeatMapper.selectList(
                 new LambdaQueryWrapper<ScheduleSeat>()
@@ -599,6 +632,157 @@ public class OrderServiceImpl implements OrderService {
     public void scanTimeoutOrders() {
         LocalDateTime deadline = LocalDateTime.now().minusSeconds(ORDER_TIMEOUT_SECONDS);
         cancelTimeoutOrders(deadline);
+    }
+
+    /**
+     * 定时兜底查询：每分钟扫描有 paymentNo 且已过期的 pending 订单，
+     * 主动查询 AI知托付支付状态，回调丢失时补偿更新订单。
+     */
+    @Scheduled(fixedRate = 60000)
+    public void pollPendingPayments() {
+        List<Order> pendingOrders = orderMapper.selectList(
+                new LambdaQueryWrapper<Order>()
+                        .eq(Order::getStatus, OrderStatus.PENDING.getCode())
+                        .isNotNull(Order::getPaymentNo)
+                        .isNotNull(Order::getBusinessNo)
+                        .isNotNull(Order::getPayExpireAt)
+                        .lt(Order::getPayExpireAt, LocalDateTime.now()));
+        if (pendingOrders.isEmpty()) {
+            return;
+        }
+        for (Order order : pendingOrders) {
+            try {
+                PaymentClient.QueryPaymentResponse queryResp = paymentClient.queryPayment(order.getBusinessNo(), order.getOrderNo());
+                if (queryResp == null || queryResp.getData() == null) {
+                    continue;
+                }
+                PaymentClient.QueryPaymentData data = queryResp.getData();
+                if ("SUCCESS".equals(data.getOrderStatus())) {
+                    confirmOrderPaid(order, order.getBusinessNo());
+                } else if ("FAILED".equals(data.getOrderStatus()) || "REVERSED".equals(data.getOrderStatus())) {
+                    failOrder(order, data.getOrderStatus());
+                }
+                // PROCESSING / EXCEPTION_HANDLING 继续等待
+            } catch (Exception e) {
+                log.warn("Poll payment status failed: orderId={}, paymentNo={}, err={}",
+                        order.getId(), order.getPaymentNo(), e.getMessage());
+            }
+        }
+    }
+
+    @Override
+    @Transactional
+    public String handlePaymentCallback(String paymentNo, String merchantOrderNo,
+                                        String businessNo, String status, String amount) {
+        Order order = orderMapper.selectOne(
+                new LambdaQueryWrapper<Order>().eq(Order::getOrderNo, merchantOrderNo));
+        if (order == null) {
+            log.warn("[PaymentCallback] 订单不存在: {}", merchantOrderNo);
+            return "FAIL";
+        }
+
+        // 幂等：已 PAID 直接返回 SUCCESS
+        if (OrderStatus.PAID.getCode().equals(order.getStatus())) {
+            log.info("[PaymentCallback] 订单已支付，幂等返回: {}", merchantOrderNo);
+            return "SUCCESS";
+        }
+
+        // 非 pending 状态（已取消/已退票），不处理但返回 SUCCESS 避免重试
+        if (!OrderStatus.PENDING.getCode().equals(order.getStatus())) {
+            log.warn("[PaymentCallback] 订单状态非pending: {}, status={}", merchantOrderNo, order.getStatus());
+            return "SUCCESS";
+        }
+
+        // 校验金额
+        if (order.getTotalAmount().compareTo(new java.math.BigDecimal(amount)) != 0) {
+            log.warn("[PaymentCallback] 金额不一致: order={}, callback={}", order.getTotalAmount(), amount);
+            return "FAIL";
+        }
+
+        // 校验 paymentNo 一致
+        if (order.getPaymentNo() == null || !order.getPaymentNo().equals(paymentNo)) {
+            log.warn("[PaymentCallback] paymentNo不匹配: order={}, callback={}", order.getPaymentNo(), paymentNo);
+            return "FAIL";
+        }
+
+        if ("SUCCESS".equals(status)) {
+            return confirmOrderPaid(order, businessNo);
+        } else {
+            // FAILED / EXPIRED → 取消订单，释放座位
+            return failOrder(order, status);
+        }
+    }
+
+    /**
+     * 确认订单支付成功：更新状态、生成取票码、座位变 sold、发通知。
+     */
+    private String confirmOrderPaid(Order order, String businessNo) {
+        order.setStatus(OrderStatus.PAID.getCode());
+        order.setPaidAt(LocalDateTime.now());
+        order.setBusinessNo(businessNo);
+        orderMapper.updateById(order);
+
+        String pickupCode = pickupCodeService.getOrCreateCode(order.getId());
+
+        List<ScheduleSeat> seats = scheduleSeatMapper.selectList(
+                new LambdaQueryWrapper<ScheduleSeat>()
+                        .eq(ScheduleSeat::getOrderId, order.getId())
+                        .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.LOCKED.getCode()));
+        for (ScheduleSeat seat : seats) {
+            seat.setStatus(ScheduleSeatStatus.SOLD.getCode());
+            scheduleSeatMapper.updateById(seat);
+        }
+        for (ScheduleSeat seat : seats) {
+            seatBitmapService.setSold(order.getScheduleId(), seat.getSeatIndex());
+        }
+
+        orderTimeoutService.cancel(order.getId());
+
+        Schedule schedule = scheduleMapper.selectById(order.getScheduleId());
+        Cinema cinema = cinemaMapper.selectById(schedule != null ? schedule.getCinemaId() : null);
+
+        notificationService.sendNotification(
+                order.getUserId(), "PAY_SUCCESS", "支付成功",
+                "影院地址：" + (cinema != null ? cinema.getAddress() : "") + "，放映时间：" + order.getShowDate() + " " + order.getStartTime() + "，取票码：" + pickupCode,
+                order.getId());
+
+        log.info("[PaymentCallback] 订单支付成功: {}, paymentNo={}", order.getOrderNo(), order.getPaymentNo());
+        return "SUCCESS";
+    }
+
+    /**
+     * 支付失败/过期：取消订单，释放座位。
+     */
+    private String failOrder(Order order, String failStatus) {
+        List<ScheduleSeat> seats = scheduleSeatMapper.selectList(
+                new LambdaQueryWrapper<ScheduleSeat>()
+                        .eq(ScheduleSeat::getOrderId, order.getId())
+                        .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.LOCKED.getCode()));
+        for (ScheduleSeat seat : seats) {
+            seat.setStatus(ScheduleSeatStatus.AVAILABLE.getCode());
+            seat.setLockedAt(null);
+            seat.setOrderId(null);
+            scheduleSeatMapper.updateById(seat);
+        }
+        for (ScheduleSeat seat : seats) {
+            seatBitmapService.clearOccupiedIfNotSold(order.getScheduleId(), seat.getSeatIndex());
+        }
+
+        order.setStatus(OrderStatus.CANCELLED.getCode());
+        order.setCancelledAt(LocalDateTime.now());
+        order.setCancelReason("支付" + failStatus);
+        orderMapper.updateById(order);
+
+        orderTimeoutService.cancel(order.getId());
+        pickupCodeService.removeCode(order.getId());
+
+        notificationService.sendNotification(
+                order.getUserId(), "PAY_FAILED", "支付失败",
+                "订单" + order.getOrderNo() + "支付" + ("EXPIRED".equals(failStatus) ? "已过期" : "失败") + "，订单已取消，座位已释放。",
+                order.getId());
+
+        log.info("[PaymentCallback] 订单支付失败: {}, status={}", order.getOrderNo(), failStatus);
+        return "SUCCESS";
     }
 
     private String generateOrderNo() {

@@ -63,9 +63,31 @@ export default function OrderListPage() {
 
   const handlePay = async (order: OrderVO) => {
     try {
-      await payOrder(order.id)
-      message.success('支付成功')
-      await handleOpenDetail(order.id)
+      const res = await payOrder(order.id)
+      if (res.payUrl) {
+        message.info('正在打开AI知托付支付页...')
+        window.open(res.payUrl, '_blank')
+        // 轮询订单状态，等待支付结果
+        message.loading({ content: '等待支付结果...', key: 'payWait', duration: 0 })
+        for (let i = 0; i < 40; i++) {
+          await new Promise((r) => setTimeout(r, 3000))
+          const detail = await getOrderDetail(order.id)
+          if (detail.status === 'paid') {
+            message.success({ content: '支付成功', key: 'payWait' })
+            setDetail(detail)
+            return
+          }
+          if (detail.status === 'cancelled') {
+            message.warning({ content: '订单已取消', key: 'payWait' })
+            refreshCurrentPage()
+            return
+          }
+        }
+        message.destroy('payWait')
+      } else {
+        message.success('支付成功')
+        await handleOpenDetail(order.id)
+      }
     } catch {
       // 拦截器已统一提示
     }

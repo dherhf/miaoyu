@@ -28,6 +28,9 @@ public class OrderDetailVO {
     private BigDecimal totalAmount;
     private String status;
     private String pickupCode;
+    private String payUrl;
+    private String paymentNo;
+    private LocalDateTime payExpireAt;
     private LocalDateTime createdAt;
     private LocalDateTime paidAt;
     private LocalDateTime cancelledAt;

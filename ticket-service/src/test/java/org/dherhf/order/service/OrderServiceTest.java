@@ -12,6 +12,8 @@ import org.dherhf.cinema.mapper.HallCellMapper;
 import org.dherhf.cinema.mapper.HallMapper;
 import org.dherhf.movie.mapper.MovieMapper;
 import org.dherhf.order.mapper.OrderMapper;
+import org.dherhf.order.client.PaymentClient;
+import org.dherhf.order.config.PaymentProperties;
 import org.dherhf.schedule.mapper.ScheduleMapper;
 import org.dherhf.schedule.mapper.ScheduleSeatMapper;
 import org.dherhf.order.dto.LockSeatDTO;
@@ -79,6 +81,10 @@ class OrderServiceTest {
     private org.dherhf.schedule.service.SeatBitmapService seatBitmapService;
     @Mock
     private PickupCodeService pickupCodeService;
+    @Mock
+    private PaymentClient paymentClient;
+    @Mock
+    private PaymentProperties paymentProperties;
     @Mock
     private RLock rLock;
 
@@ -178,13 +184,49 @@ class OrderServiceTest {
     @Test
     void payOrder_success() {
         System.out.println("[OrderServiceTest] ▶ payOrder_success");
-        Order order = Order.builder().id(1L).userId(1L).status("pending").scheduleId(1L).movieName("流浪地球3").build();
+        Order order = Order.builder().id(1L).userId(1L).status("pending").scheduleId(1L)
+                .movieName("流浪地球3").orderNo("MY20260807000001")
+                .totalAmount(new BigDecimal("88.00")).build();
         when(orderMapper.selectById(1L)).thenReturn(order);
+        when(orderMapper.updateById(any(Order.class))).thenReturn(1);
+
+        when(paymentProperties.getExpireMinutes()).thenReturn(15);
+        when(paymentProperties.getPayeeUserId()).thenReturn("platform-001");
+
+        PaymentClient.CreatePaymentResponse payResp = new PaymentClient.CreatePaymentResponse();
+        PaymentClient.CreatePaymentData payData = new PaymentClient.CreatePaymentData();
+        payData.setPaymentIntent("PAY20260807.intent.sig");
+        payData.setPayUrl("https://aiztf.com/pay?intent=xxx");
+        payData.setExpiresAt("2026-08-07T13:00:00+08:00");
+        payResp.setSuccess(true);
+        payResp.setCode("0");
+        payResp.setData(payData);
+        when(paymentClient.createPayment(anyString(), anyString(), anyString()))
+                .thenReturn(payResp);
+
+        PayResultVO result = orderService.payOrder(1L, 1L, "req-002");
+
+        assertEquals("pending", result.getStatus());
+        assertNotNull(result.getPayUrl());
+        assertEquals("PAY20260807.intent.sig", result.getPaymentNo());
+        verify(pickupCodeService, never()).getOrCreateCode(any());
+        System.out.println("[OrderServiceTest] ✓ payOrder_success PASSED");
+    }
+
+    @Test
+    void handlePaymentCallback_success() {
+        System.out.println("[OrderServiceTest] ▶ handlePaymentCallback_success");
+        Order order = Order.builder().id(1L).userId(1L).status("pending").orderNo("MY20260807000001")
+                .paymentNo("PAY20260807").totalAmount(new BigDecimal("88.00"))
+                .scheduleId(1L).build();
+        when(orderMapper.selectOne(any())).thenReturn(order);
+        when(orderMapper.selectById(1L)).thenReturn(order);
+        when(orderMapper.updateById(any(Order.class))).thenReturn(1);
+        when(pickupCodeService.getOrCreateCode(1L)).thenReturn("AB3K9X");
 
         ScheduleSeat lockedSeat = ScheduleSeat.builder().id(200L).seatIndex(0).status("locked").build();
         when(scheduleSeatMapper.selectList(any())).thenReturn(List.of(lockedSeat));
         when(scheduleSeatMapper.updateById(any(ScheduleSeat.class))).thenReturn(1);
-        when(orderMapper.updateById(any(Order.class))).thenReturn(1);
 
         Schedule schedule = Schedule.builder().cinemaId(1L).build();
         when(scheduleMapper.selectById(1L)).thenReturn(schedule);
@@ -192,13 +234,42 @@ class OrderServiceTest {
         Cinema cinema = Cinema.builder().address("北京市朝阳区").build();
         when(cinemaMapper.selectById(1L)).thenReturn(cinema);
 
-        when(pickupCodeService.getOrCreateCode(1L)).thenReturn("AB3K9X");
+        String result = orderService.handlePaymentCallback(
+                "PAY20260807", "MY20260807000001", "BIZ20260807", "SUCCESS", "88.00");
 
-        PayResultVO result = orderService.payOrder(1L, 1L, "req-002");
+        assertEquals("SUCCESS", result);
+        assertEquals("paid", order.getStatus());
+        assertEquals("BIZ20260807", order.getBusinessNo());
+        System.out.println("[OrderServiceTest] ✓ handlePaymentCallback_success PASSED");
+    }
 
-        assertEquals("paid", result.getStatus());
-        assertNotNull(result.getPickupCode());
-        System.out.println("[OrderServiceTest] ✓ payOrder_success PASSED");
+    @Test
+    void handlePaymentCallback_alreadyPaid_idempotent() {
+        System.out.println("[OrderServiceTest] ▶ handlePaymentCallback_alreadyPaid_idempotent");
+        Order order = Order.builder().id(1L).userId(1L).status("paid").orderNo("MY20260807000001")
+                .paymentNo("PAY20260807").totalAmount(new BigDecimal("88.00")).build();
+        when(orderMapper.selectOne(any())).thenReturn(order);
+
+        String result = orderService.handlePaymentCallback(
+                "PAY20260807", "MY20260807000001", "BIZ20260807", "SUCCESS", "88.00");
+
+        assertEquals("SUCCESS", result);
+        verify(orderMapper, never()).updateById(any(Order.class));
+        System.out.println("[OrderServiceTest] ✓ handlePaymentCallback_alreadyPaid_idempotent PASSED");
+    }
+
+    @Test
+    void handlePaymentCallback_amountMismatch_returnsFail() {
+        System.out.println("[OrderServiceTest] ▶ handlePaymentCallback_amountMismatch_returnsFail");
+        Order order = Order.builder().id(1L).userId(1L).status("pending").orderNo("MY20260807000001")
+                .paymentNo("PAY20260807").totalAmount(new BigDecimal("88.00")).build();
+        when(orderMapper.selectOne(any())).thenReturn(order);
+
+        String result = orderService.handlePaymentCallback(
+                "PAY20260807", "MY20260807000001", "BIZ20260807", "SUCCESS", "99.00");
+
+        assertEquals("FAIL", result);
+        System.out.println("[OrderServiceTest] ✓ handlePaymentCallback_amountMismatch_returnsFail PASSED");
     }
 
     @Test

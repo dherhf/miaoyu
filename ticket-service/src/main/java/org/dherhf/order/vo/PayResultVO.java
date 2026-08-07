@@ -7,6 +7,7 @@ import lombok.AllArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 @Data
@@ -27,4 +28,7 @@ public class PayResultVO {
     private LocalTime startTime;
     private String seatInfo;
     private BigDecimal totalAmount;
+    private String payUrl;
+    private String paymentNo;
+    private LocalDateTime payExpireAt;
 }
