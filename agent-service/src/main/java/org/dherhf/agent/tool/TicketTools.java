@@ -192,13 +192,16 @@ public class TicketTools {
         return toJson(result);
     }
 
-    @Tool("查询当前用户的订单列表。用户表达查询/修改/退票意图时调用。返回后端原始 JSON 数据。")
+    @Tool("查询当前用户的订单列表，支持分页。用户表达查询/修改/退票意图时调用。返回后端原始 JSON 数据。")
     public String queryOrders(
-            @P("订单状态过滤，如'pending'（待支付）、'paid'（已支付）、'refunded'（已退票）；查全部传空字符串") String status
+            @P("订单状态过滤，如'pending'（待支付）、'paid'（已支付）、'refunded'（已退票）；查全部传空字符串") String status,
+            @P("页码，从1开始；用户未指定时传空字符串默认第1页，每页固定10条") String page
     ) {
         Long userId = requireUserId();
-        log.info("[Tool:queryOrders] userId={}, status={}", userId, status);
-        Result<Object> result = ticketClient.queryUserOrders(userId, status);
+        Integer pageNum = parseInt(page);
+        if (pageNum == null || pageNum < 1) pageNum = 1;
+        log.info("[Tool:queryOrders] userId={}, status={}, page={}", userId, status, pageNum);
+        Result<Object> result = ticketClient.queryUserOrders(userId, status, pageNum, 10);
         if (result.getCode() == 0) {
             emitCard("order_list", result.getData());
         }
@@ -258,11 +261,11 @@ public class TicketTools {
     ) {
         Long userId = requireUserId();
         Long orderIdLong = parseLong(orderId);
+        if (orderIdLong == null) {
+            return toJson(Result.error(ErrorCodeEnum.TOOL_ERROR.getCode(), "订单ID无效，请从 queryOrders 返回结果中获取有效订单ID"));
+        }
         log.info("[Tool:queryOrderDetail] orderId={}, userId={}", orderIdLong, userId);
         Result<Object> result = ticketClient.queryOrderDetail(orderIdLong, userId);
-        if (result.getCode() == 0) {
-            emitCard("order_success", result.getData());
-        }
         return toJson(result);
     }
 
@@ -272,6 +275,9 @@ public class TicketTools {
     ) {
         Long userId = requireUserId();
         Long orderIdLong = parseLong(orderId);
+        if (orderIdLong == null) {
+            return toJson(Result.error(ErrorCodeEnum.TOOL_ERROR.getCode(), "订单ID无效，请从 queryOrders 返回结果中获取有效订单ID"));
+        }
         String requestId = getRequestId();
         log.info("[Tool:payOrder] userId={}, orderId={}, requestId={}", userId, orderIdLong, requestId);
 
@@ -296,6 +302,9 @@ public class TicketTools {
     ) {
         Long userId = requireUserId();
         Long orderIdLong = parseLong(orderId);
+        if (orderIdLong == null) {
+            return toJson(Result.error(ErrorCodeEnum.TOOL_ERROR.getCode(), "订单ID无效，请从 queryOrders 返回结果中获取有效订单ID"));
+        }
         String requestId = getRequestId();
         log.info("[Tool:cancelOrder] userId={}, orderId={}, requestId={}", userId, orderIdLong, requestId);
 
@@ -310,7 +319,7 @@ public class TicketTools {
         if (result.getCode() == 0) {
             idempotentService.put(userId, requestId, json);
         }
-        // 取消成功后清空卡片缓冲区，避免上游工具（如 queryOrderDetail）的卡片被推送
+        // 取消成功后清空卡片缓冲区，确保本轮不推送任何卡片
         cardBuffer.clear();
         return json;
     }
@@ -321,6 +330,9 @@ public class TicketTools {
     ) {
         Long userId = requireUserId();
         Long orderIdLong = parseLong(orderId);
+        if (orderIdLong == null) {
+            return toJson(Result.error(ErrorCodeEnum.TOOL_ERROR.getCode(), "订单ID无效，请从 queryOrders 返回结果中获取有效订单ID"));
+        }
         String requestId = getRequestId();
         log.info("[Tool:refundOrder] userId={}, orderId={}, requestId={}", userId, orderIdLong, requestId);
 

@@ -138,10 +138,10 @@ class TicketServiceClientTest {
     @DisplayName("queryUserOrders - 成功返回订单列表")
     void queryUserOrders_success() {
         System.out.println("[TicketServiceClientTest] ▶ queryUserOrders_success");
-        when(feignClient.queryUserOrders(any(), any()))
+        when(feignClient.queryUserOrders(any(), any(), any(), any()))
                 .thenReturn(Result.success(Map.of("total", 1, "records", List.of())));
 
-        Result<Object> result = client.queryUserOrders(1L, "paid");
+        Result<Object> result = client.queryUserOrders(1L, "paid", 1, 20);
 
         assertEquals(0, result.getCode());
         System.out.println("[TicketServiceClientTest] ✓ queryUserOrders_success PASSED");
@@ -151,10 +151,10 @@ class TicketServiceClientTest {
     @DisplayName("queryUserOrders - status为null查全部")
     void queryUserOrders_nullStatus() {
         System.out.println("[TicketServiceClientTest] ▶ queryUserOrders_nullStatus");
-        when(feignClient.queryUserOrders(any(), any()))
+        when(feignClient.queryUserOrders(any(), any(), any(), any()))
                 .thenReturn(Result.success(Map.of("total", 0, "records", List.of())));
 
-        Result<Object> result = client.queryUserOrders(1L, null);
+        Result<Object> result = client.queryUserOrders(1L, null, 1, 20);
 
         assertEquals(0, result.getCode());
         System.out.println("[TicketServiceClientTest] ✓ queryUserOrders_nullStatus PASSED");
