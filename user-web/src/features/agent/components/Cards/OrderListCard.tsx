@@ -71,14 +71,14 @@ export default function OrderListCard({ data, onAction }: BaseCardProps<OrderLis
     setActiveFilter(key)
   }
 
-  const handleRefund = (orderNo: string) => {
+  const handleRefund = (orderId: number) => {
     modal.confirm({
       title: '确认退票',
       content: '确认退票？放映前可退，将释放座位。款项将原路返还。',
       okText: '确认退票',
       cancelText: '取消',
       onOk: () => {
-        onAction(`退票${orderNo}`)
+        onAction(`退票${orderId}`)
       },
     })
   }
@@ -160,14 +160,14 @@ export default function OrderListCard({ data, onAction }: BaseCardProps<OrderLis
                     <Button
                       type="primary"
                       style={{ flex: 1 }}
-                      onClick={() => onAction(`支付订单${order.orderNo}`)}
+                      onClick={() => onAction(`支付订单${order.id}`)}
                     >
                       去支付
                     </Button>
                     <Button
                       type="default"
                       style={{ flex: 1 }}
-                      onClick={() => onAction(`取消订单${order.orderNo}`)}
+                      onClick={() => onAction(`取消订单${order.id}`)}
                     >
                       取消订单
                     </Button>
@@ -178,7 +178,7 @@ export default function OrderListCard({ data, onAction }: BaseCardProps<OrderLis
                     <Button
                       type="primary"
                       style={{ flex: 1 }}
-                      onClick={() => onAction(`查看订单${order.orderNo}取票码`)}
+                      onClick={() => onAction(`查看订单${order.id}取票码`)}
                     >
                       查看取票码
                     </Button>
@@ -186,7 +186,7 @@ export default function OrderListCard({ data, onAction }: BaseCardProps<OrderLis
                       type="default"
                       danger
                       style={{ flex: 1 }}
-                      onClick={() => handleRefund(order.orderNo)}
+                      onClick={() => handleRefund(order.id)}
                     >
                       退票
                     </Button>

@@ -26,12 +26,20 @@ class OutputValidatorServiceTest {
                 "## 角色 购票助手", "## 槽位定义 movieName", "## 意图分类 BUY_TICKET",
                 "movieId", "movieName", "cinemaId", "cinemaName", "hallId", "hallType", "hallName",
                 "time", "count", "schedulesId", "seatIds",
-                "negateSlot", "priceMax", "negateCount",
-                "影片 ID", "影院 ID", "影片名称"
+                "negateSlot", "priceMax", "negateCount"
         })
         @DisplayName("泄露系统提示/槽位定义拦截返回false")
         void leakBlock(String text) {
             assertThat(validator.validate(text)).isFalse();
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {
+                "购票数量", "影片 ID", "影院 ID", "影片名称", "座位 ID", "影厅名称"
+        })
+        @DisplayName("中文业务用语不应被误杀，返回true")
+        void chineseBusinessTermsPass(String text) {
+            assertThat(validator.validate(text)).isTrue();
         }
     }
 }

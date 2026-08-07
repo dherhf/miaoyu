@@ -28,10 +28,9 @@ public class OutputValidatorService {
         set.add("## 意图分类");
         // 角色标记
         set.add("## 角色");
-        // 所有槽位 key（中英文均加入，防止 LLM 输出槽位名）
+        // 所有槽位的英文 key（中文描述如"购票数量"等属于正常业务用语，不加黑名单以免误杀）
         for (SlotEnum slot : SlotEnum.values()) {
             set.add(slot.getKey());
-            set.add(slot.getDescriptionZh());
         }
         FORBIDDEN_OUTPUT_MARKERS = Set.copyOf(set);
     }
