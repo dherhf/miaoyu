@@ -7,7 +7,6 @@ import org.dherhf.schedule.enums.ScheduleSeatStatus;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 
@@ -170,11 +169,11 @@ public class SeatBitmapService {
             String soldKey = soldKey(scheduleId);
             String[] statuses = new String[totalSeats];
             Arrays.fill(statuses, ScheduleSeatStatus.AVAILABLE.getCode());
-            // 批量读取 occupied bitmap
-            String occVal = redisTemplate.opsForValue().get(occKey);
-            byte[] occBits = occVal != null ? occVal.getBytes(StandardCharsets.ISO_8859_1) : null;
-            String soldVal = redisTemplate.opsForValue().get(soldKey);
-            byte[] soldBits = soldVal != null ? soldVal.getBytes(StandardCharsets.ISO_8859_1) : null;
+            // 直接读取原始字节，避免 StringRedisTemplate 的 UTF-8 解码损坏 Bitmap 数据
+            byte[] occBits = redisTemplate.execute((org.springframework.data.redis.core.RedisCallback<byte[]>)
+                    connection -> connection.stringCommands().get(occKey.getBytes()));
+            byte[] soldBits = redisTemplate.execute((org.springframework.data.redis.core.RedisCallback<byte[]>)
+                    connection -> connection.stringCommands().get(soldKey.getBytes()));
             for (int i = 0; i < totalSeats; i++) {
                 boolean occupied = getBit(occBits, i);
                 boolean sold = getBit(soldBits, i);
