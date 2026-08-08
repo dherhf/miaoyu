@@ -32,7 +32,7 @@ import {
   SCHEDULE_STATUS_LABELS,
 } from './store';
 import type { ScheduleItem } from './types';
-import { ScheduleForm, LANGUAGE_VERSIONS } from './ScheduleForm';
+import { ScheduleForm } from './ScheduleForm';
 import type { ScheduleFormData, ScheduleFormErr } from './ScheduleForm';
 import styles from './SchedulePage.module.css';
 
@@ -67,7 +67,7 @@ export function SchedulePage() {
     showTime: '',
     endTime: '',
     price: 0,
-    languageVersion: 'chinese_2d',
+    languageVersion: '国语 2D',
   });
   const [formErrors, setFormErrors] = useState<ScheduleFormErr>({});
 
@@ -109,7 +109,7 @@ export function SchedulePage() {
       showTime: '',
       endTime: '',
       price: 0,
-      languageVersion: 'chinese_2d',
+      languageVersion: '国语 2D',
     });
     setFormErrors({});
     setModalOpen(true);
@@ -280,7 +280,7 @@ export function SchedulePage() {
         <div>
           <div className={styles.cellMovieName}>{record.movieName}</div>
           <div className={styles.cellSubText}>
-            {LANGUAGE_VERSIONS.find(v => v.value === record.languageVersion)?.label}
+            {record.languageVersion}
           </div>
         </div>
       ),
