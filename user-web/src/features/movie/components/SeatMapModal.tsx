@@ -23,6 +23,8 @@ export default function SeatMapModal({
   const [lockResult, setLockResult] = useState<LockSeatResultVO | null>(null)
   const [payResult, setPayResult] = useState<PayResultVO | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [countdownSeconds, setCountdownSeconds] = useState(0)
+  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
   const [pickupCode, setPickupCode] = useState<string | null>(null)
   const [pickupExpiresIn, setPickupExpiresIn] = useState(60)
   const pickupTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -135,6 +137,24 @@ export default function SeatMapModal({
     }
   }, [])
 
+  // 确认阶段倒计时
+  useEffect(() => {
+    if (phase !== 'confirm' || !lockResult) return
+    const init = lockResult.expireAt
+      ? Math.max(0, Math.ceil((new Date(lockResult.expireAt).getTime() - Date.now()) / 1000))
+      : (lockResult.remainingTime ?? 0)
+    setCountdownSeconds(init)
+
+    countdownTimerRef.current = setInterval(() => {
+      setCountdownSeconds((prev) => {
+        const next = prev - 1
+        if (next <= 0) { clearInterval(countdownTimerRef.current); return 0 }
+        return next
+      })
+    }, 1000)
+    return () => { clearInterval(countdownTimerRef.current) }
+  }, [phase, lockResult])
+
   useEffect(() => {
     if (phase !== 'success' || !payResult?.id) return
     refreshPickupCode(payResult.id)
@@ -203,9 +223,20 @@ export default function SeatMapModal({
             <div className="flex justify-between"><span className="text-muted">数量</span><span>{lockResult.ticketCount} 张</span></div>
             <div className="flex justify-between font-medium text-base pt-1"><span className="text-heading">合计</span><span className="text-accent">¥{Number(lockResult.totalAmount).toFixed(1)}</span></div>
           </div>
+
+          {/* 支付倒计时 */}
+          <div className="flex items-center justify-between rounded bg-[#fffbeb] px-3 py-2 mb-3 border border-[#fde68a]">
+            <span className="text-[13px] text-[#b45309]">支付倒计时</span>
+            <span className={`font-mono text-base font-bold ${countdownSeconds > 0 && countdownSeconds <= 60 ? 'text-[#dc2626]' : 'text-[#b45309]'}`}>
+              {String(Math.floor(countdownSeconds / 60)).padStart(2, '0')}:{String(countdownSeconds % 60).padStart(2, '0')}
+            </span>
+          </div>
+
           <div className="flex gap-2">
             <Button onClick={() => { setPhase('seats'); setLockResult(null) }}>返回选座</Button>
-            <Button type="primary" loading={submitting} onClick={handlePay} className="flex-1">立即支付</Button>
+            <Button type="primary" loading={submitting} onClick={handlePay} disabled={countdownSeconds <= 0} className="flex-1">
+              {countdownSeconds <= 0 ? '订单已失效' : '立即支付'}
+            </Button>
           </div>
         </div>
       ) : seatMap ? (

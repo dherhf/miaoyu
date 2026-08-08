@@ -615,6 +615,10 @@ public class OrderServiceImpl implements OrderService {
     private OrderListVO toListVO(Order order) {
         OrderListVO vo = new OrderListVO();
         BeanUtils.copyProperties(order, vo);
+        if (OrderStatus.PENDING.getCode().equals(order.getStatus()) && order.getCreatedAt() != null) {
+            int remaining = ORDER_TIMEOUT_SECONDS - (int) java.time.Duration.between(order.getCreatedAt(), LocalDateTime.now()).getSeconds();
+            vo.setRemainingSeconds(Math.max(0, remaining));
+        }
         return vo;
     }
 }

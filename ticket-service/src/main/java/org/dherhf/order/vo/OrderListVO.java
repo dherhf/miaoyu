@@ -29,4 +29,5 @@ public class OrderListVO {
     private String status;
     private LocalDateTime createdAt;
     private LocalDateTime paidAt;
+    private Integer remainingSeconds;
 }
