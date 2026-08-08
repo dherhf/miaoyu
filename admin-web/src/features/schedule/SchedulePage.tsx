@@ -275,7 +275,10 @@ export function SchedulePage() {
   const columns: ProColumns<ScheduleItem>[] = [
     {
       title: '影片',
-      dataIndex: 'movieName',
+      dataIndex: 'movieId',
+      valueType: 'select',
+      fieldProps: { showSearch: true, allowClear: true, placeholder: '请选择影片' },
+      valueEnum: Object.fromEntries(movies.map(m => [String(m.id), { text: m.name }])),
       render: (_, record) => (
         <div>
           <div className={styles.cellMovieName}>{record.movieName}</div>
@@ -304,7 +307,10 @@ export function SchedulePage() {
     },
     {
       title: '影厅',
-      dataIndex: 'hallName',
+      dataIndex: 'hallId',
+      valueType: 'select',
+      fieldProps: { showSearch: true, allowClear: true, placeholder: '请选择影厅' },
+      valueEnum: Object.fromEntries(allHalls.map(h => [String(h.id), { text: h.name }])),
       render: (_, record) => (
         <div>
           <div className={styles.cellMovieName}>{record.hallName}</div>
@@ -447,7 +453,7 @@ export function SchedulePage() {
           request={async (params) => {
             await fetchSchedules({
               cinemaId: selectedCinemaId,
-              movieName: params.movieName || undefined,
+              movieId: params.movieId || undefined,
               hallId: params.hallId || undefined,
               status: params.status === 'available' ? 'onsale' : params.status,
               page: params.current ?? 1,
