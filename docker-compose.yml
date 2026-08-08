@@ -17,7 +17,7 @@ services:
       target: ticket-service
     container_name: miaoyu-ticket
     restart: unless-stopped
-    mem_limit: 500m
+    mem_limit: 700m
     environment:
       MYSQL_HOST: ${MYSQL_HOST}
       MYSQL_PORT: ${MYSQL_PORT}
@@ -48,7 +48,7 @@ services:
       target: agent-service
     container_name: miaoyu-agent
     restart: unless-stopped
-    mem_limit: 500m
+    mem_limit: 700m
     depends_on:
       ticket-service:
         condition: service_started
@@ -74,7 +74,7 @@ services:
       target: gateway-service
     container_name: miaoyu-gateway
     restart: unless-stopped
-    mem_limit: 350m
+    mem_limit: 500m
     depends_on:
       ticket-service:
         condition: service_started

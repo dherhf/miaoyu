@@ -43,7 +43,7 @@ WORKDIR /app
 COPY --from=builder /build/ticket-service/target/ticket-service-*.jar app.jar
 
 EXPOSE 8080
-ENTRYPOINT ["java", "-Xmx300m", "-Xms150m", "-XX:+UseG1GC", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=60.0", "-XX:InitialRAMPercentage=30.0", "-XX:+UseG1GC", "-jar", "app.jar"]
 
 # ====== agent-service 运行阶段 ======
 FROM eclipse-temurin:21-jre AS agent-service
@@ -52,7 +52,7 @@ WORKDIR /app
 COPY --from=builder /build/agent-service/target/agent-service-*.jar app.jar
 
 EXPOSE 8081
-ENTRYPOINT ["java", "-Xmx300m", "-Xms150m", "-XX:+UseG1GC", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=60.0", "-XX:InitialRAMPercentage=30.0", "-XX:+UseG1GC", "-jar", "app.jar"]
 
 # ====== gateway-service 运行阶段 ======
 FROM eclipse-temurin:21-jre AS gateway-service
@@ -61,4 +61,4 @@ WORKDIR /app
 COPY --from=builder /build/gateway-service/target/gateway-service-*.jar app.jar
 
 EXPOSE 9000
-ENTRYPOINT ["java", "-Xmx200m", "-Xms100m", "-XX:+UseG1GC", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=60.0", "-XX:InitialRAMPercentage=30.0", "-XX:+UseG1GC", "-jar", "app.jar"]
