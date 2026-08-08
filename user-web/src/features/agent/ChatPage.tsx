@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { App, Popconfirm } from 'antd'
-import { DeleteOutlined, MessageOutlined, PlusOutlined, SendOutlined } from '@ant-design/icons'
+import { App, Drawer, Popconfirm } from 'antd'
+import { DeleteOutlined, MessageOutlined, PlusOutlined, SendOutlined, UnorderedListOutlined } from '@ant-design/icons'
 import { Streamdown } from 'streamdown'
 import { createSession, deleteSession, getSessionDetail, listSessions, sendMessage } from './api'
 import CardRenderer from './components/CardRenderer'
@@ -19,6 +19,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(Boolean(id))
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const locallyCreatedRef = useRef<string | null>(null)
@@ -225,47 +226,71 @@ export default function ChatPage() {
     }
   }
 
+  /** 会话列表内容（桌面侧边栏和移动端抽屉共用） */
+  const renderSessionList = (onNavigate?: () => void) => (
+    <>
+      <div className="p-2 border-b border-border">
+        <button
+          onClick={() => {
+            handleNewChat()
+            onNavigate?.()
+          }}
+          className="w-full h-9 rounded-lg border border-dashed border-accent-line bg-accent-soft text-accent text-sm font-medium cursor-pointer flex items-center justify-center gap-1 transition-colors duration-150"
+        >
+          <PlusOutlined />
+          新对话
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-1">
+        {sessions.map((s) => (
+          <div
+            key={s.sessionId}
+            onClick={() => {
+              if (s.sessionId !== activeId) {
+                navigate(`/chat/${s.sessionId}`)
+                onNavigate?.()
+              }
+            }}
+            className={`group flex items-center gap-1 px-3 py-2 rounded-lg cursor-pointer text-sm transition-colors duration-150 ${
+              s.sessionId === activeId
+                ? 'bg-accent-soft text-accent font-medium'
+                : 'text-heading hover:bg-surface-alt'
+            }`}
+          >
+            <span className="flex-1 min-w-0 truncate">{s.title || '新对话'}</span>
+            <Popconfirm
+              title="确定删除此对话?"
+              okText="删除"
+              cancelText="取消"
+              onConfirm={() => handleDeleteSession(s.sessionId)}
+            >
+              <DeleteOutlined
+                className="text-muted text-xs opacity-100 md:opacity-0 md:group-hover:opacity-100 cursor-pointer p-1 shrink-0"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </Popconfirm>
+          </div>
+        ))}
+      </div>
+    </>
+  )
+
   return (
     <div className="h-full flex">
       <aside className="hidden md:flex flex-col w-60 shrink-0 border-r border-border bg-surface">
-        <div className="p-2 border-b border-border">
-          <button
-            onClick={handleNewChat}
-            className="w-full h-9 rounded-lg border border-dashed border-accent-line bg-accent-soft text-accent text-sm font-medium cursor-pointer flex items-center justify-center gap-1 transition-colors duration-150"
-          >
-            <PlusOutlined />
-            新对话
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-1">
-          {sessions.map((s) => (
-            <div
-              key={s.sessionId}
-              onClick={() => s.sessionId !== activeId && navigate(`/chat/${s.sessionId}`)}
-              className={`group flex items-center gap-1 px-3 py-2 rounded-lg cursor-pointer text-sm transition-colors duration-150 ${
-                s.sessionId === activeId
-                  ? 'bg-accent-soft text-accent font-medium'
-                  : 'text-heading hover:bg-surface-alt'
-              }`}
-            >
-              <span className="flex-1 min-w-0 truncate">{s.title || '新对话'}</span>
-              <Popconfirm
-                title="确定删除此对话?"
-                okText="删除"
-                cancelText="取消"
-                onConfirm={() => handleDeleteSession(s.sessionId)}
-              >
-                <DeleteOutlined
-                  className="text-muted text-xs opacity-0 group-hover:opacity-100 cursor-pointer p-1 shrink-0"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </Popconfirm>
-            </div>
-          ))}
-        </div>
+        {renderSessionList()}
       </aside>
 
       <div className="flex-1 min-w-0 flex flex-col">
+        <div className="md:hidden flex items-center px-3 h-10 border-b border-border bg-surface flex-shrink-0">
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className="flex items-center gap-1.5 text-sm text-muted hover:text-heading transition-colors duration-150 cursor-pointer"
+          >
+            <UnorderedListOutlined />
+            历史记录
+          </button>
+        </div>
         {loading ? (
           <div className="flex-1 overflow-y-auto">
             <div className="flex flex-col gap-4 p-3 sm:p-4 md:p-6 lg:max-w-[960px] lg:mx-auto lg:w-full lg:px-6 lg:py-8 xl:max-w-[1200px] xl:p-8">
@@ -310,6 +335,17 @@ export default function ChatPage() {
           </button>
         </div>
       </div>
+
+      <Drawer
+        title="历史记录"
+        placement="left"
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        width={280}
+        styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column', height: '100%' } }}
+      >
+        {renderSessionList(() => setDrawerOpen(false))}
+      </Drawer>
     </div>
   )
 }
