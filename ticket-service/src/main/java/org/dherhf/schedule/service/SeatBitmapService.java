@@ -8,6 +8,7 @@ import org.springframework.data.redis.connection.RedisStringCommands;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -195,9 +196,9 @@ public class SeatBitmapService {
             }
             // 批量读取 occupied bitmap
             String occVal = redisTemplate.opsForValue().get(occKey);
-            byte[] occBits = occVal != null ? occVal.getBytes() : null;
+            byte[] occBits = occVal != null ? occVal.getBytes(StandardCharsets.ISO_8859_1) : null;
             String soldVal = redisTemplate.opsForValue().get(soldKey);
-            byte[] soldBits = soldVal != null ? soldVal.getBytes() : null;
+            byte[] soldBits = soldVal != null ? soldVal.getBytes(StandardCharsets.ISO_8859_1) : null;
             for (int i = 0; i < totalSeats; i++) {
                 boolean occupied = getBit(occBits, i);
                 boolean sold = getBit(soldBits, i);
