@@ -95,6 +95,8 @@ export interface LockSeatResultVO {
   totalAmount: number
   status: string
   createdAt: string
+  expireAt: string
+  remainingTime: number
 }
 
 export interface PayResultVO {

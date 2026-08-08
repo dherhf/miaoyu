@@ -182,6 +182,7 @@ function OrderCard({
   const st = STATUS_TAG[order.status] || { color: 'default', label: order.status }
   const isPending = order.status === 'pending'
   const isPaid = order.status === 'paid'
+  const showCountdown = isPending && order.remainingSeconds != null && order.remainingSeconds > 0
 
   return (
     <div className="rounded-xl bg-surface-alt border border-border p-4">
@@ -199,6 +200,11 @@ function OrderCard({
           {order.ticketCount}张 · <span className="text-rating font-medium">¥{Number(order.totalAmount).toFixed(1)}</span>
         </div>
       </div>
+
+      {showCountdown && (
+        <CountdownBar remainingSeconds={order.remainingSeconds!} />
+      )}
+
       <div className="flex justify-end gap-2 mt-3">
         {isPending && (
           <>
@@ -215,6 +221,36 @@ function OrderCard({
         )}
         <Button size="small" onClick={onDetail}>详情</Button>
       </div>
+    </div>
+  )
+}
+
+function CountdownBar({ remainingSeconds }: { remainingSeconds: number }) {
+  const [seconds, setSeconds] = useState(remainingSeconds)
+  const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
+  const expired = seconds <= 0
+
+  useEffect(() => {
+    if (expired) return
+    timerRef.current = setInterval(() => {
+      setSeconds((prev) => {
+        const next = prev - 1
+        if (next <= 0) { clearInterval(timerRef.current); return 0 }
+        return next
+      })
+    }, 1000)
+    return () => { clearInterval(timerRef.current) }
+  }, [expired])
+
+  if (expired) return null
+
+  const m = String(Math.floor(seconds / 60)).padStart(2, '0')
+  const s = String(seconds % 60).padStart(2, '0')
+
+  return (
+    <div className="flex items-center justify-between mt-2.5 rounded bg-[#fffbeb] px-3 py-1.5 border border-[#fde68a]">
+      <span className="text-[13px] text-[#b45309]">支付倒计时</span>
+      <span className="font-mono text-base font-bold text-[#b45309]">{m}:{s}</span>
     </div>
   )
 }

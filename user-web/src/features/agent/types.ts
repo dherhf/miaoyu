@@ -205,6 +205,7 @@ export interface OrderItem {
   ticketCount: number
   totalAmount: number
   createdAt: string
+  remainingSeconds?: number
 }
 export type OrderListCardData = {
   records: OrderItem[]
