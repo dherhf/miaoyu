@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
-import { Button, Tag } from 'antd'
+import { Button, Tag, message } from 'antd'
 import type { BaseCardProps, SeatMapCardData, Seat } from '../../types'
 
 const STATUS_COLORS: Record<string, { bg: string; border: string; text: string; cursor: string }> = {
@@ -53,10 +53,14 @@ export default function SeatMapCard({ data, onAction }: BaseCardProps<SeatMapCar
       if (isSelected(seat)) {
         setSelectedSeats((prev) => prev.filter((s) => s.seatIndex !== seat.seatIndex))
       } else {
+        if (selectedSeats.length >= 6) {
+          message.warning('最多只能选择6个座位')
+          return
+        }
         setSelectedSeats((prev) => [...prev, seat])
       }
     },
-    [isSelected],
+    [isSelected, selectedSeats.length],
   )
 
   const totalPrice = selectedSeats.reduce((sum) => sum + (price || 0), 0)
