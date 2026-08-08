@@ -5,7 +5,7 @@ import { getOrderDetail, listOrders, payOrder, cancelOrder, refundOrder, getPick
 import type { OrderDetailVO, OrderVO } from './types'
 import { useHeaderBack } from '@/layouts/navBarStore'
 
-const PAGE_SIZE = 10
+const PAGE_SIZE = 5
 
 const STATUS_OPTIONS = [
   { label: '全部', value: '' },
