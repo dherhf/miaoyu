@@ -30,7 +30,7 @@ function fmtDate(dateStr: string, timeStr: string) {
   return `${m}月${day}日 ${timeStr}`
 }
 
-const PAGE_SIZE = 10
+const PAGE_SIZE = 5
 
 export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>) {
   const { modal, message } = App.useApp()
