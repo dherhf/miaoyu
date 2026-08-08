@@ -11,9 +11,9 @@
   },
   "dependencies": {
     "@amap/amap-jsapi-loader": "^1.0.1",
-    "@ant-design/icons": "^6.1.0",
-    "@ant-design/pro-components": "^2.8.10",
-    "antd": "^5.29.3",
+    "@ant-design/icons": "^6.3.2",
+    "@ant-design/pro-components": "^3.1.14-6",
+    "antd": "6.5.1",
     "axios": "^1.19.0",
     "dayjs": "^1.11.21",
     "lucide-react": "^1.28.0",
@@ -29,7 +29,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.4",
     "oxlint": "^1.75.0",
-    "typescript": "~6.0.2",
+    "typescript": "^5.9.3",
     "vite": "^8.2.0"
   }
 }

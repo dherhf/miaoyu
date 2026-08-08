@@ -98,7 +98,7 @@ export function HallPage() {
   const handleDelete = (hall: HallItem) => {
     const hasSchedule = schedules.some(s => String(s.hallId) === String(hall.id) && s.status !== 'cancelled' && s.status !== 'ended');
     if (hasSchedule) return message.error('该影厅有排期，无法删除');
-    modal.confirm({ title: '删除确认', content: `确定删除【${hall.name}】？删除不可恢复`, okText: '确认删除', okButtonProps: { danger: true }, onOk: async () => { await deleteHall(hall.id); message.success('删除成功'); actionRef.current?.reload(); } });
+    modal.confirm({ title: '删除确认', content: `确定删除【${hall.name}】？删除不可恢复`, okText: '确认删除', cancelText: '取消', okButtonProps: { danger: true }, onOk: async () => { await deleteHall(hall.id); message.success('删除成功'); actionRef.current?.reload(); } });
   };
   const backCinema = () => { setSelectedCinemaId(''); navigate('/halls'); };
 
@@ -253,6 +253,8 @@ export function HallPage() {
         maskClosable={false}
         width={580}
         confirmLoading={submitting}
+        okText="保存"
+        cancelText="取消"
         onCancel={() => setModalOpen(false)}
         onOk={submitForm}
       >
