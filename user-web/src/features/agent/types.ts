@@ -138,6 +138,7 @@ export interface SessionItem {
   endTime: string
   hallName: string
   languageVersion: string
+  languageVersionName?: string
   price: number
   availableSeats: number
 }
@@ -151,6 +152,7 @@ export interface Seat {
   seatLabel: string
   seatCategory: 'regular' | 'vip' | 'couple' | 'wheelchair'
   status: 'available' | 'locked' | 'sold'
+  statusName?: string
 }
 export type SeatMapCardData = {
   sessionId: number

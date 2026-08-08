@@ -18,4 +18,5 @@ public class SeatVO {
     private String seatLabel;
     private String seatCategory;
     private String status;
+    private String statusName;
 }

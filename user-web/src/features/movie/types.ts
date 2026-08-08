@@ -53,6 +53,7 @@ export interface ScheduleListVO {
   endTime: string
   price: number
   languageVersion: string
+  languageVersionName?: string
   totalSeats: number
   availableSeats: number
   soldSeats: number

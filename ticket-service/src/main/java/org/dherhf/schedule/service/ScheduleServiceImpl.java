@@ -19,6 +19,7 @@ import org.dherhf.cinema.mapper.HallMapper;
 import org.dherhf.movie.mapper.MovieMapper;
 import org.dherhf.schedule.enums.ScheduleSeatStatus;
 import org.dherhf.schedule.enums.ScheduleStatus;
+import org.dherhf.schedule.enums.LanguageVersion;
 import org.dherhf.schedule.mapper.ScheduleMapper;
 import org.dherhf.schedule.mapper.ScheduleSeatMapper;
 import org.dherhf.schedule.dto.ScheduleCreateDTO;
@@ -428,6 +429,7 @@ public class ScheduleServiceImpl implements ScheduleService {
                     .hallCellId(ss.getHallCellId())
                     .seatIndex(ss.getSeatIndex())
                     .status(ss.getStatus())
+                    .statusName(ScheduleSeatStatus.getDescByCode(ss.getStatus()))
                     .rowIndex(rowIndex)
                     .colIndex(colIndex)
                     .seatLabel(seatLabel)
@@ -449,6 +451,7 @@ public class ScheduleServiceImpl implements ScheduleService {
                     String status = seatStatuses[idx];
                     if (status != null) {
                         seatVO.setStatus(status);
+                        seatVO.setStatusName(ScheduleSeatStatus.getDescByCode(status));
                     }
                 }
                 if (ScheduleSeatStatus.AVAILABLE.getCode().equals(seatVO.getStatus())) {
@@ -616,6 +619,7 @@ public class ScheduleServiceImpl implements ScheduleService {
         if (schedule.getTotalSeats() > 0) {
             vo.setOccupancyRate((double) soldCount / schedule.getTotalSeats());
         }
+        vo.setLanguageVersionName(LanguageVersion.getDescByCode(schedule.getLanguageVersion()));
 
         return vo;
     }
@@ -669,6 +673,7 @@ public class ScheduleServiceImpl implements ScheduleService {
         if (schedule.getTotalSeats() > 0) {
             vo.setOccupancyRate((double) soldCount / schedule.getTotalSeats());
         }
+        vo.setLanguageVersionName(LanguageVersion.getDescByCode(schedule.getLanguageVersion()));
 
         return vo;
     }

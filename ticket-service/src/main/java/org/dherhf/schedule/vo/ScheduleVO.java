@@ -25,6 +25,7 @@ public class ScheduleVO {
     private LocalTime endTime;
     private BigDecimal price;
     private String languageVersion;
+    private String languageVersionName;
     private Integer totalSeats;
     private String status;
     private LocalDateTime createdAt;

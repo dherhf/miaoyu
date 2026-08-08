@@ -15,4 +15,11 @@ public enum ScheduleSeatStatus {
         this.code = code;
         this.desc = desc;
     }
+
+    public static String getDescByCode(String code) {
+        for (ScheduleSeatStatus s : values()) {
+            if (s.code.equals(code)) return s.desc;
+        }
+        return code;
+    }
 }

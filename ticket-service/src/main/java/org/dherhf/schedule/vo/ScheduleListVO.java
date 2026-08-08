@@ -28,6 +28,7 @@ public class ScheduleListVO {
     private LocalTime endTime;
     private BigDecimal price;
     private String languageVersion;
+    private String languageVersionName;
     private Integer totalSeats;
     private Integer availableSeats;
     private Integer soldSeats;

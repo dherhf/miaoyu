@@ -55,7 +55,7 @@ export default function SessionListCard({ data, onAction }: BaseCardProps<Sessio
                     {cross && <Tag color="processing">{dateLabel}</Tag>}
                   </div>
                   <div style={S.endTime}>{s.endTime} 散场</div>
-                  <div style={S.hall}>{s.hallName} · {s.languageVersion}</div>
+                  <div style={S.hall}>{s.hallName} · {s.languageVersionName || s.languageVersion}</div>
                 </div>
                 <div style={S.right}>
                   <span style={S.price}>¥{Number(s.price).toFixed(1)}</span>

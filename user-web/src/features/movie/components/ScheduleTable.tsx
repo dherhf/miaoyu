@@ -58,7 +58,7 @@ export default function ScheduleTable({ movieId }: { movieId: string }) {
       dataIndex: 'languageVersion',
       key: 'languageVersion',
       width: 80,
-      render: (v: string) => v && <Tag color="purple">{v}</Tag>,
+      render: (v: string, record: any) => v && <Tag color="purple">{record.languageVersionName || v}</Tag>,
     },
     {
       title: '票价',
