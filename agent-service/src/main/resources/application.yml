@@ -23,13 +23,7 @@ spring:
           max-idle: 8
           min-idle: 2
   mongodb:
-    host: ${MONGODB_HOST}
-    port: ${MONGODB_PORT}
-    database: ${MONGODB_DATABASE}
-    username: ${MONGODB_USERNAME}
-    password: ${MONGODB_PASSWORD}
-    auto-index-creation: true
-
+    uri: mongodb://${MONGODB_USERNAME}:${MONGODB_PASSWORD}@${MONGODB_HOST}:${MONGODB_PORT}/${MONGODB_DATABASE}?authSource=${MONGODB_DATABASE}
 
 
 # 票务服务内部调用地址
