@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Table, Empty, Spin, Tag } from 'antd'
+import { Button, Table, Empty, Spin, Tag } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { getScheduleList } from '../api'
 import type { ScheduleListVO } from '../types'
@@ -78,6 +78,25 @@ export default function ScheduleTable({ movieId }: { movieId: string }) {
         return <span className="text-muted">{v}/{record.totalSeats}</span>
       },
     },
+    {
+      title: '操作',
+      key: 'action',
+      width: 90,
+      render: (_: unknown, record) => (
+        <Button
+          type="primary"
+          danger
+          size="small"
+          disabled={record.availableSeats <= 0}
+          onClick={(e) => {
+            e.stopPropagation()
+            setSelectedSchedule(record)
+          }}
+        >
+          {record.availableSeats <= 0 ? '已售罄' : '选座购票'}
+        </Button>
+      ),
+    },
   ]
 
   return (
@@ -94,7 +113,7 @@ export default function ScheduleTable({ movieId }: { movieId: string }) {
           rowKey="id"
           size="middle"
           pagination={false}
-          scroll={{ x: 700 }}
+          scroll={{ x: 800 }}
           onRow={(record) => ({
             onClick: () => {
               if (record.availableSeats > 0) {
