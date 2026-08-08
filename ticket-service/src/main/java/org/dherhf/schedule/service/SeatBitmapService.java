@@ -4,11 +4,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dherhf.schedule.entity.ScheduleSeat;
 import org.dherhf.schedule.enums.ScheduleSeatStatus;
-import org.springframework.data.redis.connection.RedisStringCommands;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -51,9 +51,9 @@ public class SeatBitmapService {
             if (!redisTemplate.hasKey(soldKey)) {
                 redisTemplate.opsForValue().setBit(soldKey, totalSeats - 1, false);
             }
-            log.debug("Initialized bitmap for schedule {}", scheduleId);
+            log.debug("场次 {} 位图初始化完成", scheduleId);
         } catch (Exception e) {
-            log.warn("Failed to init bitmap for schedule {}: {}", scheduleId, e.getMessage());
+            log.warn("场次 {} 位图初始化失败：{}", scheduleId, e.getMessage());
         }
     }
 
@@ -70,16 +70,17 @@ public class SeatBitmapService {
             for (ScheduleSeat seat : seats) {
                 int idx = seat.getSeatIndex();
                 String status = seat.getStatus();
-                if (ScheduleSeatStatus.LOCKED.getCode().equals(status) || ScheduleSeatStatus.SOLD.getCode().equals(status)) {
+                if (ScheduleSeatStatus.LOCKED.getCode().equals(status) ||
+                        ScheduleSeatStatus.SOLD.getCode().equals(status)) {
                     redisTemplate.opsForValue().setBit(occKey, idx, true);
                 }
                 if (ScheduleSeatStatus.SOLD.getCode().equals(status)) {
                     redisTemplate.opsForValue().setBit(soldKey, idx, true);
                 }
             }
-            log.debug("Rebuilt bitmap for schedule {} with {} seats", scheduleId, seats.size());
+            log.debug("场次 {} 位图重建完成，共 {} 个座位", scheduleId, seats.size());
         } catch (Exception e) {
-            log.warn("Failed to rebuild bitmap for schedule {}: {}", scheduleId, e.getMessage());
+            log.warn("场次 {} 位图重建失败：{}", scheduleId, e.getMessage());
         }
     }
 
@@ -90,36 +91,36 @@ public class SeatBitmapService {
         try {
             redisTemplate.delete(occupiedKey(scheduleId));
             redisTemplate.delete(soldKey(scheduleId));
-            log.debug("Deleted bitmap for schedule {}", scheduleId);
+            log.debug("场次 {} 位图已删除", scheduleId);
         } catch (Exception e) {
-            log.warn("Failed to delete bitmap for schedule {}: {}", scheduleId, e.getMessage());
+            log.warn("场次 {} 位图删除失败：{}", scheduleId, e.getMessage());
         }
     }
 
     /**
-     * 锁座：SETBIT occupied=1
+     * 锁座：SetBit occupied=1
      */
     public void setOccupied(Long scheduleId, int seatIndex) {
         try {
             redisTemplate.opsForValue().setBit(occupiedKey(scheduleId), seatIndex, true);
         } catch (Exception e) {
-            log.warn("Failed to set occupied bit for schedule {} seat {}: {}", scheduleId, seatIndex, e.getMessage());
+            log.warn("场次 {} 座位 {} 设置占用位失败：{}", scheduleId, seatIndex, e.getMessage());
         }
     }
 
     /**
-     * 支付：SETBIT sold=1
+     * 支付：SetBit sold=1
      */
     public void setSold(Long scheduleId, int seatIndex) {
         try {
             redisTemplate.opsForValue().setBit(soldKey(scheduleId), seatIndex, true);
         } catch (Exception e) {
-            log.warn("Failed to set sold bit for schedule {} seat {}: {}", scheduleId, seatIndex, e.getMessage());
+            log.warn("场次 {} 座位 {} 设置已售位失败：{}", scheduleId, seatIndex, e.getMessage());
         }
     }
 
     /**
-     * 取消/超时释放：SETBIT occupied=0（仅当 sold 位为 0 时执行）
+     * 取消/超时释放：SetBit occupied=0（仅当 sold 位为 0 时执行）
      */
     public void clearOccupiedIfNotSold(Long scheduleId, int seatIndex) {
         try {
@@ -128,54 +129,31 @@ public class SeatBitmapService {
                 redisTemplate.opsForValue().setBit(occupiedKey(scheduleId), seatIndex, false);
             }
         } catch (Exception e) {
-            log.warn("Failed to clear occupied bit for schedule {} seat {}: {}", scheduleId, seatIndex, e.getMessage());
+            log.warn("场次 {} 座位 {} 清除占用位失败：{}", scheduleId, seatIndex, e.getMessage());
         }
     }
 
     /**
-     * 退票释放：SETBIT sold=0 + SETBIT occupied=0
+     * 退票释放：SetBit sold=0 + SetBit occupied=0
      */
     public void clearSoldAndOccupied(Long scheduleId, int seatIndex) {
         try {
             redisTemplate.opsForValue().setBit(soldKey(scheduleId), seatIndex, false);
             redisTemplate.opsForValue().setBit(occupiedKey(scheduleId), seatIndex, false);
         } catch (Exception e) {
-            log.warn("Failed to clear sold+occupied bits for schedule {} seat {}: {}", scheduleId, seatIndex, e.getMessage());
+            log.warn("场次 {} 座位 {} 清除已售+占用位失败：{}", scheduleId, seatIndex, e.getMessage());
         }
     }
 
     /**
-     * 检查 Bitmap 是否存在（缓存是否命中）。
+     * 检查 Bitmap 是否不存在（缓存是否未命中）。
      */
-    public boolean bitmapExists(Long scheduleId) {
+    public boolean bitmapMissing(Long scheduleId) {
         try {
-            return Boolean.TRUE.equals(redisTemplate.hasKey(occupiedKey(scheduleId)));
+            return !Boolean.TRUE.equals(redisTemplate.hasKey(occupiedKey(scheduleId)));
         } catch (Exception e) {
-            log.warn("Failed to check bitmap existence for schedule {}: {}", scheduleId, e.getMessage());
-            return false;
-        }
-    }
-
-    /**
-     * 从 Bitmap 获取座位状态。缓存未命中返回 null，调用方应降级查 MySQL。
-     */
-    public String getSeatStatus(Long scheduleId, int seatIndex) {
-        try {
-            if (!bitmapExists(scheduleId)) {
-                return null;
-            }
-            Boolean occupied = redisTemplate.opsForValue().getBit(occupiedKey(scheduleId), seatIndex);
-            Boolean sold = redisTemplate.opsForValue().getBit(soldKey(scheduleId), seatIndex);
-            if (sold != null && sold) {
-                return ScheduleSeatStatus.SOLD.getCode();
-            }
-            if (occupied != null && occupied) {
-                return ScheduleSeatStatus.LOCKED.getCode();
-            }
-            return ScheduleSeatStatus.AVAILABLE.getCode();
-        } catch (Exception e) {
-            log.warn("Failed to get seat status from bitmap for schedule {} seat {}: {}", scheduleId, seatIndex, e.getMessage());
-            return null;
+            log.warn("场次 {} 位图存在性检查失败：{}", scheduleId, e.getMessage());
+            return true;
         }
     }
 
@@ -185,15 +163,13 @@ public class SeatBitmapService {
      */
     public String[] getSeatStatuses(Long scheduleId, int totalSeats) {
         try {
-            if (!bitmapExists(scheduleId)) {
+            if (bitmapMissing(scheduleId)) {
                 return null;
             }
             String occKey = occupiedKey(scheduleId);
             String soldKey = soldKey(scheduleId);
             String[] statuses = new String[totalSeats];
-            for (int i = 0; i < totalSeats; i++) {
-                statuses[i] = ScheduleSeatStatus.AVAILABLE.getCode();
-            }
+            Arrays.fill(statuses, ScheduleSeatStatus.AVAILABLE.getCode());
             // 批量读取 occupied bitmap
             String occVal = redisTemplate.opsForValue().get(occKey);
             byte[] occBits = occVal != null ? occVal.getBytes(StandardCharsets.ISO_8859_1) : null;
@@ -210,7 +186,7 @@ public class SeatBitmapService {
             }
             return statuses;
         } catch (Exception e) {
-            log.warn("Failed to get seat statuses from bitmap for schedule {}: {}", scheduleId, e.getMessage());
+            log.warn("场次 {} 从位图获取座位状态失败：{}", scheduleId, e.getMessage());
             return null;
         }
     }
@@ -224,33 +200,35 @@ public class SeatBitmapService {
     }
 
     /**
-     * 从 Bitmap BITCOUNT 获取已占用座位数。
+     * 从 Bitmap BitCOUNT 获取已占用座位数。
      */
     public long getOccupiedCount(Long scheduleId) {
         try {
-            if (!bitmapExists(scheduleId)) {
+            if (bitmapMissing(scheduleId)) {
                 return -1;
             }
-            Long count = redisTemplate.execute((org.springframework.data.redis.core.RedisCallback<Long>) connection -> connection.bitCount(occupiedKey(scheduleId).getBytes()));
+            Long count = redisTemplate.execute((org.springframework.data.redis.core.RedisCallback<Long>)
+                    connection -> connection.stringCommands().bitCount(occupiedKey(scheduleId).getBytes()));
             return count != null ? count : -1;
         } catch (Exception e) {
-            log.warn("Failed to get occupied count for schedule {}: {}", scheduleId, e.getMessage());
+            log.warn("场次 {} 获取已占用座位数失败：{}", scheduleId, e.getMessage());
             return -1;
         }
     }
 
     /**
-     * 从 Bitmap BITCOUNT 获取已售座位数。
+     * 从 Bitmap BitCOUNT 获取已售座位数。
      */
     public long getSoldCount(Long scheduleId) {
         try {
             if (!redisTemplate.hasKey(soldKey(scheduleId))) {
                 return -1;
             }
-            Long count = redisTemplate.execute((org.springframework.data.redis.core.RedisCallback<Long>) connection -> connection.bitCount(soldKey(scheduleId).getBytes()));
+            Long count = redisTemplate.execute((org.springframework.data.redis.core.RedisCallback<Long>)
+                    connection -> connection.stringCommands().bitCount(soldKey(scheduleId).getBytes()));
             return count != null ? count : -1;
         } catch (Exception e) {
-            log.warn("Failed to get sold count for schedule {}: {}", scheduleId, e.getMessage());
+            log.warn("场次 {} 获取已售座位数失败：{}", scheduleId, e.getMessage());
             return -1;
         }
     }
