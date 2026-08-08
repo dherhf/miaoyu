@@ -79,6 +79,9 @@ public class OrderServiceImpl implements OrderService {
         if (!dto.getTicketCount().equals(dto.getSeatIds().size())) {
             throw new BusinessException(400, "购票数量与座位数不一致");
         }
+        if (dto.getTicketCount() > 6) {
+            throw new BusinessException(400, "单次最多购买6张票");
+        }
 
         // 用户级防重锁
         RLock userLock = redissonClient.getLock("lock:user:order:" + userId);

@@ -255,6 +255,9 @@ public class TicketTools {
         if (seatIdList.size() != count) {
             return "{\"code\":400,\"message\":\"购票数量(" + count + ")与座位数(" + seatIdList.size() + ")不一致，请检查 seatIds 和 ticketCount 是否对应。\"}";
         }
+        if (count > 6) {
+            return "{\"code\":400,\"message\":\"单次最多购买6张票，当前选择了" + count + "张。请减少座位数量。\"}";
+        }
         String requestId = getRequestId();
         log.info("[Tool:lockAndCreateOrder] userId={}, scheduleId={}, seatIds={}, count={}, requestId={}",
                 userId, scheduleIdLong, seatIdList, count, requestId);
