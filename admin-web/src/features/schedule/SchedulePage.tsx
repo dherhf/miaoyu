@@ -216,6 +216,8 @@ export function SchedulePage() {
     modal.confirm({
       title: '确认取消排期',
       content: `确定取消【${row.movieName} ${row.showDate}】？`,
+      okText: '确认取消',
+      cancelText: '取消',
       okButtonProps: { danger: true },
       onOk: async () => {
         try {
@@ -234,6 +236,8 @@ export function SchedulePage() {
     modal.confirm({
       title: '确认恢复排期',
       content: `确定恢复【${row.movieName} ${row.showDate}】为在售状态？`,
+      okText: '确认恢复',
+      cancelText: '取消',
       onOk: async () => {
         try {
           await scheduleStore.restoreSchedule(row.id);
@@ -252,6 +256,8 @@ export function SchedulePage() {
     modal.confirm({
       title: '删除确认',
       content: `删除【${row.movieName}】后无法恢复`,
+      okText: '确认删除',
+      cancelText: '取消',
       okButtonProps: { danger: true },
       onOk: async () => {
         try {
@@ -469,6 +475,8 @@ export function SchedulePage() {
         width={580}
         maskClosable={false}
         confirmLoading={submitting}
+        okText="保存"
+        cancelText="取消"
         onCancel={() => setModalOpen(false)}
         onOk={submitForm}
       >

@@ -1,7 +1,5 @@
 import { RouterProvider, createBrowserRouter, Navigate } from 'react-router-dom';
-import { ConfigProvider, App as AntApp } from 'antd';
-import zhCN from 'antd/locale/zh_CN';
-import 'dayjs/locale/zh-cn';
+import { App as AntApp } from 'antd';
 
 // 布局文件
 import { MainLayout } from './layouts';
@@ -88,21 +86,11 @@ const router = createBrowserRouter([
 
 function App() {
   return (
-    <ConfigProvider
-      locale={zhCN}
-      theme={{
-        token: {
-          colorPrimary: '#1677ff',
-          borderRadius: 6,
-        }}}
-      >
-        <AntApp>
-          <GlobalMessageSetup />
-          <ProfileInitializer />
-          {/* 路由根入口 */}
-          <RouterProvider router={router} />
-        </AntApp>
-      </ConfigProvider>
+    <>
+      <GlobalMessageSetup />
+      <ProfileInitializer />
+      <RouterProvider router={router} />
+    </>
   );
 }
 
