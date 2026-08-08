@@ -19,41 +19,29 @@ function getFacilityColor(f: string): string {
   return FACILITY_COLOR[up] || 'default'
 }
 
-const S: Record<string, React.CSSProperties> = {
-  wrap: { width: '100%', background: '#fff', borderRadius: 8, overflow: 'hidden' as const },
-  item: { padding: '12px 16px', borderBottom: '1px solid #f3f4f6' },
-  head: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 4 },
-  name: { fontWeight: 700, fontSize: 15, color: '#111', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const },
-  rating: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, flexShrink: 0 },
-  addr: { fontSize: 13, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, marginBottom: 8 },
-  meta: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 },
-  tags: { display: 'flex', flexWrap: 'wrap' as const, gap: 6 },
-  dist: { fontSize: 12, color: '#9ca3af', whiteSpace: 'nowrap' as const },
-}
-
 export default function CinemaListCard({ data, onAction }: BaseCardProps<CinemaListCardData>) {
   const cinemas = data?.records || []
   if (cinemas.length === 0) {
     return <Empty description="暂无符合条件的影院" />
   }
   return (
-    <div style={S.wrap}>
+    <div className="w-full bg-surface rounded-lg overflow-hidden">
       {cinemas.map((c) => (
-        <div key={c.id} style={S.item}>
-          <div style={S.head}>
-            <div style={S.name}>{c.name}</div>
+        <div key={c.id} className="px-4 py-3 border-b border-border last:border-b-0">
+          <div className="flex items-start justify-between gap-2 mb-1">
+            <div className="font-bold text-[15px] text-heading flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{c.name}</div>
             {c.rating != null && c.rating > 0 && (
-              <div style={S.rating}><span>⭐</span><span style={{ color: '#d97706', fontWeight: 500 }}>{Number(c.rating).toFixed(1)}</span></div>
+              <div className="flex items-center gap-1 text-xs shrink-0"><span>⭐</span><span className="text-rating font-medium">{Number(c.rating).toFixed(1)}</span></div>
             )}
           </div>
-          <div style={S.addr}>{c.address || ''}</div>
-          <div style={S.meta}>
-            <div style={S.tags}>
+          <div className="text-[13px] text-muted overflow-hidden text-ellipsis whitespace-nowrap mb-2">{c.address || ''}</div>
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex flex-wrap gap-1.5">
               {c.facilities?.map((f, i) => (
                 <Tag key={i} color={getFacilityColor(f)}>{f}</Tag>
               ))}
             </div>
-            {c.distance && <span style={S.dist}>距您 {c.distance}</span>}
+            {c.distance && <span className="text-xs text-muted whitespace-nowrap">距您 {c.distance}</span>}
           </div>
           <Button type="primary" block onClick={() => onAction(`选${c.name}`)}>
             选{c.name}

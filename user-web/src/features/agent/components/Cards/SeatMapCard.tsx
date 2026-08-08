@@ -2,15 +2,19 @@ import { useState, useCallback, useMemo } from 'react'
 import { Button, Tag, message } from 'antd'
 import type { BaseCardProps, SeatMapCardData, Seat } from '../../types'
 
-const STATUS_COLORS: Record<string, { bg: string; border: string; text: string; cursor: string }> = {
-  available: { bg: '#e5e7eb', border: '#d1d5db', text: '#374151', cursor: 'pointer' },
-  locked: { bg: '#f59e0b', border: '#d97706', text: '#fff', cursor: 'not-allowed' },
-  sold: { bg: '#ef4444', border: '#dc2626', text: '#fff', cursor: 'not-allowed' },
-  selected: { bg: '#3b82f6', border: '#2563eb', text: '#fff', cursor: 'pointer' },
+const STATUS_CLASSES: Record<string, string> = {
+  available: 'bg-gray-200 border-gray-300 text-gray-700 cursor-pointer',
+  locked: 'bg-amber-500 border-amber-600 text-white cursor-not-allowed',
+  sold: 'bg-red-500 border-red-600 text-white cursor-not-allowed',
+  selected: 'bg-blue-500 border-blue-600 text-white cursor-pointer',
 }
 
-const SEAT_SIZE = 36
-const GAP = 6
+const LEGEND_ITEMS = [
+  { label: '可选', bg: 'bg-gray-200', border: 'border-gray-300' },
+  { label: '已锁定', bg: 'bg-amber-500', border: 'border-amber-600' },
+  { label: '已售', bg: 'bg-red-500', border: 'border-red-600' },
+  { label: '已选', bg: 'bg-blue-500', border: 'border-blue-600' },
+]
 
 export default function SeatMapCard({ data, onAction }: BaseCardProps<SeatMapCardData>) {
   const { seats = [], totalRows = 0, totalCols = 0, availableSeats = 0, price } = data || {}
@@ -51,7 +55,7 @@ export default function SeatMapCard({ data, onAction }: BaseCardProps<SeatMapCar
     (seat: Seat) => {
       if (seat.status !== 'available') return
       if (isSelected(seat)) {
-        setSelectedSeats((prev) => prev.filter((s) => s.seatIndex !== seat.seatIndex))
+        setSelectedSeats((prev) => prev.filter((s) => s.seatIndex === seat.seatIndex))
       } else {
         if (selectedSeats.length >= 6) {
           message.warning('最多只能选择6个座位')
@@ -66,23 +70,23 @@ export default function SeatMapCard({ data, onAction }: BaseCardProps<SeatMapCar
   const totalPrice = selectedSeats.reduce((sum) => sum + (price || 0), 0)
 
   return (
-    <div style={{ width: '100%', background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+    <div className="w-full bg-surface rounded-xl border border-border overflow-hidden">
       {/* 银幕 */}
-      <div style={{ padding: '16px 16px 8px', textAlign: 'center' }}>
-        <div style={{ width: '60%', margin: '0 auto', height: 6, background: 'linear-gradient(90deg, transparent, #d1d5db, transparent)', borderRadius: 3 }} />
-        <div style={{ fontSize: 13, color: '#9ca3af', marginTop: 4 }}>银幕</div>
+      <div className="px-4 pt-4 pb-2 text-center">
+        <div className="w-3/5 mx-auto h-1.5 rounded-sm" style={{ background: 'linear-gradient(90deg, transparent, var(--color-border), transparent)' }} />
+        <div className="text-[13px] text-muted mt-1">银幕</div>
       </div>
 
       {/* 座位网格 */}
-      <div style={{ padding: '8px 16px', overflowX: 'auto' }}>
-        <div style={{ display: 'inline-flex', flexDirection: 'column', gap: GAP, margin: '0 auto' }}>
+      <div className="px-4 py-2 overflow-x-auto">
+        <div className="inline-flex flex-col mx-auto gap-1.5">
           {buildGrid.map((row, ri) => (
-            <div key={ri} style={{ display: 'flex', gap: GAP, justifyContent: 'center' }}>
+            <div key={ri} className="flex justify-center gap-1.5">
               {row.map((seat, ci) => {
-                if (!seat) return <div key={ci} style={{ width: SEAT_SIZE, height: SEAT_SIZE }} />
+                if (!seat) return <div key={ci} className="w-9 h-9" />
                 const sel = isSelected(seat)
                 const status = sel ? 'selected' : seat.status
-                const colors = STATUS_COLORS[status] || STATUS_COLORS.available
+                const classes = STATUS_CLASSES[status] || STATUS_CLASSES.available
                 const disabled = seat.status === 'locked' || seat.status === 'sold'
                 return (
                   <button
@@ -91,16 +95,7 @@ export default function SeatMapCard({ data, onAction }: BaseCardProps<SeatMapCar
                     disabled={disabled}
                     onClick={() => handleClick(seat)}
                     title={`${seat.seatLabel} ¥${price}`}
-                    style={{
-                      width: SEAT_SIZE, height: SEAT_SIZE,
-                      borderRadius: 8, border: `2px solid ${colors.border}`,
-                      background: colors.bg, color: colors.text,
-                      fontSize: 11, fontWeight: 600,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      cursor: disabled ? 'not-allowed' : 'pointer',
-                      opacity: disabled ? 0.7 : 1,
-                      transition: 'all .15s',
-                    }}
+                    className={`w-9 h-9 rounded-lg border-2 text-[11px] font-semibold flex items-center justify-center transition-all ${classes} ${disabled ? 'opacity-70' : ''}`}
                   >
                     {seat.seatLabel}
                   </button>
@@ -113,23 +108,23 @@ export default function SeatMapCard({ data, onAction }: BaseCardProps<SeatMapCar
 
       {/* 已选座位汇总 */}
       {selectedSeats.length > 0 && (
-        <div style={{ padding: '8px 16px', background: '#eff6ff', borderTop: '1px solid #bfdbfe', borderBottom: '1px solid #bfdbfe', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>已选：</span>
+        <div className="px-4 py-2 bg-info-bg border-t border-info-border border-b flex flex-wrap items-center gap-2">
+          <span className="text-[13px] font-medium text-heading">已选：</span>
           {selectedSeats.map((s) => (
             <Tag key={s.seatIndex} color="blue" style={{ background: '#1677ff', color: '#fff', borderColor: '#1677ff' }}>{s.seatLabel} ¥{price}</Tag>
           ))}
-          <span style={{ marginLeft: 'auto', fontSize: 14, fontWeight: 700, color: '#dc2626' }}>合计：¥{totalPrice}</span>
+          <span className="ml-auto text-sm font-bold text-price">合计：¥{totalPrice}</span>
         </div>
       )}
 
       {/* 统计 */}
-      <div style={{ padding: '6px 16px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#6b7280' }}>
-        <span>共 <b style={{ color: '#111' }}>{availableSeats}</b> 个可选座位</span>
+      <div className="px-4 py-1.5 bg-subtle-bg border-b border-border flex justify-between text-[13px] text-muted">
+        <span>共 <b className="text-heading">{availableSeats}</b> 个可选座位</span>
         <span>已选 {selectedSeats.length} 个座位</span>
       </div>
 
       {/* 确认按钮 */}
-      <div style={{ padding: 12 }}>
+      <div className="p-3">
         <Button
           block
           type="primary"
@@ -147,15 +142,10 @@ export default function SeatMapCard({ data, onAction }: BaseCardProps<SeatMapCar
       </div>
 
       {/* 图例 */}
-      <div style={{ padding: '8px 16px', background: '#f9fafb', borderTop: '1px solid #e5e7eb', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, fontSize: 12, color: '#6b7280' }}>
-        {[
-          { label: '可选', bg: '#e5e7eb', border: '#d1d5db' },
-          { label: '已锁定', bg: '#f59e0b', border: '#d97706' },
-          { label: '已售', bg: '#ef4444', border: '#dc2626' },
-          { label: '已选', bg: '#3b82f6', border: '#2563eb' },
-        ].map((l) => (
-          <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <div style={{ width: 16, height: 16, borderRadius: 4, background: l.bg, border: `2px solid ${l.border}` }} />
+      <div className="px-4 py-2 bg-subtle-bg border-t border-border flex flex-wrap justify-center gap-3 text-xs text-muted">
+        {LEGEND_ITEMS.map((l) => (
+          <div key={l.label} className="flex items-center gap-1">
+            <div className={`w-4 h-4 rounded border-2 ${l.bg} ${l.border}`} />
             <span>{l.label}</span>
           </div>
         ))}

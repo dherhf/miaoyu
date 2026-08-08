@@ -8,20 +8,6 @@ function getSeatInfo(n: number) {
   return { text: '充足', color: 'success' as const, soldOut: false }
 }
 
-const S: Record<string, React.CSSProperties> = {
-  group: { background: '#fff', borderRadius: 8, overflow: 'hidden' as const, marginBottom: 16 },
-  groupTitle: { padding: '8px 16px', background: '#f9fafb', borderBottom: '1px solid #f3f4f6', fontWeight: 700, fontSize: 14, color: '#111' },
-  item: { padding: '10px 16px', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
-  left: { flex: 1, minWidth: 0 },
-  timeRow: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 },
-  startTime: { fontSize: 24, fontWeight: 700, color: '#111' },
-  endTime: { fontSize: 13, color: '#9ca3af' },
-  hall: { fontSize: 13, color: '#6b7280', marginTop: 2 },
-  right: { display: 'flex', flexDirection: 'column' as const, alignItems: 'flex-end', gap: 4, minWidth: 80 },
-  price: { fontSize: 16, fontWeight: 700, color: '#dc2626' },
-  btnArea: { marginLeft: 12 },
-}
-
 export default function SessionListCard({ data, onAction }: BaseCardProps<SessionListCardData>) {
   const sessions = data?.records || []
   if (sessions.length === 0) {
@@ -38,8 +24,8 @@ export default function SessionListCard({ data, onAction }: BaseCardProps<Sessio
   return (
     <div>
       {Object.entries(groups).map(([cinemaName, list]) => (
-        <div key={cinemaName} style={S.group}>
-          <div style={S.groupTitle}>{cinemaName}</div>
+        <div key={cinemaName} className="bg-surface rounded-lg overflow-hidden mb-4 last:mb-0">
+          <div className="px-4 py-2 bg-subtle-bg border-b border-border font-bold text-sm text-heading">{cinemaName}</div>
           {list.map((s) => {
             const seat = getSeatInfo(s.availableSeats)
             const today = new Date()
@@ -48,20 +34,20 @@ export default function SessionListCard({ data, onAction }: BaseCardProps<Sessio
             const cross = showMonth !== today.getMonth() + 1 || showDay !== today.getDate()
             const dateLabel = `${showMonth}月${showDay}日`
             return (
-              <div key={s.id} style={S.item}>
-                <div style={S.left}>
-                  <div style={S.timeRow}>
-                    <span style={S.startTime}>{s.startTime}</span>
+              <div key={s.id} className="px-4 py-2.5 border-b border-border last:border-b-0 flex items-center justify-between">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-2xl font-bold text-heading">{s.startTime}</span>
                     {cross && <Tag color="processing">{dateLabel}</Tag>}
                   </div>
-                  <div style={S.endTime}>{s.endTime} 散场</div>
-                  <div style={S.hall}>{s.hallName} · {s.languageVersion}</div>
+                  <div className="text-[13px] text-muted">{s.endTime} 散场</div>
+                  <div className="text-[13px] text-muted mt-0.5">{s.hallName} · {s.languageVersion}</div>
                 </div>
-                <div style={S.right}>
-                  <span style={S.price}>¥{Number(s.price).toFixed(1)}</span>
+                <div className="flex flex-col items-end gap-1 min-w-[80px]">
+                  <span className="text-base font-bold text-price">¥{Number(s.price).toFixed(1)}</span>
                   <Tag color={seat.color}>{seat.text}</Tag>
                 </div>
-                <div style={S.btnArea}>
+                <div className="ml-3">
                   <Button
                     size="small"
                     type="primary"

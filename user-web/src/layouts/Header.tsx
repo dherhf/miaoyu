@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Dropdown, Tooltip, Typography } from 'antd'
-import { EnvironmentOutlined, LeftOutlined, LogoutOutlined, MessageOutlined, ProfileOutlined, UserOutlined } from '@ant-design/icons'
+import { EnvironmentOutlined, LeftOutlined, LogoutOutlined, MessageOutlined, ProfileOutlined, UserOutlined, BulbOutlined, BulbFilled } from '@ant-design/icons'
 import { useAuthStore } from '@/features/auth'
 import { getNotifications, markNotificationRead } from '@/features/notification'
 import type { NotificationVO } from '@/features/notification/types'
 import NotificationBell from '@/shared/NotificationBell'
 import { useGeoStore } from '@/shared/amap'
+import { useThemeStore } from '@/shared/themeStore'
 import { useHeaderState } from './navBarStore'
 import type { MenuProps } from 'antd'
 
@@ -21,6 +22,8 @@ export function Header() {
   const token = useAuthStore((s) => s.token)
   const geoLoading = useGeoStore((s) => s.loading)
   const location = useGeoStore((s) => s.location)
+  const isDark = useThemeStore((s) => s.isDark)
+  const toggleTheme = useThemeStore((s) => s.toggleTheme)
   const [notifications, setNotifications] = useState<NotificationVO[]>([])
 
   const addressText = location
@@ -117,6 +120,12 @@ export function Header() {
       </Typography.Title>
       {token ? (
         <div className="flex items-center gap-1 shrink-0">
+          <Button
+            type="text"
+            icon={isDark ? <BulbFilled /> : <BulbOutlined />}
+            onClick={toggleTheme}
+            className="shrink-0"
+          />
           <Tooltip title={addressText} placement="bottom">
             <span
               className="flex items-center gap-1 text-sm text-muted max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap cursor-default"
@@ -146,7 +155,13 @@ export function Header() {
           />
         </div>
       ) : (
-        <div className="w-10 shrink-0" />
+        <div className="flex items-center shrink-0">
+          <Button
+            type="text"
+            icon={isDark ? <BulbFilled /> : <BulbOutlined />}
+            onClick={toggleTheme}
+          />
+        </div>
       )}
     </header>
   )

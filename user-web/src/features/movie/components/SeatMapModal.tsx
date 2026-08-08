@@ -225,9 +225,9 @@ export default function SeatMapModal({
           </div>
 
           {/* 支付倒计时 */}
-          <div className="flex items-center justify-between rounded bg-[#fffbeb] px-3 py-2 mb-3 border border-[#fde68a]">
-            <span className="text-[13px] text-[#b45309]">支付倒计时</span>
-            <span className={`font-mono text-base font-bold ${countdownSeconds > 0 && countdownSeconds <= 60 ? 'text-[#dc2626]' : 'text-[#b45309]'}`}>
+          <div className="flex items-center justify-between rounded px-3 py-2 mb-3 border" style={{ background: 'var(--color-warning-bg)', borderColor: 'var(--color-warning-border)' }}>
+            <span className="text-[13px]" style={{ color: 'var(--color-warning-text)' }}>支付倒计时</span>
+            <span className={`font-mono text-base font-bold ${countdownSeconds > 0 && countdownSeconds <= 60 ? '' : ''}`} style={{ color: countdownSeconds > 0 && countdownSeconds <= 60 ? 'var(--color-warning-urgent)' : 'var(--color-warning-text)' }}>
               {String(Math.floor(countdownSeconds / 60)).padStart(2, '0')}:{String(countdownSeconds % 60).padStart(2, '0')}
             </span>
           </div>

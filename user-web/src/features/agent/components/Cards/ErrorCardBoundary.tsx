@@ -28,19 +28,9 @@ export default class ErrorCardBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       if (this.props.fallback) return this.props.fallback
       return (
-        <div
-          style={{
-            width: '100%',
-            background: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: 8,
-            padding: 12,
-            fontSize: 13,
-            color: '#b91c1c',
-          }}
-        >
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>卡片加载异常</div>
-          <div style={{ fontSize: 12, color: '#ef4444', wordBreak: 'break-word' }}>
+        <div className="w-full bg-danger-soft-bg border border-danger-soft-border rounded-lg p-3 text-[13px] text-danger-soft-text">
+          <div className="font-semibold mb-1">卡片加载异常</div>
+          <div className="text-xs text-price break-words">
             {this.state.error?.message || '未知错误'}
           </div>
         </div>

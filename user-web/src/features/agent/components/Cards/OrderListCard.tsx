@@ -55,9 +55,9 @@ function ExpireCountdown({ remainingSeconds }: { remainingSeconds: number }) {
 
   if (expired) return null
   return (
-    <div className="flex items-center justify-between border-t border-[#fde68a] bg-[#fffbeb] px-3.5 py-1.5">
-      <span className="text-[13px] text-[#b45309]">支付倒计时</span>
-      <span className="font-mono text-base font-bold text-[#b45309]">{fmtTime(seconds)}</span>
+    <div className="flex items-center justify-between border-t border-warning-border bg-warning-bg px-3.5 py-1.5">
+      <span className="text-[13px] text-warning-text">支付倒计时</span>
+      <span className="font-mono text-base font-bold text-warning-text">{fmtTime(seconds)}</span>
     </div>
   )
 }
@@ -179,7 +179,7 @@ export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>
           <Tag
             key={f.key}
             color={activeFilter === f.key ? 'blue' : undefined}
-            className={`!cursor-pointer !rounded-full ${activeFilter === f.key ? '!border-[#1677ff] !bg-[#1677ff] !text-white' : ''}`}
+            className={`!cursor-pointer !rounded-full ${activeFilter === f.key ? '!border-[#1677ff] !bg-[#1677ff] !text-white' : '!text-muted !border-border !bg-transparent'}`}
             onClick={() => handleFilter(f.key)}
           >
             {f.label}
@@ -227,7 +227,7 @@ export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>
                     </div>
                     <div className="flex justify-between py-0.5 text-[13px] text-muted">
                       <span>金额</span>
-                      <span className={isCancelled || isRefunded ? 'text-muted/70' : 'font-bold text-[#dc2626]'}>
+                      <span className={isCancelled || isRefunded ? 'text-muted/70' : 'font-bold text-price'}>
                         ¥{order.totalAmount}
                       </span>
                     </div>

@@ -34,7 +34,7 @@ export default function OrderSuccessCard({ data, onAction }: BaseCardProps<Order
   return (
     <div className="w-full overflow-hidden rounded-xl border border-border bg-surface">
       {/* 成功头部 */}
-      <div className="bg-gradient-to-b from-[#f0fdf4] to-white px-4 pb-6 pt-8 text-center">
+      <div className="bg-gradient-to-b from-success-bg to-surface px-4 pb-6 pt-8 text-center">
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#4ade80] to-[#16a34a] shadow-[0_0_0_8px_rgba(74,222,128,0.15)]">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="5 12 10 17 19 7" />
@@ -62,7 +62,7 @@ export default function OrderSuccessCard({ data, onAction }: BaseCardProps<Order
           <div className="flex justify-between py-1 text-[13px] text-muted"><span>时间</span><span>{fmtTime()}</span></div>
           <div className="flex justify-between py-1 text-[13px] text-muted"><span>座位</span><span>{seatInfo}</span></div>
           <div className="my-1.5 border-t border-border" />
-          <div className="flex justify-between py-1 text-[13px] text-muted"><span>金额</span><span className="text-lg font-bold text-[#dc2626]">¥{totalAmount}</span></div>
+          <div className="flex justify-between py-1 text-[13px] text-muted"><span>金额</span><span className="text-lg font-bold text-price">¥{totalAmount}</span></div>
         </div>
       </div>
 
@@ -70,7 +70,7 @@ export default function OrderSuccessCard({ data, onAction }: BaseCardProps<Order
       <div className="bg-surface-alt px-4 py-3">
         <div className="flex h-10 items-end justify-center gap-px overflow-hidden">
           {BAR_WIDTHS.map((w, i) => (
-            <div key={i} style={{ width: w }} className="h-full rounded-sm bg-[#1f2937]" />
+            <div key={i} className="h-full rounded-sm bg-barcode" style={{ width: w }} />
           ))}
         </div>
         <div className="mt-1 text-center font-mono text-[11px] tracking-[3px] text-muted/70">{orderNo}</div>

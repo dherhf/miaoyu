@@ -1,31 +1,6 @@
 import { CloudOutlined } from '@ant-design/icons'
 import type { BaseCardProps, WeatherInfoCardData, WeatherCast } from '../../types'
 
-const S: Record<string, React.CSSProperties> = {
-  wrap: { width: '100%', borderRadius: 12, overflow: 'hidden', border: '1px solid #e5e7eb', background: '#fff' },
-  head: { padding: '16px', background: '#eff6ff', borderBottom: '1px solid #dbeafe', display: 'flex', alignItems: 'center', gap: 8 },
-  icon: { fontSize: 20, color: '#2563eb' },
-  title: { fontSize: 16, fontWeight: 700, margin: 0, color: '#1e40af' },
-  body: { padding: '20px 16px' },
-  main: { display: 'flex', alignItems: 'center', gap: 16 },
-  temp: { fontSize: 36, fontWeight: 700, color: '#111' },
-  tempUnit: { fontSize: 18, fontWeight: 500, color: '#6b7280' },
-  weather: { fontSize: 16, fontWeight: 500, color: '#374151' },
-  meta: { display: 'flex', gap: 20, marginTop: 16, flexWrap: 'wrap' as const },
-  metaItem: { display: 'flex', flexDirection: 'column' as const, alignItems: 'center' },
-  metaValue: { fontSize: 15, fontWeight: 600, color: '#111' },
-  metaLabel: { fontSize: 12, color: '#9ca3af', marginTop: 2 },
-  forecastSection: { marginTop: 16, borderTop: '1px solid #f3f4f6', paddingTop: 12 },
-  forecastTitle: { fontSize: 13, color: '#6b7280', fontWeight: 500, marginBottom: 8 },
-  forecastRow: { display: 'flex', gap: 12, overflowX: 'auto' as const },
-  forecastCard: { flexShrink: 0, padding: '8px 12px', background: '#f9fafb', borderRadius: 8, textAlign: 'center', minWidth: 72 },
-  forecastDate: { fontSize: 12, color: '#6b7280', fontWeight: 500 },
-  forecastIcon: { fontSize: 20, margin: '4px 0' },
-  forecastWeather: { fontSize: 12, color: '#374151' },
-  forecastTemp: { fontSize: 13, fontWeight: 600, color: '#111', marginTop: 2 },
-  empty: { textAlign: 'center', padding: '24px 0', color: '#9ca3af', fontSize: 14 },
-}
-
 const WEATHER_ICON: Record<string, string> = {
   '晴': '☀️',
   '多云': '⛅',
@@ -57,12 +32,12 @@ export default function WeatherInfoCard({ data }: BaseCardProps<WeatherInfoCardD
   const w = data?.data
   if (!w) {
     return (
-      <div style={S.wrap}>
-        <div style={S.head}>
-          <CloudOutlined style={S.icon} />
-          <h3 style={S.title}>天气查询</h3>
+      <div className="w-full rounded-xl overflow-hidden border border-border bg-surface">
+        <div className="px-4 py-4 bg-info-bg border-b border-info-border flex items-center gap-2">
+          <CloudOutlined className="text-xl text-info-text" />
+          <h3 className="text-base font-bold m-0 text-info-text">天气查询</h3>
         </div>
-        <div style={S.empty}>暂无天气数据</div>
+        <div className="text-center py-6 text-muted text-sm">暂无天气数据</div>
       </div>
     )
   }
@@ -82,50 +57,50 @@ export default function WeatherInfoCard({ data }: BaseCardProps<WeatherInfoCardD
   const futureForecasts = forecasts.slice(1)
 
   return (
-    <div style={S.wrap}>
-      <div style={S.head}>
-        <CloudOutlined style={S.icon} />
-        <h3 style={S.title}>{w.city || '天气'}</h3>
+    <div className="w-full rounded-xl overflow-hidden border border-border bg-surface">
+      <div className="px-4 py-4 bg-info-bg border-b border-info-border flex items-center gap-2">
+        <CloudOutlined className="text-xl text-info-text" />
+        <h3 className="text-base font-bold m-0 text-info-text">{w.city || '天气'}</h3>
       </div>
-      <div style={S.body}>
-        <div style={S.main}>
-          <span style={{ fontSize: 40 }}>{icon}</span>
+      <div className="px-4 py-5">
+        <div className="flex items-center gap-4">
+          <span className="text-[40px]">{icon}</span>
           <div>
             <div>
-              <span style={S.temp}>{temperature}</span>
-              <span style={S.tempUnit}>°C</span>
+              <span className="text-4xl font-bold text-heading">{temperature}</span>
+              <span className="text-lg font-medium text-muted">°C</span>
             </div>
-            <div style={S.weather}>{weather}</div>
+            <div className="text-base font-medium text-heading">{weather}</div>
           </div>
         </div>
-        <div style={S.meta}>
-          <div style={S.metaItem}>
-            <span style={S.metaValue}>{windDir}</span>
-            <span style={S.metaLabel}>风向</span>
+        <div className="flex gap-5 mt-4 flex-wrap">
+          <div className="flex flex-col items-center">
+            <span className="text-[15px] font-semibold text-heading">{windDir}</span>
+            <span className="text-xs text-muted mt-0.5">风向</span>
           </div>
-          <div style={S.metaItem}>
-            <span style={S.metaValue}>{windPow}级</span>
-            <span style={S.metaLabel}>风力</span>
+          <div className="flex flex-col items-center">
+            <span className="text-[15px] font-semibold text-heading">{windPow}级</span>
+            <span className="text-xs text-muted mt-0.5">风力</span>
           </div>
           {w.humidity && (
-            <div style={S.metaItem}>
-              <span style={S.metaValue}>{w.humidity}%</span>
-              <span style={S.metaLabel}>湿度</span>
+            <div className="flex flex-col items-center">
+              <span className="text-[15px] font-semibold text-heading">{w.humidity}%</span>
+              <span className="text-xs text-muted mt-0.5">湿度</span>
             </div>
           )}
         </div>
 
         {/* 多日预报（跳过今天，避免重复） */}
         {futureForecasts.length > 0 && (
-          <div style={S.forecastSection}>
-            <div style={S.forecastTitle}>未来天气</div>
-            <div style={S.forecastRow}>
+          <div className="mt-4 border-t border-border pt-3">
+            <div className="text-[13px] text-muted font-medium mb-2">未来天气</div>
+            <div className="flex gap-3 overflow-x-auto">
               {futureForecasts.map((cast: WeatherCast, i: number) => (
-                <div key={i} style={S.forecastCard}>
-                  <div style={S.forecastDate}>{i === 0 ? '明天' : formatDate(cast.date)}</div>
-                  <div style={S.forecastIcon}>{getWeatherIcon(cast.dayweather)}</div>
-                  <div style={S.forecastWeather}>{cast.dayweather || '—'}</div>
-                  <div style={S.forecastTemp}>{cast.daytemp || '—'}°/{cast.nighttemp || '—'}°</div>
+                <div key={i} className="shrink-0 px-3 py-2 bg-subtle-bg rounded-lg text-center min-w-[72px]">
+                  <div className="text-xs text-muted font-medium">{i === 0 ? '明天' : formatDate(cast.date)}</div>
+                  <div className="text-xl my-1">{getWeatherIcon(cast.dayweather)}</div>
+                  <div className="text-xs text-heading">{cast.dayweather || '—'}</div>
+                  <div className="text-[13px] font-semibold text-heading mt-0.5">{cast.daytemp || '—'}°/{cast.nighttemp || '—'}°</div>
                 </div>
               ))}
             </div>
