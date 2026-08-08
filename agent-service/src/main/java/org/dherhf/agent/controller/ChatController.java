@@ -146,6 +146,7 @@ public class ChatController {
         resp.setCreatedAt(session.getCreatedAt());
 
         List<ChatMessage> messages = chatSessionService.getMessages(session.getSessionId());
+        dialogueService.enrichOrderCards(messages, userId);
         List<SessionDetailResponse.MessageItem> items = messages.stream()
                 .map(m -> {
                     SessionDetailResponse.MessageItem item = new SessionDetailResponse.MessageItem();

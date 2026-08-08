@@ -17,12 +17,14 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import org.dherhf.common.result.ErrorCodeEnum;
+import org.dherhf.common.result.Result;
 import org.dherhf.agent.document.ChatMessage;
 import org.dherhf.agent.document.UserPreferenceDocument;
 import org.dherhf.agent.enums.IntentEnum;
@@ -537,5 +539,85 @@ public class DialogueService {
             sendSseEvent(emitter, SseEvent.error(String.valueOf(code.getCode()), message));
             emitter.complete();
         } catch (IOException ignored) {}
+    }
+
+    /**
+     * 刷新消息中的订单卡片状态。
+     * <p>
+     * 用户通过卡片按钮支付/取消后退重回会话时，MongoDB 中的 cardData 仍是旧快照。
+     * 此方法对 order_confirm / order_success / order_list 类卡片调 ticket-service
+     * 获取最新订单状态，仅刷新内存中的响应数据，不修改 MongoDB 快照。
+     * </p>
+     */
+    public void enrichOrderCards(List<ChatMessage> messages, Long userId) {
+        for (ChatMessage msg : messages) {
+            String cardType = msg.getCardType();
+            if (!"order_confirm".equals(cardType)
+                    && !"order_success".equals(cardType)
+                    && !"order_list".equals(cardType)) {
+                continue;
+            }
+            if (msg.getCardData() == null) {
+                continue;
+            }
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> cardData = (Map<String, Object>) msg.getCardData();
+                if ("order_list".equals(cardType)) {
+                    enrichOrderListCard(cardData, userId);
+                } else {
+                    enrichSingleOrderCard(cardData, userId);
+                }
+            } catch (Exception e) {
+                log.warn("[enrichOrderCards] 刷新订单卡片失败: {}", e.getMessage());
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void enrichSingleOrderCard(Map<String, Object> cardData, Long userId) {
+        Object idObj = cardData.get("id");
+        if (idObj == null) return;
+        Long orderId = parseOrderId(idObj);
+        if (orderId == null) return;
+        Result<Object> result = ticketClient.queryOrderDetail(orderId, userId);
+        if (result.getCode() == 0 && result.getData() != null) {
+            Map<String, Object> detail = objectMapper.convertValue(result.getData(), Map.class);
+            cardData.put("status", detail.get("status"));
+            if (detail.get("pickupCode") != null) {
+                cardData.put("pickupCode", detail.get("pickupCode"));
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void enrichOrderListCard(Map<String, Object> cardData, Long userId) {
+        Object recordsObj = cardData.get("records");
+        if (!(recordsObj instanceof List<?> records)) return;
+        for (Object item : records) {
+            if (!(item instanceof Map<?, ?> raw)) continue;
+            Map<String, Object> order = (Map<String, Object>) raw;
+            Object idObj = order.get("id");
+            if (idObj == null) continue;
+            Long orderId = parseOrderId(idObj);
+            if (orderId == null) continue;
+            Result<Object> result = ticketClient.queryOrderDetail(orderId, userId);
+            if (result.getCode() == 0 && result.getData() != null) {
+                Map<String, Object> detail = objectMapper.convertValue(result.getData(), Map.class);
+                order.put("status", detail.get("status"));
+                if (detail.get("pickupCode") != null) {
+                    order.put("pickupCode", detail.get("pickupCode"));
+                }
+            }
+        }
+    }
+
+    private static Long parseOrderId(Object idObj) {
+        if (idObj instanceof Number n) return n.longValue();
+        try {
+            return Long.parseLong(idObj.toString());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }
