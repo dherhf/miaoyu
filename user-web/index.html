@@ -7,10 +7,10 @@
     <title>妙语购票</title>
     <script>
       (function () {
-        var t = localStorage.getItem('theme');
-        if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches)) {
-          document.documentElement.classList.add('dark');
-        }
+        var t = localStorage.getItem('theme-mode');
+        var sysDark = matchMedia('(prefers-color-scheme: dark)').matches;
+        var isDark = t === 'dark' || (t === 'system' || !t) && sysDark;
+        if (isDark) document.documentElement.classList.add('dark');
       })();
     </script>
   </head>
