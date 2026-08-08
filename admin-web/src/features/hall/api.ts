@@ -43,5 +43,5 @@ export const hallApi = {
 
   /** 删除影厅 */
   deleteHall: (id: string): Promise<null> =>
-    request.delete(`/halls/${id}`),
+    request.delete(`/halls/${id}`) as any,
 };

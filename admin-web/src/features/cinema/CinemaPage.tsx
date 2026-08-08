@@ -261,6 +261,8 @@ export function CinemaManage() {
         maskClosable={false}
         width={580}
         confirmLoading={submitting}
+        okText="保存"
+        cancelText="取消"
         onCancel={() => setModalOpen(false)}
         onOk={handleSubmit}
       >

@@ -27,9 +27,9 @@ export const cinemaApi = {
 
   /** 停业 */
   close: (id: string): Promise<null> =>
-    request.put(`/cinemas/${id}/close`),
+    request.put(`/cinemas/${id}/close`) as any,
 
   /** 营业 */
   open: (id: string): Promise<null> =>
-    request.put(`/cinemas/${id}/open`),
+    request.put(`/cinemas/${id}/open`) as any,
 };

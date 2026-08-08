@@ -106,7 +106,7 @@ const OrderDetailContent: React.FC<{ order: OrderItem }> = ({ order }) => {
 
       {order.seats && order.seats.length > 0 && (
         <>
-          <Divider orientation="left" className={styles.sectionDivider}>座位明细</Divider>
+          <Divider titlePlacement="left" className={styles.sectionDivider}>座位明细</Divider>
           <div className={styles.seatsContainer}>
             {order.seats.map((seat, idx) => (
               <Tag key={idx} color={seat.status === 'sold' || seat.status === 'paid' ? 'blue' : 'default'}>

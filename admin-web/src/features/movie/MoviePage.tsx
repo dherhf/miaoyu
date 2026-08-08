@@ -103,6 +103,7 @@ export function MovieManage() {
         title: '确认下架',
         content: '该影片存在关联场次，下架后相关场次将不再展示，是否继续？',
         okText: '确认下架',
+        cancelText: '取消',
         okButtonProps: { danger: true },
         onOk: async () => {
           await toggleStatus([row.id], targetStatus);
@@ -127,6 +128,7 @@ export function MovieManage() {
         title: '批量下架',
         content: '选中部分影片存在关联场次，下架后场次隐藏，确认执行？',
         okText: '确认',
+        cancelText: '取消',
         okButtonProps: { danger: true },
         onOk: async () => {
           await toggleStatus(selectedIds, targetStatus);
@@ -365,6 +367,8 @@ export function MovieManage() {
         width={620}
         maskClosable={false}
         confirmLoading={submitting}
+        okText="保存"
+        cancelText="取消"
         onCancel={() => setModalOpen(false)}
         onOk={onSubmitForm}
       >
