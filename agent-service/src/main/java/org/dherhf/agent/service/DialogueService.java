@@ -437,16 +437,7 @@ public class DialogueService {
         if (hasPreferenceData(pref)) {
             sb.append(buildPreferenceText(pref));
         }
-        if (!recentMessages.isEmpty()) {
-            sb.append("【历史对话】\n");
-            for (ChatMessage msg : recentMessages) {
-                String role = msg.getRole();
-                String text = msg.getContent();
-                if (role != null && text != null) {
-                    sb.append(role.equals("user") ? "用户" : "助手").append(": ").append(text).append("\n");
-                }
-            }
-        }
+        sb.append(ChatMessage.formatHistory(recentMessages));
         // 判断 slotState 是否有非 null 字段
         if (hasSlotData(slotState)) {
             sb.append("【当前槽位状态】\n");
@@ -581,15 +572,7 @@ public class DialogueService {
         if (idObj == null) return;
         Long orderId = parseOrderId(idObj);
         if (orderId == null) return;
-        Result<Object> result = ticketClient.queryOrderDetail(orderId, userId);
-        if (result.getCode() == 0 && result.getData() != null) {
-            Map<String, Object> detail = objectMapper.convertValue(
-                    result.getData(), new TypeReference<Map<String, Object>>() {});
-            cardData.put("status", detail.get("status"));
-            if (detail.get("pickupCode") != null) {
-                cardData.put("pickupCode", detail.get("pickupCode"));
-            }
-        }
+        applyOrderDetail(ticketClient.queryOrderDetail(orderId, userId), cardData);
     }
 
     // 从 Map<?, ?> pattern match 强转为 Map<String, Object>，MongoDB 数据结构确定，转换安全
@@ -604,14 +587,18 @@ public class DialogueService {
             if (idObj == null) continue;
             Long orderId = parseOrderId(idObj);
             if (orderId == null) continue;
-            Result<Object> result = ticketClient.queryOrderDetail(orderId, userId);
-            if (result.getCode() == 0 && result.getData() != null) {
-                Map<String, Object> detail = objectMapper.convertValue(
-                        result.getData(), new TypeReference<Map<String, Object>>() {});
-                order.put("status", detail.get("status"));
-                if (detail.get("pickupCode") != null) {
-                    order.put("pickupCode", detail.get("pickupCode"));
-                }
+            applyOrderDetail(ticketClient.queryOrderDetail(orderId, userId), order);
+        }
+    }
+
+    private void applyOrderDetail(Result<Object> result, Map<String, Object> target) {
+        if (result.getCode() == 0 && result.getData() != null) {
+            Map<String, Object> detail = objectMapper.convertValue(
+                    result.getData(), new TypeReference<>() {
+                    });
+            target.put("status", detail.get("status"));
+            if (detail.get("pickupCode") != null) {
+                target.put("pickupCode", detail.get("pickupCode"));
             }
         }
     }
