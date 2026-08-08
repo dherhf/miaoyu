@@ -12,6 +12,7 @@ export interface OrderVO {
   status: string
   createdAt: string
   paidAt?: string
+  remainingSeconds?: number
 }
 
 export interface OrderDetailVO extends OrderVO {

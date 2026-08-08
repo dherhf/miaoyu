@@ -30,6 +30,38 @@ function fmtDate(dateStr: string, timeStr: string) {
   return `${m}月${day}日 ${timeStr}`
 }
 
+function fmtTime(totalSec: number) {
+  const m = Math.floor(totalSec / 60).toString().padStart(2, '0')
+  const s = (totalSec % 60).toString().padStart(2, '0')
+  return `${m}:${s}`
+}
+
+function ExpireCountdown({ remainingSeconds }: { remainingSeconds: number }) {
+  const [seconds, setSeconds] = useState(remainingSeconds)
+  const timerRef = useRef<ReturnType<typeof setInterval>>(undefined)
+  const expired = seconds <= 0
+
+  useEffect(() => {
+    if (expired) return
+    timerRef.current = setInterval(() => {
+      setSeconds((prev) => {
+        const next = prev - 1
+        if (next <= 0) { clearInterval(timerRef.current); return 0 }
+        return next
+      })
+    }, 1000)
+    return () => { clearInterval(timerRef.current) }
+  }, [expired])
+
+  if (expired) return null
+  return (
+    <div className="flex items-center justify-between border-t border-[#fde68a] bg-[#fffbeb] px-3.5 py-1.5">
+      <span className="text-[13px] text-[#b45309]">支付倒计时</span>
+      <span className="font-mono text-base font-bold text-[#b45309]">{fmtTime(seconds)}</span>
+    </div>
+  )
+}
+
 const PAGE_SIZE = 5
 
 export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>) {
@@ -205,6 +237,9 @@ export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>
                     </div>
                   </div>
 
+                  {order.status === 'pending' && !locallyCancelled && order.remainingSeconds != null && order.remainingSeconds > 0 && (
+                    <ExpireCountdown remainingSeconds={order.remainingSeconds} />
+                  )}
                   {order.status === 'pending' && !locallyCancelled && (
                     <div className="flex gap-2 px-3.5 pt-0 pb-3">
                       <Button
