@@ -257,7 +257,6 @@ public class DashboardServiceImpl implements DashboardService {
         return null;
     }
 
-    @SuppressWarnings("unchecked")
     private <T> List<T> getFromCacheList(String key, Class<T> clazz) {
         try {
             String json = redisTemplate.opsForValue().get(key);

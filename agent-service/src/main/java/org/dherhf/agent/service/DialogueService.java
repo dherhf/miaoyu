@@ -1,5 +1,6 @@
 package org.dherhf.agent.service;
 
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
@@ -561,6 +562,7 @@ public class DialogueService {
                 continue;
             }
             try {
+                // cardData 从 MongoDB 读取，实际类型为 Map，强转安全
                 @SuppressWarnings("unchecked")
                 Map<String, Object> cardData = (Map<String, Object>) msg.getCardData();
                 if ("order_list".equals(cardType)) {
@@ -574,7 +576,6 @@ public class DialogueService {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private void enrichSingleOrderCard(Map<String, Object> cardData, Long userId) {
         Object idObj = cardData.get("id");
         if (idObj == null) return;
@@ -582,7 +583,8 @@ public class DialogueService {
         if (orderId == null) return;
         Result<Object> result = ticketClient.queryOrderDetail(orderId, userId);
         if (result.getCode() == 0 && result.getData() != null) {
-            Map<String, Object> detail = objectMapper.convertValue(result.getData(), Map.class);
+            Map<String, Object> detail = objectMapper.convertValue(
+                    result.getData(), new TypeReference<Map<String, Object>>() {});
             cardData.put("status", detail.get("status"));
             if (detail.get("pickupCode") != null) {
                 cardData.put("pickupCode", detail.get("pickupCode"));
@@ -590,6 +592,7 @@ public class DialogueService {
         }
     }
 
+    // 从 Map<?, ?> pattern match 强转为 Map<String, Object>，MongoDB 数据结构确定，转换安全
     @SuppressWarnings("unchecked")
     private void enrichOrderListCard(Map<String, Object> cardData, Long userId) {
         Object recordsObj = cardData.get("records");
@@ -603,7 +606,8 @@ public class DialogueService {
             if (orderId == null) continue;
             Result<Object> result = ticketClient.queryOrderDetail(orderId, userId);
             if (result.getCode() == 0 && result.getData() != null) {
-                Map<String, Object> detail = objectMapper.convertValue(result.getData(), Map.class);
+                Map<String, Object> detail = objectMapper.convertValue(
+                        result.getData(), new TypeReference<Map<String, Object>>() {});
                 order.put("status", detail.get("status"));
                 if (detail.get("pickupCode") != null) {
                     order.put("pickupCode", detail.get("pickupCode"));

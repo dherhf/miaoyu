@@ -11,13 +11,22 @@ import org.dherhf.agent.service.IdempotentService;
 import org.dherhf.agent.service.UserPreferenceService;
 import org.dherhf.common.result.ErrorCodeEnum;
 import org.dherhf.common.result.Result;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
+import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 
 /**
  * LangChain4j 业务工具集，通过 @Tool 注解暴露给 LLM 进行 Function Calling。
@@ -35,7 +44,7 @@ public class TicketTools {
 
     private final TicketServiceClient ticketClient;
     private final AmapClient amapClient;
-    private final tools.jackson.databind.ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper;
     private final ContextService contextService;
     private final IdempotentService idempotentService;
     private final UserPreferenceService userPreferenceService;
@@ -47,7 +56,7 @@ public class TicketTools {
 
     public TicketTools(TicketServiceClient ticketClient,
                        AmapClient amapClient,
-                       tools.jackson.databind.ObjectMapper objectMapper,
+                       ObjectMapper objectMapper,
                        ContextService contextService,
                        IdempotentService idempotentService,
                        UserPreferenceService userPreferenceService,
@@ -140,7 +149,7 @@ public class TicketTools {
                 .map(str -> {
                     try { return Long.parseLong(str); } catch (NumberFormatException e) { return null; }
                 })
-                .filter(java.util.Objects::nonNull)
+                .filter(Objects::nonNull)
                 .toList();
     }
 
@@ -293,21 +302,21 @@ public class TicketTools {
             try {
                 // 查询单个订单时推送 order_confirm 卡片（而非 order_list），
                 // 确保对话服务推送的最后一张卡片是单个订单详情
-                @SuppressWarnings("unchecked")
-                Map<String, Object> cardData = objectMapper.convertValue(result.getData(), Map.class);
+                Map<String, Object> cardData = objectMapper.convertValue(
+                        result.getData(), new TypeReference<Map<String, Object>>() {});
                 String status = (String) cardData.get("status");
                 if ("pending".equals(status)) {
                     String createdAtStr = (String) cardData.get("createdAt");
                     if (createdAtStr != null) {
                         LocalDateTime createdAt = LocalDateTime.parse(createdAtStr,
-                                java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
                         int remaining = ORDER_TIMEOUT_SECONDS
-                                - (int) java.time.Duration.between(createdAt, LocalDateTime.now()).getSeconds();
+                                - (int) Duration.between(createdAt, LocalDateTime.now()).getSeconds();
                         if (remaining < 0) remaining = 0;
                         LocalDateTime expireAt = createdAt.plusSeconds(ORDER_TIMEOUT_SECONDS);
                         cardData.put("remainingTime", remaining);
                         cardData.put("expireAt", expireAt.format(
-                                java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
                     }
                 }
                 emitCard("order_confirm", cardData);
@@ -428,11 +437,11 @@ public class TicketTools {
             builder.preferredHallType(preferredHallType);
         }
         if (priceMin != null && !priceMin.isBlank()) {
-            try { builder.priceMin(new java.math.BigDecimal(priceMin.trim())); }
+            try { builder.priceMin(new BigDecimal(priceMin.trim())); }
             catch (NumberFormatException e) { log.warn("[Tool:updateUserPreference] priceMin 格式无效: {}", priceMin); }
         }
         if (priceMax != null && !priceMax.isBlank()) {
-            try { builder.priceMax(new java.math.BigDecimal(priceMax.trim())); }
+            try { builder.priceMax(new BigDecimal(priceMax.trim())); }
             catch (NumberFormatException e) { log.warn("[Tool:updateUserPreference] priceMax 格式无效: {}", priceMax); }
         }
         if (preferredSeatArea != null && !preferredSeatArea.isBlank()) {
@@ -472,16 +481,16 @@ public class TicketTools {
         }
 
         // 查询单一模式或全部模式
-        java.util.List<String> modes;
+        List<String> modes;
         if ("all".equals(travelMode)) {
-            modes = java.util.List.of("driving", "transit");
+            modes = List.of("driving", "transit");
         } else {
-            modes = java.util.List.of(travelMode);
+            modes = List.of(travelMode);
         }
 
         // 并行调用多种出行方式（虚拟线程）
-        var results = new java.util.concurrent.ConcurrentHashMap<String, String>();
-        var threads = new java.util.ArrayList<Thread>();
+        var results = new ConcurrentHashMap<String, String>();
+        var threads = new ArrayList<Thread>();
         for (String m : modes) {
             final String modeKey = m;
             var t = Thread.startVirtualThread(() -> {
@@ -500,7 +509,7 @@ public class TicketTools {
             combined = results.values().iterator().next();
         } else {
             try {
-                var combinedObj = new java.util.LinkedHashMap<String, Object>();
+                var combinedObj = new LinkedHashMap<String, Object>();
                 combinedObj.put("code", 200);
                 for (String m : modes) {
                     String r = results.get(m);
@@ -554,8 +563,8 @@ public class TicketTools {
      * 将地名/地址解析为坐标（经度,纬度）。
      * 先查影院表（有预存坐标），未命中再调高德地理编码。
      */
-    private static final java.util.regex.Pattern COORD_PATTERN =
-            java.util.regex.Pattern.compile("^-?\\d+\\.\\d+,-?\\d+\\.\\d+$");
+    private static final Pattern COORD_PATTERN =
+            Pattern.compile("^-?\\d+\\.\\d+,-?\\d+\\.\\d+$");
 
     private String resolveCoordinates(String placeName) {
         if (placeName == null || placeName.isBlank()) return null;
