@@ -1,26 +1,10 @@
 import { CarOutlined, EnvironmentOutlined } from '@ant-design/icons'
 import type { BaseCardProps, RouteInfoCardData } from '../../types'
 
-const S: Record<string, React.CSSProperties> = {
-  wrap: { width: '100%', borderRadius: 12, overflow: 'hidden', border: '1px solid #e5e7eb', background: '#fff' },
-  head: { padding: '16px', background: '#eff6ff', borderBottom: '1px solid #dbeafe', display: 'flex', alignItems: 'center', gap: 8 },
-  icon: { fontSize: 20, color: '#2563eb' },
-  title: { fontSize: 16, fontWeight: 700, margin: 0, color: '#1e40af' },
-  body: { padding: '16px' },
-  routeCard: { padding: '12px', background: '#f9fafb', borderRadius: 8, marginBottom: 8 },
-  routeHeader: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 },
-  routeBadge: { fontSize: 13, fontWeight: 600, padding: '2px 8px', borderRadius: 4 },
-  stat: { display: 'flex', gap: 24 },
-  statItem: { display: 'flex', flexDirection: 'column' as const, alignItems: 'center' },
-  statValue: { fontSize: 22, fontWeight: 700, color: '#111' },
-  statLabel: { fontSize: 12, color: '#6b7280', marginTop: 2 },
-  empty: { textAlign: 'center', padding: '24px 0', color: '#9ca3af', fontSize: 14 },
-}
-
-const MODE_CONFIG: Record<string, { label: string; icon: string; bg: string; color: string }> = {
-  driving: { label: '驾车', icon: '🚗', bg: '#eff6ff', color: '#2563eb' },
-  transit: { label: '公交', icon: '🚌', bg: '#f0fdf4', color: '#16a34a' },
-  walking: { label: '步行', icon: '🚶', bg: '#fff7ed', color: '#ea580c' },
+const MODE_CONFIG: Record<string, { label: string; icon: string; bgClass: string; textClass: string }> = {
+  driving: { label: '驾车', icon: '🚗', bgClass: 'bg-info-bg', textClass: 'text-info-text' },
+  transit: { label: '公交', icon: '🚌', bgClass: 'bg-success-bg', textClass: 'text-success-text' },
+  walking: { label: '步行', icon: '🚶', bgClass: 'bg-warning-bg', textClass: 'text-warning-text' },
 }
 
 function formatDistance(distance: number): string {
@@ -104,37 +88,37 @@ export default function RouteInfoCard({ data }: BaseCardProps<RouteInfoCardData>
   const hasRoutes = routes.length > 0
 
   return (
-    <div style={S.wrap}>
-      <div style={S.head}>
-        <CarOutlined style={S.icon} />
-        <h3 style={S.title}>路线规划</h3>
+    <div className="w-full rounded-xl overflow-hidden border border-border bg-surface">
+      <div className="px-4 py-4 bg-info-bg border-b border-info-border flex items-center gap-2">
+        <CarOutlined className="text-xl text-info-text" />
+        <h3 className="text-base font-bold m-0 text-info-text">路线规划</h3>
       </div>
-      <div style={S.body}>
+      <div className="p-4">
         {hasRoutes ? (
           routes.map((route, i) => {
             const cfg = MODE_CONFIG[route.mode] || MODE_CONFIG.driving
             return (
-              <div key={i} style={{ ...S.routeCard, background: cfg.bg }}>
-                <div style={S.routeHeader}>
-                  <span style={{ fontSize: 16 }}>{cfg.icon}</span>
-                  <span style={{ ...S.routeBadge, color: cfg.color, background: '#fff' }}>{cfg.label}</span>
+              <div key={i} className={`p-3 rounded-lg mb-2 last:mb-0 ${cfg.bgClass}`}>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className="text-base">{cfg.icon}</span>
+                  <span className={`text-[13px] font-semibold px-2 py-0.5 rounded ${cfg.textClass} bg-surface`}>{cfg.label}</span>
                 </div>
-                <div style={S.stat}>
-                  <div style={S.statItem}>
-                    <span style={S.statValue}>{formatDistance(route.distance)}</span>
-                    <span style={S.statLabel}>距离</span>
+                <div className="flex gap-6">
+                  <div className="flex flex-col items-center">
+                    <span className="text-[22px] font-bold text-heading">{formatDistance(route.distance)}</span>
+                    <span className="text-xs text-muted mt-0.5">距离</span>
                   </div>
-                  <div style={S.statItem}>
-                    <span style={S.statValue}>{formatDuration(route.duration)}</span>
-                    <span style={S.statLabel}>{cfg.label}耗时</span>
+                  <div className="flex flex-col items-center">
+                    <span className="text-[22px] font-bold text-heading">{formatDuration(route.duration)}</span>
+                    <span className="text-xs text-muted mt-0.5">{cfg.label}耗时</span>
                   </div>
                 </div>
               </div>
             )
           })
         ) : (
-          <div style={S.empty}>
-            <EnvironmentOutlined style={{ fontSize: 32, marginBottom: 8, display: 'block' }} />
+          <div className="text-center py-6 text-muted text-sm">
+            <EnvironmentOutlined className="text-[32px] mb-2 block" />
             未找到可用路线
           </div>
         )}

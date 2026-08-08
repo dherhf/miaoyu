@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Dropdown, Tooltip, Typography } from 'antd'
-import { EnvironmentOutlined, LeftOutlined, LogoutOutlined, MessageOutlined, ProfileOutlined, UserOutlined } from '@ant-design/icons'
+import { EnvironmentOutlined, LeftOutlined, LogoutOutlined, MessageOutlined, MoonOutlined, ProfileOutlined, SunOutlined, SyncOutlined, UserOutlined } from '@ant-design/icons'
 import { useAuthStore } from '@/features/auth'
 import { getNotifications, markNotificationRead } from '@/features/notification'
 import type { NotificationVO } from '@/features/notification/types'
 import NotificationBell from '@/shared/NotificationBell'
 import { useGeoStore } from '@/shared/amap'
+import { useThemeStore } from '@/shared/themeStore'
 import { useHeaderState } from './navBarStore'
 import type { MenuProps } from 'antd'
 
@@ -21,7 +22,12 @@ export function Header() {
   const token = useAuthStore((s) => s.token)
   const geoLoading = useGeoStore((s) => s.loading)
   const location = useGeoStore((s) => s.location)
+  const themeMode = useThemeStore((s) => s.mode)
+  const cycleMode = useThemeStore((s) => s.cycleMode)
+  const setMode = useThemeStore((s) => s.setMode)
   const [notifications, setNotifications] = useState<NotificationVO[]>([])
+
+  const themeIcon = themeMode === 'light' ? <SunOutlined /> : themeMode === 'dark' ? <MoonOutlined /> : <SyncOutlined />
 
   const addressText = location
     ? location.address || location.district || location.city || location.province
@@ -73,6 +79,24 @@ export function Header() {
       }
     : undefined
 
+  const themeMenuItems: MenuProps['items'] = [
+    {
+      key: 'light',
+      label: '浅色',
+      icon: <SunOutlined />,
+    },
+    {
+      key: 'dark',
+      label: '深色',
+      icon: <MoonOutlined />,
+    },
+    {
+      key: 'system',
+      label: '跟随系统',
+      icon: <SyncOutlined />,
+    },
+  ]
+
   const userMenuItems: MenuProps['items'] = [
     {
       key: 'info',
@@ -117,6 +141,17 @@ export function Header() {
       </Typography.Title>
       {token ? (
         <div className="flex items-center gap-1 shrink-0">
+          <Dropdown
+            menu={{ items: themeMenuItems, selectedKeys: [themeMode], onClick: ({ key }) => setMode(key as 'light' | 'dark' | 'system') }}
+            placement="bottomRight"
+          >
+            <Button
+              type="text"
+              icon={themeIcon}
+              onClick={cycleMode}
+              className="shrink-0"
+            />
+          </Dropdown>
           <Tooltip title={addressText} placement="bottom">
             <span
               className="flex items-center gap-1 text-sm text-muted max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap cursor-default"
@@ -146,7 +181,18 @@ export function Header() {
           />
         </div>
       ) : (
-        <div className="w-10 shrink-0" />
+        <div className="flex items-center shrink-0">
+          <Dropdown
+            menu={{ items: themeMenuItems, selectedKeys: [themeMode], onClick: ({ key }) => setMode(key as 'light' | 'dark' | 'system') }}
+            placement="bottomRight"
+          >
+            <Button
+              type="text"
+              icon={themeIcon}
+              onClick={cycleMode}
+            />
+          </Dropdown>
+        </div>
       )}
     </header>
   )

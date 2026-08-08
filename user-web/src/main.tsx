@@ -1,22 +1,16 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { ConfigProvider, App as AntApp } from 'antd'
-import zhCN from 'antd/locale/zh_CN'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
 dayjs.locale('zh-cn')
 import App from './App'
+import { ThemeProvider } from './shared/ThemeProvider'
 import './index.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ConfigProvider
-      locale={zhCN}
-      theme={{ token: { colorPrimary: '#aa3bff', borderRadius: 8 } }}
-    >
-      <AntApp>
-        <App />
-      </AntApp>
-    </ConfigProvider>
+    <ThemeProvider>
+      <App />
+    </ThemeProvider>
   </StrictMode>,
 )

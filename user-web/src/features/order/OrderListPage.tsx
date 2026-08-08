@@ -248,9 +248,9 @@ function CountdownBar({ remainingSeconds }: { remainingSeconds: number }) {
   const s = String(seconds % 60).padStart(2, '0')
 
   return (
-    <div className="flex items-center justify-between mt-2.5 rounded bg-[#fffbeb] px-3 py-1.5 border border-[#fde68a]">
-      <span className="text-[13px] text-[#b45309]">支付倒计时</span>
-      <span className="font-mono text-base font-bold text-[#b45309]">{m}:{s}</span>
+    <div className="flex items-center justify-between mt-2.5 rounded px-3 py-1.5 border" style={{ background: 'var(--color-warning-bg)', borderColor: 'var(--color-warning-border)' }}>
+      <span className="text-[13px]" style={{ color: 'var(--color-warning-text)' }}>支付倒计时</span>
+      <span className="font-mono text-base font-bold" style={{ color: 'var(--color-warning-text)' }}>{m}:{s}</span>
     </div>
   )
 }

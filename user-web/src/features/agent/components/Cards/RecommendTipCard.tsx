@@ -1,35 +1,11 @@
 import { Button, Empty } from 'antd'
 import type { BaseCardProps, RecommendTipCardData } from '../../types'
 
-const configs: Record<string, { iconBg: string; iconColor: string; titleColor: string; btnProps: { type: 'primary' | 'default'; danger?: boolean; style?: React.CSSProperties }; icon: string }> = {
-  conflict: { iconBg: '#fff7ed', iconColor: '#ea580c', titleColor: '#9a3412', btnProps: { type: 'primary', style: { background: '#faad14', borderColor: '#faad14' } }, icon: '⚠' },
-  soldOut: { iconBg: '#fef2f2', iconColor: '#dc2626', titleColor: '#991b1b', btnProps: { type: 'primary', danger: true }, icon: '✕' },
-  recommend: { iconBg: '#eff6ff', iconColor: '#2563eb', titleColor: '#1e40af', btnProps: { type: 'primary' }, icon: '💡' },
-  info: { iconBg: '#f9fafb', iconColor: '#6b7280', titleColor: '#374151', btnProps: { type: 'default' }, icon: 'ℹ' },
-}
-
-const S: Record<string, React.CSSProperties> = {
-  wrap: { width: '100%', borderRadius: 12, overflow: 'hidden' as const, border: '1px solid #e5e7eb' },
-  head: { padding: '16px', display: 'flex', alignItems: 'flex-start', gap: 12 },
-  icon: { width: 40, height: 40, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 },
-  title: { fontSize: 16, fontWeight: 700, margin: '0 0 4px' },
-  desc: { fontSize: 14, color: '#6b7280', lineHeight: 1.5 },
-  recSection: { padding: '8px 16px 12px' },
-  recTitle: { fontSize: 13, color: '#6b7280', fontWeight: 500, marginBottom: 8 },
-  recItem: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '8px 12px', background: '#fff', borderRadius: 8,
-    border: '1px solid #e5e7eb', marginBottom: 6,
-  },
-  recNum: {
-    width: 24, height: 24, borderRadius: '50%', background: '#f3f4f6',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 12, color: '#6b7280', flexShrink: 0,
-  },
-  recBody: { flex: 1, marginLeft: 12, fontSize: 13 },
-  recName: { fontWeight: 500, color: '#111' },
-  recReason: { fontSize: 12, color: '#2563eb', marginTop: 2 },
-  actionWrap: { padding: '12px 16px 16px', background: '#f9fafb', borderTop: '1px solid #e5e7eb' },
+const configs: Record<string, { bgClass: string; textClass: string; titleClass: string; btnProps: { type: 'primary' | 'default'; danger?: boolean; style?: React.CSSProperties }; icon: string }> = {
+  conflict: { bgClass: 'bg-warning-bg', textClass: 'text-warning-text', titleClass: 'text-warning-text', btnProps: { type: 'primary', style: { background: '#faad14', borderColor: '#faad14' } }, icon: '⚠' },
+  soldOut: { bgClass: 'bg-danger-soft-bg', textClass: 'text-price', titleClass: 'text-danger-soft-text', btnProps: { type: 'primary', danger: true }, icon: '✕' },
+  recommend: { bgClass: 'bg-info-bg', textClass: 'text-info-text', titleClass: 'text-info-text', btnProps: { type: 'primary' }, icon: '💡' },
+  info: { bgClass: 'bg-subtle-bg', textClass: 'text-muted', titleClass: 'text-heading', btnProps: { type: 'default' }, icon: 'ℹ' },
 }
 
 export default function RecommendTipCard({ data, onAction }: BaseCardProps<RecommendTipCardData>) {
@@ -39,31 +15,31 @@ export default function RecommendTipCard({ data, onAction }: BaseCardProps<Recom
   const hasRecs = recommendations && recommendations.length > 0
 
   return (
-    <div style={S.wrap}>
+    <div className="w-full rounded-xl overflow-hidden border border-border">
       {/* 头部 */}
-      <div style={{ ...S.head, background: cfg.iconBg, borderBottom: `1px solid ${cfg.iconBg === '#f9fafb' ? '#e5e7eb' : 'transparent'}` }}>
-        <div style={{ ...S.icon, background: cfg.iconBg, color: cfg.iconColor, border: `2px solid ${cfg.iconColor}` }}>
+      <div className={`p-4 flex items-start gap-3 border-b border-border ${cfg.bgClass}`}>
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl shrink-0 ${cfg.bgClass} ${cfg.textClass}`} style={{ border: `2px solid currentColor` }}>
           {cfg.icon}
         </div>
         <div>
-          <h3 style={{ ...S.title, color: cfg.titleColor }}>{title}</h3>
-          {description && <p style={S.desc}>{description}</p>}
+          <h3 className={`text-base font-bold m-0 mb-1 ${cfg.titleClass}`}>{title}</h3>
+          {description && <p className="text-sm text-muted leading-1.5">{description}</p>}
         </div>
       </div>
 
       {/* 推荐列表 */}
       {hasRecs ? (
-        <div style={S.recSection}>
-          <div style={S.recTitle}>{isSeatRec ? '推荐座位' : '推荐场次'}</div>
+        <div className="px-4 py-2 pb-3">
+          <div className="text-[13px] text-muted font-medium mb-2">{isSeatRec ? '推荐座位' : '推荐场次'}</div>
           {recommendations!.map((rec, i) => (
-            <div key={i} style={S.recItem}>
-              <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                <div style={S.recNum}>{i + 1}</div>
-                <div style={S.recBody}>
-                  <div style={S.recName}>
+            <div key={i} className="flex items-center justify-between px-3 py-2 bg-surface rounded-lg border border-border mb-1.5 last:mb-0">
+              <div className="flex items-center flex-1">
+                <div className="w-6 h-6 rounded-full bg-subtle-bg text-muted flex items-center justify-center text-xs shrink-0">{i + 1}</div>
+                <div className="flex-1 ml-3 text-[13px]">
+                  <div className="font-medium text-heading">
                     {isSeatRec ? rec.seatLabel : (rec as any).startTime}
                   </div>
-                  {rec.reason && <div style={S.recReason}>✓ {rec.reason}</div>}
+                  {rec.reason && <div className="text-xs text-info-text mt-0.5">✓ {rec.reason}</div>}
                 </div>
               </div>
               <Button
@@ -77,12 +53,12 @@ export default function RecommendTipCard({ data, onAction }: BaseCardProps<Recom
           ))}
         </div>
       ) : (
-        <Empty description="暂无可用推荐" style={{ padding: '24px 16px' }} />
+        <Empty description="暂无可用推荐" className="py-6 px-4" />
       )}
 
       {/* 操作按钮 */}
       {action && (
-        <div style={S.actionWrap}>
+        <div className="px-4 pb-4 pt-3 bg-subtle-bg border-t border-border">
           <Button
             block
             {...cfg.btnProps}

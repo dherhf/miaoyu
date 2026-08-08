@@ -82,7 +82,7 @@ export default function OrderConfirmCard({ data }: BaseCardProps<OrderConfirmCar
   if (isPaid) {
     return (
       <div className="w-full overflow-hidden rounded-xl border border-border bg-surface">
-        <div className="m-3 rounded-lg bg-[#f0fdf4] px-4 py-3 text-center text-sm font-medium text-[#16a34a]">
+        <div className="m-3 rounded-lg bg-success-bg px-4 py-3 text-center text-sm font-medium text-success-text">
           支付成功，祝您观影愉快！
         </div>
       </div>
@@ -108,7 +108,7 @@ export default function OrderConfirmCard({ data }: BaseCardProps<OrderConfirmCar
         </div>
       )}
 
-      <div className="flex items-center justify-between border-b border-border/50 bg-[#fafafa] px-4 py-2">
+      <div className="flex items-center justify-between border-b border-border/50 bg-card-header-bg px-4 py-2">
         <span className="font-mono text-xs text-muted/70">{orderNo}</span>
         <Tag color="warning" className="!rounded-full">待支付</Tag>
       </div>
@@ -137,13 +137,13 @@ export default function OrderConfirmCard({ data }: BaseCardProps<OrderConfirmCar
 
       <div className="flex items-center justify-between border-t border-border/50 px-4 py-2.5">
         <span className="text-sm text-muted">订单金额</span>
-        <span className="text-2xl font-bold text-[#dc2626]">¥{totalAmount}</span>
+        <span className="text-2xl font-bold text-price">¥{totalAmount}</span>
       </div>
 
       {!expired && (
-        <div className="flex items-center justify-between border-t border-[#fde68a] bg-[#fffbeb] px-4 py-1.5">
-          <span className="text-[13px] text-[#b45309]">支付倒计时</span>
-          <span className={`font-mono text-base font-bold ${urgent ? 'text-[#dc2626]' : 'text-muted'}`}>
+        <div className="flex items-center justify-between border-t border-warning-border bg-warning-bg px-4 py-1.5">
+          <span className="text-[13px] text-warning-text">支付倒计时</span>
+          <span className={`font-mono text-base font-bold ${urgent ? 'text-warning-urgent' : 'text-muted'}`}>
             {fmtTime(seconds)}
           </span>
         </div>

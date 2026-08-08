@@ -79,7 +79,7 @@ export default function PendingOrderCard({ data }: BaseCardProps<PendingOrderCar
       {paid && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-surface/95">
           <div className="mb-2 text-[40px]">✅</div>
-          <div className="text-sm font-bold text-[#16a34a]">支付成功</div>
+          <div className="text-sm font-bold text-success-text">支付成功</div>
           <div className="mt-1 text-[13px] text-muted/70">祝您观影愉快</div>
         </div>
       )}
@@ -92,9 +92,9 @@ export default function PendingOrderCard({ data }: BaseCardProps<PendingOrderCar
         </div>
       )}
 
-      <div className="flex items-center gap-2 border-b border-[#fde68a] bg-[#fffbeb] px-4 py-2">
+      <div className="flex items-center gap-2 border-b border-warning-border bg-warning-bg px-4 py-2">
         <span className="text-lg">⏰</span>
-        <span className="text-sm font-bold text-[#92400e]">您有一笔待支付的订单</span>
+        <span className="text-sm font-bold text-warning-deep">您有一笔待支付的订单</span>
       </div>
 
       <div className="px-4 py-3">
@@ -112,13 +112,13 @@ export default function PendingOrderCard({ data }: BaseCardProps<PendingOrderCar
         </div>
         <div className="mt-2 flex items-center justify-between border-t border-border/50 pt-2">
           <span className="text-sm text-muted">订单金额</span>
-          <span className="text-xl font-bold text-[#dc2626]">¥{totalAmount}</span>
+          <span className="text-xl font-bold text-price">¥{totalAmount}</span>
         </div>
       </div>
 
-      <div className="flex items-center justify-between border-y border-[#fecaca] bg-[#fef2f2] px-4 py-1.5">
-        <span className="text-[13px] font-medium text-[#b91c1c]">剩余时间</span>
-        <span className="font-mono text-base font-bold text-[#dc2626]">{fmtTime(seconds)}</span>
+      <div className="flex items-center justify-between border-y border-danger-soft-border bg-danger-soft-bg px-4 py-1.5">
+        <span className="text-[13px] font-medium text-danger-soft-text">剩余时间</span>
+        <span className="font-mono text-base font-bold text-price">{fmtTime(seconds)}</span>
       </div>
 
       <div className="flex flex-col gap-2 px-4 py-3">
