@@ -52,16 +52,7 @@ public class IntentRecognitionService {
     public String recognizeIntent(String content, List<ChatMessage> recentMessages) {
         try {
             StringBuilder sb = new StringBuilder();
-            if (recentMessages != null && !recentMessages.isEmpty()) {
-                sb.append("【历史对话】\n");
-                for (ChatMessage msg : recentMessages) {
-                    String role = msg.getRole();
-                    String text = msg.getContent();
-                    if (role != null && text != null) {
-                        sb.append(role.equals("user") ? "用户" : "助手").append(": ").append(text).append("\n");
-                    }
-                }
-            }
+            sb.append(ChatMessage.formatHistory(recentMessages));
             sb.append("【用户输入】\n").append(content);
 
             IntentAssistant assistant = AiServices.builder(IntentAssistant.class)
