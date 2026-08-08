@@ -12,16 +12,7 @@ import { Clock } from 'lucide-react';
 import dayjs from 'dayjs';
 import styles from './SchedulePage.module.css';
 
-export const LANGUAGE_VERSIONS = [
-  { value: 'chinese_2d', label: '国语 2D' },
-  { value: 'chinese_3d', label: '国语 3D' },
-  { value: 'chinese_imax', label: '国语 IMAX' },
-  { value: 'english_2d', label: '英语 2D' },
-  { value: 'english_3d', label: '英语 3D' },
-  { value: 'english_imax', label: '英语 IMAX' },
-  { value: 'japanese', label: '日语原声' },
-  { value: 'korean', label: '韩语原声' },
-];
+export const LANGUAGE_VERSIONS = ['国语 2D', '国语 3D', '国语 IMAX', '英语 2D', '英语 3D', '英语 IMAX', '日语原声', '韩语原声'];
 
 export interface ScheduleFormData {
   cinemaId: string;
@@ -227,7 +218,7 @@ export function ScheduleForm({ data, errors, onChange, cinemas, halls, movies }:
             className={styles.fullWidth}
           >
             {LANGUAGE_VERSIONS.map(item => (
-              <Select.Option key={item.value} value={item.value}>{item.label}</Select.Option>
+              <Select.Option key={item} value={item}>{item}</Select.Option>
             ))}
           </Select>
         </Form.Item>
