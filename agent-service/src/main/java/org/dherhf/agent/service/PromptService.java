@@ -5,7 +5,6 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
-import org.dherhf.agent.enums.IntentEnum;
 import org.dherhf.agent.enums.SlotEnum;
 
 /**
@@ -45,7 +44,6 @@ public class PromptService {
                    - 用户询问"我的订单"等无具体订单ID的列表查询 → 调用 queryOrders(status=...) 获取订单列表
                    - 用户询问"最新订单""最近订单""上一个订单"等 → 先调用 queryOrders(page=1) 获取列表，从结果中取第一条记录的 id，然后必须调用 queryOrderDetail(orderId=该id) 查看详情（这样才能推送订单卡片）
                    - 用户指定了订单ID或询问具体某个订单 → 直接调用 queryOrderDetail(orderId=...)，不要先调用 queryOrders
-                   - 用户要求支付 → 调用 payOrder(orderId=...)
                    - 用户要求取消 → 直接调用 cancelOrder(orderId=...)，不要先调用 queryOrderDetail。取消成功后根据返回的订单信息用自然语言回复，不要推送任何卡片
                    - 用户要求退票 → 直接调用 refundOrder(orderId=...)，不要先调用 queryOrderDetail
                 4. 意图为 TRIP_PLAN 时：
@@ -83,6 +81,7 @@ public class PromptService {
                 ## 约束
                 - 仅讨论电影购票相关话题
                 - 不讨论政治、宗教、暴力等敏感话题
+                - 始终使用中文回复，无论用户用什么语言提问
                 - 不承诺无法实现的功能（如指定座位一定可选）
                 - 回复简洁，不超过 200 字
                 - 禁止输出思考过程、分析过程或推理步骤，直接给出最终回复。不要用"让我先..."、"我需要..."等句式描述你的操作，直接执行并回复结果
