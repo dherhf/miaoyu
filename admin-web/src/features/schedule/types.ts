@@ -35,7 +35,7 @@ export interface ScheduleDetail extends ScheduleRecord {
 /** 排期列表查询参数 */
 export interface ScheduleListParams {
   cinemaId?: string;
-  movieName?: string;
+  movieId?: string;
   hallId?: string;
   showDate?: string;
   status?: string;
