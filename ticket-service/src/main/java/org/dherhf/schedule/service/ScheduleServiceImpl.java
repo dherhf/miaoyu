@@ -226,17 +226,8 @@ public class ScheduleServiceImpl implements ScheduleService {
         schedule.setStatus(ScheduleStatus.CANCELLED.getCode());
         scheduleMapper.updateById(schedule);
 
-        // 释放所有锁定座位
-        List<ScheduleSeat> lockedSeats = scheduleSeatMapper.selectList(
-                new LambdaQueryWrapper<ScheduleSeat>()
-                        .eq(ScheduleSeat::getScheduleId, id)
-                        .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.LOCKED.getCode()));
-        for (ScheduleSeat ss : lockedSeats) {
-            ss.setStatus(ScheduleSeatStatus.AVAILABLE.getCode());
-            ss.setLockedAt(null);
-            ss.setOrderId(null);
-            scheduleSeatMapper.updateById(ss);
-        }
+        // 释放场次的所有锁定座位
+        releaseLockedSeats(id);
 
         // 通知取消关联的未支付订单
         List<org.dherhf.order.entity.Order> pendingOrders = orderMapper.selectList(
@@ -303,17 +294,8 @@ public class ScheduleServiceImpl implements ScheduleService {
         schedule.setStatus(ScheduleStatus.ENDED.getCode());
         scheduleMapper.updateById(schedule);
 
-        // 释放锁定座位
-        List<ScheduleSeat> lockedSeats = scheduleSeatMapper.selectList(
-                new LambdaQueryWrapper<ScheduleSeat>()
-                        .eq(ScheduleSeat::getScheduleId, id)
-                        .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.LOCKED.getCode()));
-        for (ScheduleSeat ss : lockedSeats) {
-            ss.setStatus(ScheduleSeatStatus.AVAILABLE.getCode());
-            ss.setLockedAt(null);
-            ss.setOrderId(null);
-            scheduleSeatMapper.updateById(ss);
-        }
+        // 释放场次所有的锁定座位
+        releaseLockedSeats(id);
 
         // 已出票订单置为已过期(场次已结束,不可再检票)
         expirePaidOrders(id);
@@ -472,6 +454,7 @@ public class ScheduleServiceImpl implements ScheduleService {
                 .build();
     }
 
+    @Scheduled(fixedRate = 600000)
     @Override
     @Transactional
     public void autoEndExpiredSchedules() {
@@ -533,9 +516,22 @@ public class ScheduleServiceImpl implements ScheduleService {
         }
     }
 
-    @Scheduled(fixedRate = 60000)
-    public void scanExpiredSchedules() {
-        autoEndExpiredSchedules();
+    /**
+     * 释放指定场次下所有锁定座位，恢复为可选状态。
+     *
+     * @param scheduleId 场次ID
+     */
+    private void releaseLockedSeats(Long scheduleId) {
+        List<ScheduleSeat> lockedSeatsByScheduleId = scheduleSeatMapper.selectList(
+                new LambdaQueryWrapper<ScheduleSeat>()
+                        .eq(ScheduleSeat::getScheduleId, scheduleId)
+                        .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.LOCKED.getCode()));
+        for (ScheduleSeat ss : lockedSeatsByScheduleId) {
+            ss.setStatus(ScheduleSeatStatus.AVAILABLE.getCode());
+            ss.setLockedAt(null);
+            ss.setOrderId(null);
+            scheduleSeatMapper.updateById(ss);
+        }
     }
 
     /**
@@ -576,6 +572,35 @@ public class ScheduleServiceImpl implements ScheduleService {
         }
     }
 
+    /**
+     * 座位计数（occupiedCount=已占用，soldCount=已售，lockedCount=锁定，-1表示缓存命中未单独查询）
+     */
+    private record SeatCounts(long occupiedCount, long soldCount, long lockedCount) {}
+
+    /**
+     * 优先从 Redis Bitmap BITCOUNT 获取座位计数，缓存未命中时降级查 MySQL。
+     *
+     * @param scheduleId 场次ID（非座位ID）
+     */
+    private SeatCounts getSeatCounts(Long scheduleId) {
+        long occupiedCount = seatBitmapService.getOccupiedCount(scheduleId);
+        long soldCount = seatBitmapService.getSoldCount(scheduleId);
+        long lockedCount = -1;
+        if (occupiedCount < 0 || soldCount < 0) {
+            lockedCount = scheduleSeatMapper.selectCount(
+                    new LambdaQueryWrapper<ScheduleSeat>()
+                            .eq(ScheduleSeat::getScheduleId, scheduleId)
+                            .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.LOCKED.getCode()));
+            Long soldCountDb = scheduleSeatMapper.selectCount(
+                    new LambdaQueryWrapper<ScheduleSeat>()
+                            .eq(ScheduleSeat::getScheduleId, scheduleId)
+                            .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.SOLD.getCode()));
+            occupiedCount = lockedCount + soldCountDb;
+            soldCount = soldCountDb;
+        }
+        return new SeatCounts(occupiedCount, soldCount, lockedCount);
+    }
+
     private boolean isCoreFieldChanged(Schedule schedule, ScheduleUpdateDTO dto) {
         return (dto.getHallId() != null && !dto.getHallId().equals(schedule.getHallId())) ||
                 (dto.getShowDate() != null && !dto.getShowDate().equals(schedule.getShowDate())) ||
@@ -597,25 +622,12 @@ public class ScheduleServiceImpl implements ScheduleService {
         if (hall != null) vo.setHallName(hall.getName());
 
         // 优先从 Redis Bitmap BITCOUNT 获取，缓存未命中时降级查 MySQL
-        long occupiedCount = seatBitmapService.getOccupiedCount(schedule.getId());
-        long soldCount = seatBitmapService.getSoldCount(schedule.getId());
-        if (occupiedCount < 0 || soldCount < 0) {
-            Long lockedCount = scheduleSeatMapper.selectCount(
-                    new LambdaQueryWrapper<ScheduleSeat>()
-                            .eq(ScheduleSeat::getScheduleId, schedule.getId())
-                            .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.LOCKED.getCode()));
-            Long soldCountDb = scheduleSeatMapper.selectCount(
-                    new LambdaQueryWrapper<ScheduleSeat>()
-                            .eq(ScheduleSeat::getScheduleId, schedule.getId())
-                            .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.SOLD.getCode()));
-            occupiedCount = lockedCount + soldCountDb;
-            soldCount = soldCountDb;
-        }
+        SeatCounts counts = getSeatCounts(schedule.getId());
 
-        vo.setAvailableSeats(schedule.getTotalSeats() - (int) occupiedCount);
-        vo.setSoldSeats((int) soldCount);
+        vo.setAvailableSeats(schedule.getTotalSeats() - (int) counts.occupiedCount());
+        vo.setSoldSeats((int) counts.soldCount());
         if (schedule.getTotalSeats() > 0) {
-            vo.setOccupancyRate((double) soldCount / schedule.getTotalSeats());
+            vo.setOccupancyRate((double) counts.soldCount() / schedule.getTotalSeats());
         }
 
         return vo;
@@ -645,28 +657,17 @@ public class ScheduleServiceImpl implements ScheduleService {
         }
 
         // 优先从 Redis Bitmap BITCOUNT 获取，缓存未命中时降级查 MySQL
-        long occupiedCount = seatBitmapService.getOccupiedCount(schedule.getId());
-        long soldCount = seatBitmapService.getSoldCount(schedule.getId());
-        if (occupiedCount < 0 || soldCount < 0) {
-            Long lockedCount = scheduleSeatMapper.selectCount(
-                    new LambdaQueryWrapper<ScheduleSeat>()
-                            .eq(ScheduleSeat::getScheduleId, schedule.getId())
-                            .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.LOCKED.getCode()));
-            Long soldCountDb = scheduleSeatMapper.selectCount(
-                    new LambdaQueryWrapper<ScheduleSeat>()
-                            .eq(ScheduleSeat::getScheduleId, schedule.getId())
-                            .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.SOLD.getCode()));
-            occupiedCount = lockedCount + soldCountDb;
-            soldCount = soldCountDb;
-            vo.setLockedSeats(lockedCount.intValue());
+        SeatCounts counts = getSeatCounts(schedule.getId());
+        if (counts.lockedCount() >= 0) {
+            vo.setLockedSeats((int) counts.lockedCount());
         } else {
-            vo.setLockedSeats((int) (occupiedCount - soldCount));
+            vo.setLockedSeats((int) (counts.occupiedCount() - counts.soldCount()));
         }
 
-        vo.setSoldSeats((int) soldCount);
-        vo.setAvailableSeats(schedule.getTotalSeats() - (int) occupiedCount);
+        vo.setSoldSeats((int) counts.soldCount());
+        vo.setAvailableSeats(schedule.getTotalSeats() - (int) counts.occupiedCount());
         if (schedule.getTotalSeats() > 0) {
-            vo.setOccupancyRate((double) soldCount / schedule.getTotalSeats());
+            vo.setOccupancyRate((double) counts.soldCount() / schedule.getTotalSeats());
         }
 
         return vo;
