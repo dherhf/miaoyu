@@ -439,7 +439,7 @@ public class ScheduleServiceImpl implements ScheduleService {
             seats.add(seatVO);
         }
 
-        // 座位状态优先从 Redis Bitmap 批量获取，缓存未命中时从 MySQL 重建并回写
+        // Redis Bitmap 优先读取座位状态，缓存未命中时从 MySQL 重建并回写
         String[] seatStatuses = seatBitmapService.getSeatStatuses(id, schedule.getTotalSeats());
         if (seatStatuses != null) {
             availableCount = 0;
@@ -520,6 +520,9 @@ public class ScheduleServiceImpl implements ScheduleService {
 
                 // 已出票订单置为已过期(场次已结束,不可再检票)
                 expirePaidOrders(schedule.getId());
+
+                // 清理 Redis Bitmap 缓存（与 endSchedule 一致）
+                seatBitmapService.deleteBitmap(schedule.getId());
             } catch (Exception e) {
                 log.error("Error auto-ending schedule {}", schedule.getId(), e);
             }
@@ -593,11 +596,10 @@ public class ScheduleServiceImpl implements ScheduleService {
         Hall hall = hallMapper.selectById(schedule.getHallId());
         if (hall != null) vo.setHallName(hall.getName());
 
-        // 优先从 Redis Bitmap BITCOUNT 获取
+        // 优先从 Redis Bitmap BITCOUNT 获取，缓存未命中时降级查 MySQL
         long occupiedCount = seatBitmapService.getOccupiedCount(schedule.getId());
         long soldCount = seatBitmapService.getSoldCount(schedule.getId());
         if (occupiedCount < 0 || soldCount < 0) {
-            // 缓存未命中，降级查 MySQL
             Long lockedCount = scheduleSeatMapper.selectCount(
                     new LambdaQueryWrapper<ScheduleSeat>()
                             .eq(ScheduleSeat::getScheduleId, schedule.getId())
@@ -610,8 +612,7 @@ public class ScheduleServiceImpl implements ScheduleService {
             soldCount = soldCountDb;
         }
 
-        int occupied = (int) occupiedCount;
-        vo.setAvailableSeats(schedule.getTotalSeats() - occupied);
+        vo.setAvailableSeats(schedule.getTotalSeats() - (int) occupiedCount);
         vo.setSoldSeats((int) soldCount);
         if (schedule.getTotalSeats() > 0) {
             vo.setOccupancyRate((double) soldCount / schedule.getTotalSeats());
@@ -643,11 +644,10 @@ public class ScheduleServiceImpl implements ScheduleService {
             vo.setHallScreenType(hall.getScreenType());
         }
 
-        // 优先从 Redis Bitmap 获取
+        // 优先从 Redis Bitmap BITCOUNT 获取，缓存未命中时降级查 MySQL
         long occupiedCount = seatBitmapService.getOccupiedCount(schedule.getId());
         long soldCount = seatBitmapService.getSoldCount(schedule.getId());
         if (occupiedCount < 0 || soldCount < 0) {
-            // 缓存未命中，降级查 MySQL
             Long lockedCount = scheduleSeatMapper.selectCount(
                     new LambdaQueryWrapper<ScheduleSeat>()
                             .eq(ScheduleSeat::getScheduleId, schedule.getId())
@@ -658,8 +658,7 @@ public class ScheduleServiceImpl implements ScheduleService {
                             .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.SOLD.getCode()));
             occupiedCount = lockedCount + soldCountDb;
             soldCount = soldCountDb;
-            long lockedCountLong = lockedCount;
-            vo.setLockedSeats((int) lockedCountLong);
+            vo.setLockedSeats(lockedCount.intValue());
         } else {
             vo.setLockedSeats((int) (occupiedCount - soldCount));
         }
