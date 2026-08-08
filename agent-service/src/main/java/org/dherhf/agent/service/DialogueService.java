@@ -545,14 +545,16 @@ public class DialogueService {
      * 刷新消息中的订单卡片状态。
      * <p>
      * 用户通过卡片按钮支付/取消后退重回会话时，MongoDB 中的 cardData 仍是旧快照。
-     * 此方法对 order_confirm / order_success 类卡片调 ticket-service 获取最新订单状态，
-     * 仅刷新内存中的响应数据，不修改 MongoDB 快照。
+     * 此方法对 order_confirm / order_success / order_list 类卡片调 ticket-service
+     * 获取最新订单状态，仅刷新内存中的响应数据，不修改 MongoDB 快照。
      * </p>
      */
     public void enrichOrderCards(List<ChatMessage> messages, Long userId) {
         for (ChatMessage msg : messages) {
             String cardType = msg.getCardType();
-            if (!"order_confirm".equals(cardType) && !"order_success".equals(cardType)) {
+            if (!"order_confirm".equals(cardType)
+                    && !"order_success".equals(cardType)
+                    && !"order_list".equals(cardType)) {
                 continue;
             }
             if (msg.getCardData() == null) {
@@ -561,23 +563,61 @@ public class DialogueService {
             try {
                 @SuppressWarnings("unchecked")
                 Map<String, Object> cardData = (Map<String, Object>) msg.getCardData();
-                Object idObj = cardData.get("id");
-                if (idObj == null) continue;
-                Long orderId = idObj instanceof Number
-                        ? ((Number) idObj).longValue()
-                        : Long.parseLong(idObj.toString());
-                Result<Object> result = ticketClient.queryOrderDetail(orderId, userId);
-                if (result.getCode() == 0 && result.getData() != null) {
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> detail = objectMapper.convertValue(result.getData(), Map.class);
-                    cardData.put("status", detail.get("status"));
-                    if (detail.get("pickupCode") != null) {
-                        cardData.put("pickupCode", detail.get("pickupCode"));
-                    }
+                if ("order_list".equals(cardType)) {
+                    enrichOrderListCard(cardData, userId);
+                } else {
+                    enrichSingleOrderCard(cardData, userId);
                 }
             } catch (Exception e) {
                 log.warn("[enrichOrderCards] 刷新订单卡片失败: {}", e.getMessage());
             }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void enrichSingleOrderCard(Map<String, Object> cardData, Long userId) {
+        Object idObj = cardData.get("id");
+        if (idObj == null) return;
+        Long orderId = parseOrderId(idObj);
+        if (orderId == null) return;
+        Result<Object> result = ticketClient.queryOrderDetail(orderId, userId);
+        if (result.getCode() == 0 && result.getData() != null) {
+            Map<String, Object> detail = objectMapper.convertValue(result.getData(), Map.class);
+            cardData.put("status", detail.get("status"));
+            if (detail.get("pickupCode") != null) {
+                cardData.put("pickupCode", detail.get("pickupCode"));
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void enrichOrderListCard(Map<String, Object> cardData, Long userId) {
+        Object recordsObj = cardData.get("records");
+        if (!(recordsObj instanceof List<?> records)) return;
+        for (Object item : records) {
+            if (!(item instanceof Map<?, ?> raw)) continue;
+            Map<String, Object> order = (Map<String, Object>) raw;
+            Object idObj = order.get("id");
+            if (idObj == null) continue;
+            Long orderId = parseOrderId(idObj);
+            if (orderId == null) continue;
+            Result<Object> result = ticketClient.queryOrderDetail(orderId, userId);
+            if (result.getCode() == 0 && result.getData() != null) {
+                Map<String, Object> detail = objectMapper.convertValue(result.getData(), Map.class);
+                order.put("status", detail.get("status"));
+                if (detail.get("pickupCode") != null) {
+                    order.put("pickupCode", detail.get("pickupCode"));
+                }
+            }
+        }
+    }
+
+    private static Long parseOrderId(Object idObj) {
+        if (idObj instanceof Number n) return n.longValue();
+        try {
+            return Long.parseLong(idObj.toString());
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
 }
