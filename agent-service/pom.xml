@@ -64,6 +64,10 @@
 
         <!-- Flux<String> 支持：@AiService 返回 Flux<String>（langchain4j-reactor）+ 控制器返回 Flux（webflux） -->
         <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-reactor</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webflux</artifactId>
         </dependency>
