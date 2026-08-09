@@ -28,27 +28,25 @@ export default function ChatPage() {
   useHeaderBack(true, '/')
 
   useEffect(() => {
-    setActiveId(id)
-  }, [id])
-
-  useEffect(() => {
     listSessions(0, 50)
       .then((res) => setSessions(res.records))
       .catch(() => {})
   }, [])
 
   useEffect(() => {
-    if (!activeId) {
+    if (!id) {
+      setActiveId(undefined)
       setMessages([])
       setLoading(false)
       return
     }
-    if (locallyCreatedRef.current === activeId) {
+    setActiveId(id)
+    if (locallyCreatedRef.current === id) {
       locallyCreatedRef.current = null
       return
     }
     setLoading(true)
-    getSessionDetail(activeId)
+    getSessionDetail(id)
       .then((detail) => {
         setMessages(
           detail.messages.map((m) => ({
@@ -67,7 +65,7 @@ export default function ChatPage() {
         }
       })
       .finally(() => setLoading(false))
-  }, [activeId, navigate])
+  }, [id, navigate])
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -152,7 +150,6 @@ export default function ChatPage() {
     if (activeId) return activeId
     const session = await createSession()
     locallyCreatedRef.current = session.sessionId
-    setActiveId(session.sessionId)
     navigate(`/chat/${session.sessionId}`, { replace: true })
     const summary: SessionSummary = {
       sessionId: session.sessionId,
