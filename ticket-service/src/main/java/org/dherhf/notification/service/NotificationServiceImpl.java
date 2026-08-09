@@ -14,6 +14,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -23,6 +24,7 @@ import java.util.stream.Collectors;
 public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationMapper notificationMapper;
+    private final NotificationSseManager sseManager;
 
     @Override
     public PageResult<NotificationVO> list(Long userId, String type, Integer isRead, Integer page, Integer size) {
@@ -63,6 +65,8 @@ public class NotificationServiceImpl implements NotificationService {
                 .isRead(0)
                 .build();
         notificationMapper.insert(notification);
+        notification.setCreatedAt(LocalDateTime.now());
+        sseManager.send(userId, toVO(notification));
         log.info("Notification sent: userId={}, type={}, title={}", userId, type, title);
     }
 

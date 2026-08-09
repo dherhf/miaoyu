@@ -3,6 +3,7 @@ package org.dherhf.notification.service;
 import org.dherhf.common.exception.BusinessException;
 import org.dherhf.notification.entity.Notification;
 import org.dherhf.notification.mapper.NotificationMapper;
+import org.dherhf.notification.vo.NotificationVO;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -10,7 +11,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -18,6 +19,9 @@ class NotificationServiceTest {
 
     @Mock
     private NotificationMapper notificationMapper;
+
+    @Mock
+    private NotificationSseManager sseManager;
 
     @InjectMocks
     private NotificationServiceImpl notificationService;
@@ -56,5 +60,17 @@ class NotificationServiceTest {
                 () -> notificationService.markRead(1L, 1L));
         assertEquals(404, ex.getCode());
         System.out.println("[NotificationServiceTest] ✓ markRead_notOwnNotification_throws404 PASSED");
+    }
+
+    @Test
+    void sendNotification_success_inserts_and_pushes_sse() {
+        System.out.println("[NotificationServiceTest] ▶ sendNotification_success_inserts_and_pushes_sse");
+        when(notificationMapper.insert(any(Notification.class))).thenReturn(1);
+
+        notificationService.sendNotification(1L, "LOCK_SUCCESS", "座位已锁定", "内容", 10L);
+
+        verify(notificationMapper).insert(any(Notification.class));
+        verify(sseManager).send(eq(1L), any(NotificationVO.class));
+        System.out.println("[NotificationServiceTest] ✓ sendNotification_success_inserts_and_pushes_sse PASSED");
     }
 }
