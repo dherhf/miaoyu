@@ -49,7 +49,7 @@ langchain4j:
       max-tokens: 2048
       timeout: 90s
       log-requests: false
-      log-responses: true
+      log-responses: false
     streaming-chat-model:
       base-url: https://api.deepseek.com/v1
       api-key: ${DEEPSEEK_API_KEY}
@@ -58,7 +58,7 @@ langchain4j:
       max-tokens: 2048
       timeout: 60s
       log-requests: false
-      log-responses: true
+      log-responses: false
 
 # Agent 对话配置
 agent:
@@ -66,8 +66,6 @@ agent:
   context-ttl-seconds: 86400
   # SSE 连接超时（秒）
   sse-timeout-seconds: 90
-  # 会话自动过期天数
-  session-expire-days: 30
   # 连续否定阈值（达此值后降级为结构化追问）
   negate-threshold: 2
   # 历史消息窗口大小（传给 LLM 的最近 N 轮）

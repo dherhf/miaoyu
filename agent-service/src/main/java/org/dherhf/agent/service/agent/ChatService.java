@@ -128,20 +128,18 @@ public class ChatService {
         requestCtx.setLatitude(latitude);
         requestCtx.setCity(city);
 
-        return Flux.<String>create(sink -> {
-            Thread.startVirtualThread(() -> {
-                try {
-                    contextService.storeRequestContext(sessionId, requestCtx);
-                    processDialogue(sink, sessionId, userId, content, slotState, longitude, latitude, city, needTitle);
-                } catch (Exception ex) {
-                    log.error("[handleMessage] 对话处理异常: sessionId={}", sessionId, ex);
-                    sink.next(toJson(SseEvent.error("500", "服务异常，请重试")));
-                    sink.complete();
-                } finally {
-                    contextService.clearRequestContext(sessionId);
-                }
-            });
-        });
+        return Flux.create(sink -> Thread.startVirtualThread(() -> {
+            try {
+                contextService.storeRequestContext(sessionId, requestCtx);
+                processDialogue(sink, sessionId, userId, content, slotState, longitude, latitude, city, needTitle);
+            } catch (Exception ex) {
+                log.error("[handleMessage] 对话处理异常: sessionId={}", sessionId, ex);
+                sink.next(toJson(SseEvent.error("500", "服务异常，请重试")));
+                sink.complete();
+            } finally {
+                contextService.clearRequestContext(sessionId);
+            }
+        }));
     }
 
     /**
