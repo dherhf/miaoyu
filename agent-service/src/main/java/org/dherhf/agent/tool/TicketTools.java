@@ -68,7 +68,7 @@ public class TicketTools {
     /** 订单支付超时秒数，与 ticket-service OrderServiceImpl.ORDER_TIMEOUT_SECONDS 保持一致 */
     private static final int ORDER_TIMEOUT_SECONDS = 15 * 60;
 
-    // ========== 会话级状态管理（由 DialogueService 调用） ==========
+    // ========== 会话级状态管理（由 ChatService 调用） ==========
 
     /**
      * 重置指定会话的工具状态（每轮对话开始前调用）。
@@ -80,7 +80,7 @@ public class TicketTools {
     }
 
     /**
-     * 取出并清空指定会话的卡片缓冲（LLM 回复后由 DialogueService 调用）。
+     * 取出并清空指定会话的卡片缓冲（LLM 回复后由 ChatService 调用）。
      */
     public List<CardPayload> drainCards(String sessionId) {
         List<CardPayload> buffer = cardBuffers.remove(sessionId);

@@ -43,7 +43,7 @@ import org.dherhf.agent.tool.TicketTools;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class DialogueService {
+public class ChatService {
 
     private final ChatAssistant chatAssistant;
     private final TicketTools ticketTools;

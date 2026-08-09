@@ -13,7 +13,7 @@ import org.dherhf.agent.model.dto.SessionListResponse;
 import org.dherhf.agent.document.ChatMessage;
 import org.dherhf.agent.document.ChatSessionDocument;
 import org.dherhf.agent.service.ChatSessionService;
-import org.dherhf.agent.service.DialogueService;
+import org.dherhf.agent.service.ChatService;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -43,7 +43,7 @@ import java.util.stream.Collectors;
 public class ChatController {
 
     private final ChatSessionService chatSessionService;
-    private final DialogueService dialogueService;
+    private final ChatService chatService;
 
     /**
      * 创建对话会话
@@ -79,7 +79,7 @@ public class ChatController {
     ) {
         log.info("[发送对话消息] sessionId={}, userId={}, content={}", id, userId, request.getContent());
 
-        return dialogueService.handleMessage(
+        return chatService.handleMessage(
                 id,
                 userId,
                 request.getContent(),
@@ -143,7 +143,7 @@ public class ChatController {
         resp.setCreatedAt(session.getCreatedAt());
 
         List<ChatMessage> messages = chatSessionService.getMessages(session.getSessionId());
-        dialogueService.enrichOrderCards(messages, userId);
+        chatService.enrichOrderCards(messages, userId);
         List<SessionDetailResponse.MessageItem> items = messages.stream()
                 .map(m -> {
                     SessionDetailResponse.MessageItem item = new SessionDetailResponse.MessageItem();

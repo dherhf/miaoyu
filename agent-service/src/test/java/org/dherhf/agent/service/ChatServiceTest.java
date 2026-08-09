@@ -20,10 +20,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-@DisplayName("DialogueService 对话引擎测试")
-class DialogueServiceTest {
+@DisplayName("ChatService 对话引擎测试")
+class ChatServiceTest {
 
-    private DialogueService service;
+    private ChatService service;
     private ChatAssistant chatAssistant;
     private TicketTools ticketTools;
     private TitleAgentService titleAgentService;
@@ -67,7 +67,7 @@ class DialogueServiceTest {
         when(chatAssistant.chat(anyString(), anyString(), anyString())).thenReturn(testStream);
         when(ticketTools.drainCards(anyString())).thenReturn(List.of());
 
-        service = new DialogueService(
+        service = new ChatService(
                 chatAssistant, ticketTools, promptService, inputFilterService,
                 outputValidatorService, contextService, chatSessionService,
                 titleAgentService, intentRecognitionService, ticketClient, amapClient, idempotentService, objectMapper, userPreferenceService
@@ -216,7 +216,7 @@ class DialogueServiceTest {
     class BuildContextPromptTest {
 
         private String buildContextPrompt(String content, SlotState slotState, List<ChatMessage> history) throws Exception {
-            java.lang.reflect.Method method = DialogueService.class
+            java.lang.reflect.Method method = ChatService.class
                     .getDeclaredMethod("buildContextPrompt", Long.class, String.class, SlotState.class, List.class, Double.class, Double.class, String.class, String.class);
             method.setAccessible(true);
             return (String) method.invoke(service, 1L, content, slotState, history, null, null, null, null);

@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
  * <pre>
  * { "cardType": "movie_list", "cardData": {...} }
  * </pre>
- * 工具方法缓冲此对象供 DialogueService 推送 SSE card 事件，
+ * 工具方法缓冲此对象供 ChatService 推送 SSE card 事件，
  * cardData 为后端返回的原始数据，格式化由 LLM 完成。
  */
 @Data

@@ -15,7 +15,7 @@ public class UserPreferenceService {
 
     /**
      * 获取偏好文档（不存在时返回空对象）。
-     * 供 DialogueService 注入 LLM 上下文使用。
+     * 供 ChatService 注入 LLM 上下文使用。
      */
     public UserPreferenceDocument getPreference(Long userId) {
         return repository.findByUserId(userId).orElseGet(() -> {
@@ -52,7 +52,7 @@ public class UserPreferenceService {
 
     /**
      * 合并偏好（部分更新，仅覆盖非 null 字段）。
-     * 供 DialogueService 从对话中自动提取偏好时使用。
+     * 供 ChatService 从对话中自动提取偏好时使用。
      */
     public void mergePreference(Long userId, PreferenceUpdateDTO dto) {
         UserPreferenceDocument doc = repository.findByUserId(userId).orElseGet(() -> {
