@@ -9,6 +9,12 @@ interface Result<T> {
   data: T | null
 }
 
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    _silent?: boolean
+  }
+}
+
 const request = axios.create({
   baseURL: '/api/v1',
   timeout: 10000,
@@ -34,6 +40,10 @@ request.interceptors.response.use(
   },
   (error) => {
     if (error.__handled) {
+      return Promise.reject(error)
+    }
+
+    if (error.config?._silent) {
       return Promise.reject(error)
     }
 

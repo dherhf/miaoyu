@@ -30,7 +30,9 @@ export async function listSessions(
 }
 
 export async function getSessionDetail(id: string): Promise<SessionDetailResponse> {
-  const res = await request.get<SessionDetailResponse>(`/chat/sessions/${id}`)
+  const res = await request.get<SessionDetailResponse>(`/chat/sessions/${id}`, {
+    _silent: true,
+  })
   return res.data
 }
 
