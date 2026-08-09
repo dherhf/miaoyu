@@ -67,8 +67,6 @@ public class ContextService {
     private final ChatMessageRepository chatMessageRepository;
     @Value("${agent.context-ttl-seconds}")
     private long ttlSeconds;
-    @Value("${agent.history-window}")
-    private int historyWindow;
 
     /**
      * 从 Redis 加载槽位状态，缓存未命中时从 MongoDB 回填。
@@ -188,20 +186,7 @@ public class ContextService {
     }
 
     /**
-     * 获取最近 N 轮对话消息（用于 LLM 上下文窗口）。
-     */
-    public List<ChatMessage> getRecentMessages(String sessionId) {
-        long total = chatMessageRepository.countBySessionId(sessionId);
-        int skip = (int) Math.max(0, total - historyWindow);
-        Query query = Query.query(Criteria.where("sessionId").is(sessionId))
-                .with(Sort.by(Sort.Direction.ASC, "msgId"))
-                .skip(skip)
-                .limit(historyWindow);
-        return mongoTemplate.find(query, ChatMessage.class);
-    }
-
-    /**
-     * 获取会话的全量消息数（用于 msgId 分配，不受 historyWindow 截断影响）。
+     * 获取会话的全量消息数（用于 msgId 分配）。
      *
      * @param sessionId 会话 ID
      * @return 消息总数

@@ -68,8 +68,6 @@ agent:
   sse-timeout-seconds: 90
   # 连续否定阈值（达此值后降级为结构化追问）
   negate-threshold: 2
-  # 历史消息窗口大小（传给 LLM 的最近 N 轮）
-  history-window: 10
 
 logging:
   level:

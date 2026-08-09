@@ -5,7 +5,6 @@ import org.dherhf.agent.service.agent.IntentService;
 import org.dherhf.agent.service.agent.TitleService;
 import org.dherhf.agent.service.assistant.ChatAssistant;
 import tools.jackson.databind.ObjectMapper;
-import org.dherhf.agent.document.ChatMessage;
 import org.dherhf.agent.document.ChatSessionDocument;
 import org.dherhf.agent.enums.SessionStatusEnum;
 import org.dherhf.agent.model.ticket.SlotState;
@@ -167,8 +166,6 @@ class ChatServiceTest {
                     .thenReturn(true);
             when(contextService.loadSlotState("s1"))
                     .thenReturn(new SlotState());
-            when(contextService.getRecentMessages("s1"))
-                    .thenReturn(List.of());
             when(contextService.getMessageCount("s1"))
                     .thenReturn(0);
 
@@ -187,40 +184,21 @@ class ChatServiceTest {
     @DisplayName("buildContextPrompt() 上下文构造")
     class BuildContextPromptTest {
 
-        private String buildContextPrompt(String content, SlotState slotState, List<ChatMessage> history) throws Exception {
+        private String buildContextPrompt(String content, SlotState slotState) throws Exception {
             java.lang.reflect.Method method = ChatService.class
-                    .getDeclaredMethod("buildContextPrompt", Long.class, String.class, SlotState.class, List.class, Double.class, Double.class, String.class, String.class);
+                    .getDeclaredMethod("buildContextPrompt", Long.class, String.class, SlotState.class, Double.class, Double.class, String.class, String.class);
             method.setAccessible(true);
-            return (String) method.invoke(service, 1L, content, slotState, history, null, null, null, null);
+            return (String) method.invoke(service, 1L, content, slotState, null, null, null, null);
         }
 
         @Test
-        @DisplayName("空历史 + 空槽位 → 只有用户输入")
+        @DisplayName("空槽位 → 只有用户输入")
         void emptyContext() throws Exception {
-            String result = buildContextPrompt("你好", new SlotState(), List.of());
+            String result = buildContextPrompt("你好", new SlotState());
 
             assertTrue(result.contains("【用户输入】"));
             assertTrue(result.contains("你好"));
-            assertFalse(result.contains("【历史对话】"));
             assertFalse(result.contains("【当前槽位状态】"));
-        }
-
-        @Test
-        @DisplayName("有历史对话时包含历史段落")
-        void withHistory() throws Exception {
-            ChatMessage m1 = new ChatMessage();
-            m1.setRole("user");
-            m1.setContent("我想买票");
-            ChatMessage m2 = new ChatMessage();
-            m2.setRole("assistant");
-            m2.setContent("好的，请问看什么电影？");
-            List<ChatMessage> history = List.of(m1, m2);
-
-            String result = buildContextPrompt("流浪地球3", new SlotState(), history);
-
-            assertTrue(result.contains("【历史对话】"));
-            assertTrue(result.contains("用户: 我想买票"));
-            assertTrue(result.contains("助手: 好的，请问看什么电影？"));
         }
 
         @Test
@@ -229,31 +207,11 @@ class ChatServiceTest {
             SlotState slots = new SlotState();
             slots.setMovieName("流浪地球3");
             slots.setCount(2);
-            String result = buildContextPrompt("明天", slots, List.of());
+            String result = buildContextPrompt("明天", slots);
 
             assertTrue(result.contains("【当前槽位状态】"));
             assertTrue(result.contains("movieName"));
             assertTrue(result.contains("流浪地球3"));
-        }
-
-        @Test
-        @DisplayName("历史消息中 role/content 为 null 时跳过")
-        void nullFieldsInHistory() throws Exception {
-            ChatMessage m1 = new ChatMessage();
-            m1.setRole("user");
-            m1.setContent("有效消息");
-            ChatMessage m2 = new ChatMessage();
-            m2.setRole(null);
-            m2.setContent("无效消息");
-            ChatMessage m3 = new ChatMessage();
-            m3.setRole("assistant");
-            m3.setContent(null);
-            List<ChatMessage> history = new ArrayList<>(List.of(m1, m2, m3));
-
-            String result = buildContextPrompt("test", new SlotState(), history);
-
-            assertTrue(result.contains("用户: 有效消息"));
-            assertFalse(result.contains("无效消息"));
         }
     }
 }

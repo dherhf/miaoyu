@@ -36,9 +36,10 @@ import org.dherhf.agent.tool.TicketTools;
 /**
  * 对话引擎主流程服务。
  * <p>
- * 流程：用户输入 → 输入安全过滤 → 构造 LLM 请求（System Prompt + 上下文 + 历史） →
- * LangChain4j 流式调用 DeepSeek → 工具调用（自动跳步/缺槽追问/上下文修正） →
- * 逐 token Flux 推送 → 输出校验 → 元数据解析 → MongoDB 持久化
+ * 流程：用户输入 → 输入安全过滤 → 构造 LLM 请求（System Prompt + 上下文） →
+ * LangChain4j 流式调用 DeepSeek（历史由 ChatMemoryProvider 自动管理） →
+ * 工具调用（自动跳步/缺槽追问/上下文修正） → 逐 token Flux 推送 →
+ * 输出校验 → 元数据解析 → MongoDB 持久化
  * </p>
  */
 @Slf4j
@@ -160,13 +161,12 @@ public class ChatService {
             String city,
             boolean needTitle
     ) {
-        List<ChatMessage> recentMessages = contextService.getRecentMessages(sessionId);
-
         // 先识别意图（串行），结果注入主 Agent 上下文以指导工具链选择
         String recognizedIntent = intentService.recognizeIntent(content);
         log.info("[processDialogue] 意图识别结果: sessionId={}, intent={}", sessionId, recognizedIntent);
 
-        String contextPrompt = buildContextPrompt(userId, content, slotState, recentMessages, longitude, latitude, city, recognizedIntent);
+        // 历史由 ChatMemoryProvider 自动管理，contextPrompt 只含本轮上下文（不含历史）
+        String contextPrompt = buildContextPrompt(userId, content, slotState, longitude, latitude, city, recognizedIntent);
 
         int totalMsgCount = contextService.getMessageCount(sessionId);
         int nextId = totalMsgCount + 1;
@@ -178,8 +178,7 @@ public class ChatService {
 
         contextService.updateContext(sessionId, slotState, userMsg, userMsg.getCreatedAt());
 
-        TicketTools tools = ticketTools;
-        tools.resetSessionState(sessionId);
+        ticketTools.resetSessionState(sessionId);
 
         StringBuilder fullText = new StringBuilder();
         int[] sentUpTo = {0};
@@ -279,7 +278,7 @@ public class ChatService {
                     }
 
                     // 只推送最后一张卡片（跳步场景下中间卡片对用户无意义）
-                    List<CardPayload> cards = tools.drainCards(sessionId);
+                    List<CardPayload> cards = ticketTools.drainCards(sessionId);
                     if (!cards.isEmpty()) {
                         CardPayload lastCard = cards.getLast();
                         log.info("[processDialogue] 推送卡片: {}", lastCard.getCardType());
@@ -357,7 +356,6 @@ public class ChatService {
             Long userId,
             String content,
             SlotState slotState,
-            List<ChatMessage> recentMessages,
             Double longitude,
             Double latitude,
             String city,
@@ -372,7 +370,6 @@ public class ChatService {
         if (hasPreferenceData(pref)) {
             sb.append(buildPreferenceText(pref));
         }
-        sb.append(ChatMessage.formatHistory(recentMessages));
         // 判断 slotState 是否有非 null 字段
         if (hasSlotData(slotState)) {
             sb.append("【当前槽位状态】\n");
