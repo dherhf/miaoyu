@@ -1,37 +1,27 @@
-package org.dherhf.agent.service;
+package org.dherhf.agent.service.agent;
 
-import dev.langchain4j.model.chat.ChatModel;
-import dev.langchain4j.service.AiServices;
-import dev.langchain4j.service.UserMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dherhf.agent.document.ChatMessage;
 import org.dherhf.agent.enums.IntentEnum;
+import org.dherhf.agent.service.assistant.IntentAssistant;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-
 /**
- * 意图识别 Agent（独立于主对话流程）。
+ * 意图识别服务（独立于主对话流程）。
  * <p>
- * 使用非流式 {@link ChatModel}，根据用户消息 + 历史对话识别意图。
+ * 委托 {@link IntentAssistant}（声明式 {@code @AiService}）调用 LLM 识别意图，
  * 识别失败时降级返回 {@link IntentEnum#OTHER}。
  * </p>
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class IntentRecognitionService {
+public class IntentService {
 
-    private final ChatModel chatModel;
-
-    /** LangChain4j AiService 接口，返回意图枚举名。 */
-    public interface IntentAssistant {
-        String recognizeIntent(@UserMessage String userMessage);
-    }
+    private final IntentAssistant intentAssistant;
 
     private static final String INTENT_PROMPT = """
-            你是妙语购票的意图识别助手。根据用户消息和历史对话，判断用户的意图。
+            你是妙语购票的意图识别助手。根据用户当前消息，判断用户的意图。
             只输出意图枚举名，不要任何解释或标点。
 
             可选意图：
@@ -45,21 +35,12 @@ public class IntentRecognitionService {
     /**
      * 识别用户意图。失败时降级返回 OTHER。
      *
-     * @param content         用户当前消息
-     * @param recentMessages  最近历史对话
+     * @param content 用户当前消息
      * @return 意图枚举名（如 "BUY_TICKET"）
      */
-    public String recognizeIntent(String content, List<ChatMessage> recentMessages) {
+    public String recognizeIntent(String content) {
         try {
-            StringBuilder sb = new StringBuilder();
-            sb.append(ChatMessage.formatHistory(recentMessages));
-            sb.append("【用户输入】\n").append(content);
-
-            IntentAssistant assistant = AiServices.builder(IntentAssistant.class)
-                    .chatModel(chatModel)
-                    .systemMessageProvider(memoryId -> INTENT_PROMPT)
-                    .build();
-            String result = assistant.recognizeIntent(sb.toString());
+            String result = intentAssistant.recognizeIntent(content, INTENT_PROMPT);
             if (result != null) {
                 result = result.trim();
                 try {

@@ -7,7 +7,7 @@ import org.dherhf.agent.enums.SessionStatusEnum;
 import org.dherhf.agent.model.dto.CreateSessionRequest;
 import org.dherhf.agent.model.dto.SendMessageRequest;
 import org.dherhf.agent.service.ChatSessionService;
-import org.dherhf.agent.service.ChatService;
+import org.dherhf.agent.service.agent.ChatService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

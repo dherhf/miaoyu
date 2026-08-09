@@ -1,12 +1,15 @@
 package org.dherhf.agent.service;
 
+import org.dherhf.agent.service.agent.ChatService;
+import org.dherhf.agent.service.agent.IntentService;
+import org.dherhf.agent.service.agent.TitleService;
+import org.dherhf.agent.service.assistant.ChatAssistant;
 import tools.jackson.databind.ObjectMapper;
 import org.dherhf.agent.document.ChatMessage;
 import org.dherhf.agent.document.ChatSessionDocument;
 import org.dherhf.agent.enums.SessionStatusEnum;
 import org.dherhf.agent.model.ticket.SlotState;
 import org.dherhf.agent.tool.TicketServiceClient;
-import org.dherhf.agent.tool.AmapClient;
 import org.dherhf.agent.tool.TicketTools;
 import org.junit.jupiter.api.*;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -24,16 +27,14 @@ class ChatServiceTest {
     private ChatService service;
     private ChatAssistant chatAssistant;
     private TicketTools ticketTools;
-    private TitleAgentService titleAgentService;
-    private IntentRecognitionService intentRecognitionService;
+    private TitleService titleService;
+    private IntentService intentService;
     private PromptService promptService;
     private InputFilterService inputFilterService;
     private OutputValidatorService outputValidatorService;
     private ContextService contextService;
     private ChatSessionService chatSessionService;
     private TicketServiceClient ticketClient;
-    private AmapClient amapClient;
-    private IdempotentService idempotentService;
     private ObjectMapper objectMapper;
     private UserPreferenceService userPreferenceService;
 
@@ -41,24 +42,22 @@ class ChatServiceTest {
     void setUp() {
         chatAssistant = mock(ChatAssistant.class);
         ticketTools = mock(TicketTools.class);
-        titleAgentService = mock(TitleAgentService.class);
-        intentRecognitionService = mock(IntentRecognitionService.class);
+        titleService = mock(TitleService.class);
+        intentService = mock(IntentService.class);
         promptService = mock(PromptService.class);
         inputFilterService = mock(InputFilterService.class);
         outputValidatorService = mock(OutputValidatorService.class);
         contextService = mock(ContextService.class);
         chatSessionService = mock(ChatSessionService.class);
         ticketClient = mock(TicketServiceClient.class);
-        amapClient = mock(AmapClient.class);
-        idempotentService = mock(IdempotentService.class);
         objectMapper = new ObjectMapper();
         userPreferenceService = mock(UserPreferenceService.class);
 
         when(promptService.getSystemPrompt()).thenReturn("test prompt");
         when(outputValidatorService.validate(anyString())).thenReturn(true);
         when(contextService.mergeSlots(any(), any())).thenReturn(new SlotState());
-        when(titleAgentService.generateTitle(anyString())).thenReturn("测试标题");
-        when(intentRecognitionService.recognizeIntent(anyString(), anyList())).thenReturn("OTHER");
+        when(titleService.generateTitle(anyString())).thenReturn("测试标题");
+        when(intentService.recognizeIntent(anyString())).thenReturn("OTHER");
 
         // Flux.just 同步发射，模拟 LLM 输出 "test response" + 元数据块
         when(chatAssistant.chat(anyString(), anyString(), anyString()))
@@ -68,7 +67,7 @@ class ChatServiceTest {
         service = new ChatService(
                 chatAssistant, ticketTools, promptService, inputFilterService,
                 outputValidatorService, contextService, chatSessionService,
-                titleAgentService, intentRecognitionService, ticketClient, amapClient, idempotentService, objectMapper, userPreferenceService
+                titleService, intentService, ticketClient, objectMapper, userPreferenceService
         );
 
         // 手动注入 @Value 字段

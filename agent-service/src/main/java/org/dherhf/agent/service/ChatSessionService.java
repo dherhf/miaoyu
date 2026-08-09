@@ -22,9 +22,6 @@ import org.dherhf.agent.repository.ChatSessionRepository;
 
 /**
  * 对话会话管理服务。
- * <p>
- * 对应系分 §3.9.1 - 创建会话、§3.9.6 - 会话列表、§3.9.7 - 会话详情、§3.9.8 - 删除会话。
- * </p>
  */
 @Slf4j
 @Service
@@ -35,9 +32,6 @@ public class ChatSessionService {
     private final ChatMessageRepository chatMessageRepository;
     private final MongoTemplate mongoTemplate;
     private final ContextService contextService;
-
-    @Value("${agent.session-expire-days}")
-    private int sessionExpireDays;
 
     /**
      * 创建新会话。

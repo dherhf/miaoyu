@@ -44,12 +44,6 @@ class ChatSessionServiceTest {
     @InjectMocks
     private ChatSessionService chatSessionService;
 
-    // 仅注入简单配置字段，无构造器侵入
-    @org.junit.jupiter.api.BeforeEach
-    void setUp() {
-        ReflectionTestUtils.setField(chatSessionService, "sessionExpireDays", TestConstants.SESSION_EXPIRE_DAYS);
-    }
-
     @Nested
     @DisplayName("createSession 创建会话")
     class CreateSessionTest {

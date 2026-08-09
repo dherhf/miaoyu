@@ -1,10 +1,11 @@
-package org.dherhf.agent.service;
+package org.dherhf.agent.service.assistant;
 
 import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
 import dev.langchain4j.service.spring.AiService;
+import org.dherhf.agent.service.PromptService;
 import reactor.core.publisher.Flux;
 
 /**

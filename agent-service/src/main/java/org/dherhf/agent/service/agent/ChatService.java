@@ -1,5 +1,7 @@
-package org.dherhf.agent.service;
+package org.dherhf.agent.service.agent;
 
+import org.dherhf.agent.service.*;
+import org.dherhf.agent.service.assistant.ChatAssistant;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -51,11 +53,9 @@ public class ChatService {
     private final OutputValidatorService outputValidatorService;
     private final ContextService contextService;
     private final ChatSessionService chatSessionService;
-    private final TitleAgentService titleAgentService;
-    private final IntentRecognitionService intentRecognitionService;
+    private final TitleService titleService;
+    private final IntentService intentService;
     private final TicketServiceClient ticketClient;
-    private final org.dherhf.agent.tool.AmapClient amapClient;
-    private final IdempotentService idempotentService;
     private final ObjectMapper objectMapper;
     private final UserPreferenceService userPreferenceService;
 
@@ -165,7 +165,7 @@ public class ChatService {
         List<ChatMessage> recentMessages = contextService.getRecentMessages(sessionId);
 
         // 先识别意图（串行），结果注入主 Agent 上下文以指导工具链选择
-        String recognizedIntent = intentRecognitionService.recognizeIntent(content, recentMessages);
+        String recognizedIntent = intentService.recognizeIntent(content);
         log.info("[processDialogue] 意图识别结果: sessionId={}, intent={}", sessionId, recognizedIntent);
 
         String contextPrompt = buildContextPrompt(userId, content, slotState, recentMessages, longitude, latitude, city, recognizedIntent);
@@ -317,7 +317,7 @@ public class ChatService {
                     contextService.updateContext(sessionId, updatedSlotState, aiMsg, aiMsg.getCreatedAt());
 
                     // 首条消息时由标题 Agent 生成标题（含降级逻辑）
-                    String title = needTitle ? titleAgentService.generateTitle(content) : null;
+                    String title = needTitle ? titleService.generateTitle(content) : null;
                     if (title != null) {
                         chatSessionService.updateTitle(sessionId, title);
                     }
