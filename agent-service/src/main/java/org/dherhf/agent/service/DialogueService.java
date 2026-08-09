@@ -3,12 +3,7 @@ package org.dherhf.agent.service;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
-import dev.langchain4j.memory.chat.MessageWindowChatMemory;
-import dev.langchain4j.model.chat.StreamingChatModel;
-import dev.langchain4j.service.AiServices;
-import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.service.TokenStream;
-import dev.langchain4j.service.UserMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -50,7 +45,8 @@ import org.dherhf.agent.tool.TicketTools;
 @RequiredArgsConstructor
 public class DialogueService {
 
-    private final StreamingChatModel streamingChatModel;
+    private final ChatAssistant chatAssistant;
+    private final TicketTools ticketTools;
     private final PromptService promptService;
     private final InputFilterService inputFilterService;
     private final OutputValidatorService outputValidatorService;
@@ -72,32 +68,6 @@ public class DialogueService {
 
     /** 元数据分隔符，LLM 输出内容后以此标记开头输出 JSON 元数据 */
     private static final String META_DELIMITER = "<<<META>>>";
-
-    /** LangChain4j AiService 接口，@MemoryId 绑定 sessionId 用于会话隔离。返回 TokenStream 实现流式输出。 */
-    public interface ChatAssistant {
-        TokenStream chat(@MemoryId String sessionId, @UserMessage String userMessage);
-    }
-
-    /**
-     * 为每次请求构建独立的 AiServices 实例，绑定 sessionId 和 TicketTools。
-     * 使用 StreamingChatModel 实现 token 级流式输出。
-     * 测试时可覆写此方法返回 mock。
-     */
-    protected ChatAssistant buildChatAssistant(String sessionId, TicketTools tools) {
-        return AiServices.builder(ChatAssistant.class)
-                .streamingChatModel(streamingChatModel)
-                .tools(tools)
-                .systemMessageProvider(memoryId -> promptService.getSystemPrompt())
-                .chatMemoryProvider(memoryId -> MessageWindowChatMemory.builder()
-                        .maxMessages(10)
-                        .id(memoryId)
-                        .build())
-                .build();
-    }
-
-    private TicketTools createTicketTools(String sessionId) {
-        return new TicketTools(ticketClient, amapClient, objectMapper, contextService, idempotentService, userPreferenceService, sessionId);
-    }
 
     /**
      * 处理用户消息，通过 SSE 流式推送响应。
@@ -209,8 +179,8 @@ public class DialogueService {
 
         contextService.updateContext(sessionId, slotState, userMsg, userMsg.getCreatedAt());
 
-        TicketTools tools = createTicketTools(sessionId);
-        ChatAssistant assistant = buildChatAssistant(sessionId, tools);
+        TicketTools tools = ticketTools;
+        tools.resetSessionState(sessionId);
 
         StringBuilder fullText = new StringBuilder();
         int[] sentUpTo = {0};
@@ -218,7 +188,7 @@ public class DialogueService {
 
         CompletableFuture<Void> streamFuture = new CompletableFuture<>();
 
-        TokenStream tokenStream = assistant.chat(sessionId, contextPrompt);
+        TokenStream tokenStream = chatAssistant.chat(sessionId, contextPrompt, promptService.getSystemPrompt());
         tokenStream
             .onPartialResponse(token -> {
                 if (metaFound[0]) return;
@@ -312,7 +282,7 @@ public class DialogueService {
                     }
 
                     // 只推送最后一张卡片（跳步场景下中间卡片对用户无意义）
-                    List<CardPayload> cards = tools.drainCards();
+                    List<CardPayload> cards = tools.drainCards(sessionId);
                     if (!cards.isEmpty()) {
                         CardPayload lastCard = cards.getLast();
                         log.info("[processDialogue] 推送卡片: {}", lastCard.getCardType());

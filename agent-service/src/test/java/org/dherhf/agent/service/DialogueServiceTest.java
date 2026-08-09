@@ -1,7 +1,6 @@
 package org.dherhf.agent.service;
 
 import tools.jackson.databind.ObjectMapper;
-import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.service.TokenStream;
 import org.dherhf.agent.document.ChatMessage;
 import org.dherhf.agent.document.ChatSessionDocument;
@@ -25,7 +24,8 @@ import static org.mockito.Mockito.*;
 class DialogueServiceTest {
 
     private DialogueService service;
-    private StreamingChatModel streamingChatModel;
+    private ChatAssistant chatAssistant;
+    private TicketTools ticketTools;
     private TitleAgentService titleAgentService;
     private IntentRecognitionService intentRecognitionService;
     private PromptService promptService;
@@ -41,7 +41,8 @@ class DialogueServiceTest {
 
     @BeforeEach
     void setUp() {
-        streamingChatModel = mock(StreamingChatModel.class);
+        chatAssistant = mock(ChatAssistant.class);
+        ticketTools = mock(TicketTools.class);
         titleAgentService = mock(TitleAgentService.class);
         intentRecognitionService = mock(IntentRecognitionService.class);
         promptService = mock(PromptService.class);
@@ -61,21 +62,16 @@ class DialogueServiceTest {
         when(titleAgentService.generateTitle(anyString())).thenReturn("测试标题");
         when(intentRecognitionService.recognizeIntent(anyString(), anyList())).thenReturn("OTHER");
 
-        // 直接通过构造器创建，覆写 buildChatAssistant 返回 mock（替代原 ReflectionTestUtils 注入 chatAssistant）
+        // 先创建 TokenStream mock（内部含 when() stubbing），避免与 chatAssistant 的 when() 嵌套导致 UnfinishedStubbing
+        TokenStream testStream = createTestTokenStream();
+        when(chatAssistant.chat(anyString(), anyString(), anyString())).thenReturn(testStream);
+        when(ticketTools.drainCards(anyString())).thenReturn(List.of());
+
         service = new DialogueService(
-                streamingChatModel, promptService, inputFilterService,
+                chatAssistant, ticketTools, promptService, inputFilterService,
                 outputValidatorService, contextService, chatSessionService,
                 titleAgentService, intentRecognitionService, ticketClient, amapClient, idempotentService, objectMapper, userPreferenceService
-        ) {
-            @Override
-            protected DialogueService.ChatAssistant buildChatAssistant(String sessionId, TicketTools tools) {
-                TokenStream testStream = createTestTokenStream();
-                var mockAssistant = mock(DialogueService.ChatAssistant.class);
-                when(mockAssistant.chat(eq(sessionId), anyString()))
-                        .thenReturn(testStream);
-                return mockAssistant;
-            }
-        };
+        );
 
         // 手动注入 @Value 字段
         ReflectionTestUtils.setField(service, "negateThreshold", 2);
