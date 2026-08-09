@@ -45,9 +45,6 @@ export async function sendMessage(
   content: string,
   callbacks: SseCallbacks,
   options?: {
-    scheduleId?: string
-    seatIds?: string[]
-    ticketCount?: number
     longitude?: number
     latitude?: number
     city?: string

@@ -14,9 +14,6 @@ export interface CreateSessionResponse {
 
 export interface SendMessageRequest {
   content: string
-  seatIds?: string[]
-  scheduleId?: string
-  ticketCount?: number
   requestId?: string
   /** 用户当前经度（GCJ-02，由前端高德定位提供） */
   longitude?: number
