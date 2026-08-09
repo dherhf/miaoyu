@@ -305,6 +305,31 @@ public class ScheduleServiceImpl implements ScheduleService {
     }
 
     @Override
+    @Transactional
+    public void deleteSchedule(Long id) {
+        Schedule schedule = scheduleMapper.selectById(id);
+        if (schedule == null) {
+            throw new BusinessException(404, "场次不存在");
+        }
+        if (ScheduleStatus.ON_SALE.getCode().equals(schedule.getStatus())) {
+            throw new BusinessException(409, "在售场次不可删除，请先取消");
+        }
+
+        Long soldCount = scheduleSeatMapper.selectCount(
+                new LambdaQueryWrapper<ScheduleSeat>()
+                        .eq(ScheduleSeat::getScheduleId, id)
+                        .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.SOLD.getCode()));
+        if (soldCount > 0) {
+            throw new BusinessException(409, "该场次存在已售票，无法删除");
+        }
+
+        scheduleSeatMapper.delete(
+                new LambdaQueryWrapper<ScheduleSeat>().eq(ScheduleSeat::getScheduleId, id));
+        scheduleMapper.deleteById(id);
+        seatBitmapService.deleteBitmap(id);
+    }
+
+    @Override
     public PageResult<ScheduleListVO> adminList(Long movieId, Long cinemaId, Long hallId, String showDate, String status, Integer page, Integer size) {
         Page<Schedule> pageParam = new Page<>(page, size);
         LambdaQueryWrapper<Schedule> wrapper = new LambdaQueryWrapper<Schedule>()
