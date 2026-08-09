@@ -23,11 +23,13 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import reactor.core.publisher.Flux;
 
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import static org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE;
 
 /**
  * 对话接口控制器（对应系分 §3.9.1 - 5 个 API）。
@@ -71,8 +73,8 @@ public class ChatController {
      * 发送对话消息
      * POST /api/v1/chat/sessions/{id}/messages
      */
-    @PostMapping("/sessions/{id}/messages")
-    public SseEmitter sendMessage(
+    @PostMapping(value = "/sessions/{id}/messages", produces = TEXT_EVENT_STREAM_VALUE)
+    public Flux<String> sendMessage(
             @PathVariable String id,
             @Valid @RequestBody SendMessageRequest request,
             @RequestHeader("X-User-Id") Long userId

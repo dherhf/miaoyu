@@ -3,14 +3,13 @@ package org.dherhf.agent.service;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
-import dev.langchain4j.service.TokenStream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink;
 
-import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -37,7 +36,7 @@ import org.dherhf.agent.tool.TicketTools;
  * <p>
  * 流程：用户输入 → 输入安全过滤 → 构造 LLM 请求（System Prompt + 上下文 + 历史） →
  * LangChain4j 流式调用 DeepSeek → 工具调用（自动跳步/缺槽追问/上下文修正） →
- * 逐 token SSE 推送 → 输出校验 → 元数据解析 → MongoDB 持久化
+ * 逐 token Flux 推送 → 输出校验 → 元数据解析 → MongoDB 持久化
  * </p>
  */
 @Slf4j
@@ -70,7 +69,11 @@ public class ChatService {
     private static final String META_DELIMITER = "<<<META>>>";
 
     /**
-     * 处理用户消息，通过 SSE 流式推送响应。
+     * 处理用户消息，通过 Flux&lt;String&gt; 流式推送响应。
+     * <p>
+     * 返回的 Flux 每个元素是一个 JSON 字符串，包含 {@code event}（message/card/done/error）
+     * 和 {@code data} 两个字段，前端解析 JSON 中的 event 字段区分事件类型。
+     * </p>
      *
      * @param sessionId    会话 ID
      * @param userId       用户 ID
@@ -79,9 +82,9 @@ public class ChatService {
      * @param longitude    用户当前经度（GCJ-02，前端高德定位提供，可 null）
      * @param latitude     用户当前纬度（GCJ-02，可 null）
      * @param city         用户当前城市（可 null）
-     * @return SseEmitter
+     * @return Flux&lt;String&gt; SSE 事件流
      */
-    public SseEmitter handleMessage(
+    public Flux<String> handleMessage(
             String sessionId,
             Long userId,
             String content,
@@ -90,17 +93,17 @@ public class ChatService {
             Double latitude,
             String city
     ) {
-        SseEmitter emitter = new SseEmitter(sseTimeoutSeconds * 1000L);
-
         var sessionOpt = chatSessionService.getSession(sessionId, userId);
         if (sessionOpt.isEmpty()) {
-            sendErrorAndComplete(emitter, ErrorCodeEnum.SESSION_NOT_FOUND);
-            return emitter;
+            return Flux.just(toJson(SseEvent.error(
+                    String.valueOf(ErrorCodeEnum.SESSION_NOT_FOUND.getCode()),
+                    ErrorCodeEnum.SESSION_NOT_FOUND.getMessage())));
         }
         var session = sessionOpt.get();
         if (SessionStatusEnum.COMPLETED.getValue().equals(session.getStatus())) {
-            sendErrorAndComplete(emitter, ErrorCodeEnum.SESSION_ENDED);
-            return emitter;
+            return Flux.just(toJson(SseEvent.error(
+                    String.valueOf(ErrorCodeEnum.SESSION_ENDED.getCode()),
+                    ErrorCodeEnum.SESSION_ENDED.getMessage())));
         }
 
         if (!inputFilterService.isSafe(content)) {
@@ -108,8 +111,8 @@ public class ChatService {
             String tip = violations >= 3
                     ? "检测到多次违规输入，请规范使用。"
                     : "输入内容存在安全风险，请重新描述您的购票需求。";
-            sendErrorAndComplete(emitter, ErrorCodeEnum.INPUT_VIOLATION, tip);
-            return emitter;
+            return Flux.just(toJson(SseEvent.error(
+                    String.valueOf(ErrorCodeEnum.INPUT_VIOLATION.getCode()), tip)));
         }
 
         // 首条消息时由标题 Agent 生成标题
@@ -125,33 +128,31 @@ public class ChatService {
         requestCtx.setLatitude(latitude);
         requestCtx.setCity(city);
 
-        Thread.startVirtualThread(() -> {
-            try {
-                contextService.storeRequestContext(sessionId, requestCtx);
-                processDialogue(emitter, sessionId, userId, content, slotState, longitude, latitude, city, needTitle);
-            } catch (Exception ex) {
-                log.error("[handleMessage] 对话处理异常: sessionId={}", sessionId, ex);
+        return Flux.<String>create(sink -> {
+            Thread.startVirtualThread(() -> {
                 try {
-                    sendSseEvent(emitter, SseEvent.error("500", "服务异常，请重试"));
-                } catch (IOException ignored) {}
-                emitter.completeWithError(ex);
-            } finally {
-                contextService.clearRequestContext(sessionId);
-            }
+                    contextService.storeRequestContext(sessionId, requestCtx);
+                    processDialogue(sink, sessionId, userId, content, slotState, longitude, latitude, city, needTitle);
+                } catch (Exception ex) {
+                    log.error("[handleMessage] 对话处理异常: sessionId={}", sessionId, ex);
+                    sink.next(toJson(SseEvent.error("500", "服务异常，请重试")));
+                    sink.complete();
+                } finally {
+                    contextService.clearRequestContext(sessionId);
+                }
+            });
         });
-
-        return emitter;
     }
 
     /**
-     * 流式处理对话：通过 TokenStream 逐 token 推送 SSE，完成后解析元数据并发送 card/done。
+     * 流式处理对话：通过 Flux&lt;String&gt; 逐 token 推送，完成后解析元数据并发送 card/done。
      * <p>
      * LLM 按提示词约定先输出 markdown 内容，再以 &lt;&lt;&lt;META&gt;&gt;&gt; 分隔输出 JSON 元数据。
      * 流式阶段仅推送分隔符之前的 token；完成后解析 JSON 提取 intent/slots。
      * </p>
      */
     private void processDialogue(
-            SseEmitter emitter,
+            FluxSink<String> sink,
             String sessionId,
             Long userId,
             String content,
@@ -188,9 +189,9 @@ public class ChatService {
 
         CompletableFuture<Void> streamFuture = new CompletableFuture<>();
 
-        TokenStream tokenStream = chatAssistant.chat(sessionId, contextPrompt, promptService.getSystemPrompt());
-        tokenStream
-            .onPartialResponse(token -> {
+        Flux<String> tokenFlux = chatAssistant.chat(sessionId, contextPrompt, promptService.getSystemPrompt());
+        tokenFlux.subscribe(
+            token -> {
                 if (metaFound[0]) return;
 
                 fullText.append(token);
@@ -201,11 +202,7 @@ public class ChatService {
                     metaFound[0] = true;
                     if (metaIdx > sentUpTo[0]) {
                         String toSend = current.substring(sentUpTo[0], metaIdx);
-                        try {
-                            sendSseEvent(emitter, SseEvent.message(toSend));
-                        } catch (IOException e) {
-                            log.error("[processDialogue] SSE 推送失败(meta前): {}", e.getMessage());
-                        }
+                        sendSseEvent(sink, SseEvent.message(toSend));
                     }
                     sentUpTo[0] = metaIdx;
                     return;
@@ -223,15 +220,17 @@ public class ChatService {
 
                 if (safeEnd > sentUpTo[0]) {
                     String toSend = current.substring(sentUpTo[0], safeEnd);
-                    try {
-                        sendSseEvent(emitter, SseEvent.message(toSend));
-                    } catch (IOException e) {
-                        log.error("[processDialogue] SSE 推送失败(流式片段): {}", e.getMessage());
-                    }
+                    sendSseEvent(sink, SseEvent.message(toSend));
                 }
                 sentUpTo[0] = safeEnd;
-            })
-            .onCompleteResponse(response -> {
+            },
+            error -> {
+                log.error("[processDialogue] LLM onError 回调异常: {}", error.getMessage(), error);
+                sendSseEvent(sink, SseEvent.error("50001", "AI 响应超时，请重试"));
+                sink.complete();
+                streamFuture.completeExceptionally(error);
+            },
+            () -> {
                 try {
                     String full = fullText.toString();
                     String aiContent;
@@ -275,8 +274,8 @@ public class ChatService {
                     }
 
                     if (!outputValidatorService.validate(aiContent)) {
-                        sendSseEvent(emitter, SseEvent.error("50002", "AI 输出异常，请重试"));
-                        emitter.complete();
+                        sendSseEvent(sink, SseEvent.error("50002", "AI 输出异常，请重试"));
+                        sink.complete();
                         streamFuture.complete(null);
                         return;
                     }
@@ -286,7 +285,7 @@ public class ChatService {
                     if (!cards.isEmpty()) {
                         CardPayload lastCard = cards.getLast();
                         log.info("[processDialogue] 推送卡片: {}", lastCard.getCardType());
-                        sendSseEvent(emitter, SseEvent.card(lastCard.getCardType(), lastCard.getCardData()));
+                        sendSseEvent(sink, SseEvent.card(lastCard.getCardType(), lastCard.getCardData()));
                     }
 
                     SlotState updatedSlotState = contextService.mergeSlots(slotState, incomingSlots);
@@ -299,7 +298,7 @@ public class ChatService {
                     int negateCount = updatedSlotState.getNegateCount() != null ? updatedSlotState.getNegateCount() : 0;
                     if (negateCount >= negateThreshold) {
                         String degradeMsg = "看来我的推荐不太对，让我了解得更准确一些——您更偏好哪种类型？预算大概多少？";
-                        sendSseEvent(emitter, SseEvent.message(degradeMsg));
+                        sendSseEvent(sink, SseEvent.message(degradeMsg));
                         aiContent = aiContent + degradeMsg;
                     }
 
@@ -324,47 +323,35 @@ public class ChatService {
                     }
 
                     // 避免重复推送：只推送一次完成状态
-                    sendSseEvent(emitter, SseEvent.done(sessionId,
+                    sendSseEvent(sink, SseEvent.done(sessionId,
                             intent.name(),
                             updatedSlotState,
                             title));
-                    emitter.complete();
+                    sink.complete();
                     streamFuture.complete(null);
                 } catch (Exception e) {
-                    log.error("[processDialogue] onCompleteResponse 处理异常: {}", e.getMessage(), e);
-                    try {
-                        sendSseEvent(emitter, SseEvent.error("500", "处理异常，请重试"));
-                    } catch (IOException ignored) {}
-                    emitter.complete();
+                    log.error("[processDialogue] onComplete 处理异常: {}", e.getMessage(), e);
+                    sendSseEvent(sink, SseEvent.error("500", "处理异常，请重试"));
+                    sink.complete();
                     streamFuture.completeExceptionally(e);
                 }
-            })
-            .onError(error -> {
-                log.error("[processDialogue] LLM onError 回调异常: {}", error.getMessage(), error);
-                try {
-                    sendSseEvent(emitter, SseEvent.error("50001", "AI 响应超时，请重试"));
-                    emitter.complete();
-                } catch (IOException ignored) {}
-                streamFuture.completeExceptionally(error);
-            })
-            .start();
+            }
+        );
 
         // 阻塞虚拟线程直到流式响应完成或超时
         try {
             streamFuture.get(sseTimeoutSeconds, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
             log.error("[processDialogue] streamFuture.get 超时", e);
-            try {
-                sendSseEvent(emitter, SseEvent.error("50001", "AI 响应超时，请重试"));
-            } catch (IOException ignored) {}
-            emitter.complete();
+            sendSseEvent(sink, SseEvent.error("50001", "AI 响应超时，请重试"));
+            sink.complete();
         } catch (ExecutionException e) {
             log.error("[processDialogue] streamFuture.get 执行异常: {}",
                     e.getCause() != null ? e.getCause().getMessage() : e.getMessage(), e);
-            emitter.complete();
+            sink.complete();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            emitter.complete();
+            sink.complete();
         }
     }
 
@@ -465,22 +452,17 @@ public class ChatService {
         return sb.toString();
     }
 
-    private void sendSseEvent(SseEmitter emitter, SseEvent event) throws IOException {
-        emitter.send(SseEmitter.event()
-                .name(event.getEvent())
-                .data(event.getData())
-                .reconnectTime(3000));
+    private void sendSseEvent(FluxSink<String> sink, SseEvent event) {
+        sink.next(toJson(event));
     }
 
-    private void sendErrorAndComplete(SseEmitter emitter, ErrorCodeEnum code) {
-        sendErrorAndComplete(emitter, code, code.getMessage());
-    }
-
-    private void sendErrorAndComplete(SseEmitter emitter, ErrorCodeEnum code, String message) {
+    private String toJson(SseEvent event) {
         try {
-            sendSseEvent(emitter, SseEvent.error(String.valueOf(code.getCode()), message));
-            emitter.complete();
-        } catch (IOException ignored) {}
+            return objectMapper.writeValueAsString(event);
+        } catch (Exception e) {
+            log.error("[toJson] JSON序列化失败: {}", e.getMessage());
+            return "{\"event\":\"error\",\"data\":{\"code\":\"500\",\"message\":\"序列化失败\"}}";
+        }
     }
 
     /**

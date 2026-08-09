@@ -18,7 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import reactor.core.publisher.Flux;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -104,11 +104,10 @@ class ChatControllerTest {
     class SendMessageTest {
 
         @Test
-        @DisplayName("有效 X-User-Id 返回 SseEmitter（HTTP 200）")
+        @DisplayName("有效 X-User-Id 返回 Flux<String>（HTTP 200）")
         void withUserId() throws Exception {
-            SseEmitter mockEmitter = new SseEmitter(5000L);
             when(chatService.handleMessage(eq("sess1"), eq(100L), eq("你好"), any(), any(), any(), any()))
-                    .thenReturn(mockEmitter);
+                    .thenReturn(Flux.just("{\"event\":\"message\",\"data\":{\"content\":\"hello\"}}"));
 
             SendMessageRequest req = new SendMessageRequest();
             req.setContent("你好");

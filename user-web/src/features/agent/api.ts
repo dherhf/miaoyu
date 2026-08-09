@@ -120,31 +120,31 @@ function findEventBoundary(buf: string): number {
 
 /**
  * 解析单个 SSE 事件块。
+ * Flux<String> 模式下无 event: 行，事件类型内嵌在 JSON payload 的 event 字段中。
  * 格式：
- *   event: message
- *   data: {"content":"..."}
+ *   data: {"event":"message","data":{"content":"..."}}
  */
 function parseSseEvent(raw: string, callbacks: SseCallbacks): void {
   const lines = raw.split(/\r?\n/)
-  let eventName = 'message'
   const dataLines: string[] = []
 
   for (const line of lines) {
-    if (line.startsWith('event:')) {
-      eventName = line.slice(6).trim()
-    } else if (line.startsWith('data:')) {
+    if (line.startsWith('data:')) {
       dataLines.push(line.slice(5).trim())
     }
   }
 
   if (dataLines.length === 0) return
 
-  let data: unknown
+  let payload: { event: string; data: unknown }
   try {
-    data = JSON.parse(dataLines.join('\n'))
+    payload = JSON.parse(dataLines.join('\n'))
   } catch {
     return
   }
+
+  const eventName = payload.event
+  const data = payload.data
 
   switch (eventName) {
     case 'message':

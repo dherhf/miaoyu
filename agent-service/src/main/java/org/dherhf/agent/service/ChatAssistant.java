@@ -2,10 +2,10 @@ package org.dherhf.agent.service;
 
 import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.service.SystemMessage;
-import dev.langchain4j.service.TokenStream;
 import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
 import dev.langchain4j.service.spring.AiService;
+import reactor.core.publisher.Flux;
 
 /**
  * 对话主 Agent —— 基于 LangChain4j Spring Boot Starter 的声明式 AiService。
@@ -39,10 +39,10 @@ public interface ChatAssistant {
      *   <li>{@code @V("systemPrompt")} —— 透传动态系统提示词（LLM 不可见，仅用于模板解析）。</li>
      * </ul>
      *
-     * @return TokenStream 逐 token 流式输出
+     * @return Flux&lt;String&gt; 逐 token 流式输出（langchain4j-reactor 自动桥接 StreamingChatModel → Flux）
      */
     @SystemMessage("{{systemPrompt}}")
-    TokenStream chat(
+    Flux<String> chat(
             @MemoryId String sessionId,
             @UserMessage String userMessage,
             @V("systemPrompt") String systemPrompt
