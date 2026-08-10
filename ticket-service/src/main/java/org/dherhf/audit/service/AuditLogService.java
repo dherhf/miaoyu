@@ -20,7 +20,6 @@ public class AuditLogService {
     @Async
     public void record(Long operatorId, String operatorType,
                        String action, String targetType, Long targetId,
-                       String beforeData, String afterData,
                        String ip, String userAgent) {
         try {
             AuditLog logEntry = AuditLog.builder()
@@ -29,8 +28,6 @@ public class AuditLogService {
                     .action(action)
                     .targetType(targetType)
                     .targetId(targetId)
-                    .beforeData(beforeData)
-                    .afterData(afterData)
                     .ip(ip)
                     .userAgent(userAgent)
                     .build();

@@ -30,10 +30,6 @@ public class AuditLog {
 
     private Long targetId;
 
-    private String beforeData;
-
-    private String afterData;
-
     private String ip;
 
     private String userAgent;
