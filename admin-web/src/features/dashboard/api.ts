@@ -1,4 +1,4 @@
-import request from '../../shared/utils/request';
+import request from '@/shared/utils/request';
 import type {
   TransactionsResult,
   MovieRankingItem,

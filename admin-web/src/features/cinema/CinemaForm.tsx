@@ -1,6 +1,6 @@
 import { Form, Input, InputNumber, Tag, Space } from 'antd';
 import { EnvironmentOutlined, PhoneOutlined } from '@ant-design/icons';
-import { LocationPicker } from '../amap';
+import { LocationPicker } from '@/features/amap';
 import styles from './CinemaPage.module.css';
 
 // 类型定义
