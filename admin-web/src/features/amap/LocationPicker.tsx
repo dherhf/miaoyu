@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Input, Button, Space, List, Spin, Typography } from 'antd';
-import { MapPin, Search } from 'lucide-react';
+import { EnvironmentOutlined, SearchOutlined } from '@ant-design/icons';
 import AMapLoader from '@amap/amap-jsapi-loader';
 import styles from './LocationPicker.module.css';
 
@@ -228,7 +228,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, readon
     return (
       <div>
         <div className={styles.readonlyBar}>
-          <MapPin size={16} color="#1677ff" />
+          <EnvironmentOutlined style={{ fontSize: 16, color: '#1677ff' }} />
           <span>{address || '未选择'}</span>
         </div>
       </div>
@@ -246,7 +246,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, readon
             value={searchKeyword}
             onChange={(e) => setSearchKeyword(e.target.value)}
             placeholder="输入影院名称或地址搜索"
-            prefix={<Search size={14} color="#999" />}
+            prefix={<SearchOutlined style={{ fontSize: 14, color: '#999' }} />}
             onPressEnter={handleSearch}
           />
           <Button type="primary" onClick={handleSearch} loading={searching}>
@@ -297,7 +297,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, readon
         {/* 已选位置信息浮层 */}
         {hasLocation && mapReady && (
           <div className={styles.locationOverlay}>
-            <MapPin size={14} color="#1677ff" />
+            <EnvironmentOutlined style={{ fontSize: 14, color: '#1677ff' }} />
             <span className={styles.overlayAddress}>
               {address}
             </span>

@@ -8,7 +8,7 @@ import {
   Radio,
   Space,
 } from 'antd';
-import { Clock } from 'lucide-react';
+import { ClockCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import styles from './SchedulePage.module.css';
 
@@ -150,7 +150,7 @@ export function ScheduleForm({ data, errors, onChange, halls, movies }: Schedule
         <div className={styles.endTimeBar}>
           <span className={styles.endTimeLabel}>预计结束时间</span>
           <Space size={4}>
-            <Clock size={16} color='#666' />
+            <ClockCircleOutlined style={{ fontSize: 16, color: '#666' }} />
             <span className={styles.endTimeValue}>{data.endTime}</span>
           </Space>
         </div>

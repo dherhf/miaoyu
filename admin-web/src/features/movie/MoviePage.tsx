@@ -1,13 +1,13 @@
 import { useState, useRef } from 'react';
 import {
-  Plus,
-  Edit2,
-  Power,
-  PowerOff,
-  Film,
-  AlertTriangle,
-} from 'lucide-react';
-import { Modal, Button, Space, Tag, App, Form } from 'antd';
+  PlusOutlined,
+  EditOutlined,
+  ArrowUpOutlined,
+  ArrowDownOutlined,
+  VideoCameraOutlined,
+  WarningOutlined,
+} from '@ant-design/icons';
+import { Modal, Button, Space, Tag, Form } from 'antd';
 import { message, modal } from '@/shared/utils/globalMessage'
 import { ProTable } from '@ant-design/pro-components';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
@@ -205,7 +205,7 @@ export function MovieManage() {
               <img src={record.posterUrl} alt={record.name} className={styles.posterImage} />
             ) : (
               <div className={styles.posterPlaceholder}>
-                <Film size={18} color='#aaa' />
+                <VideoCameraOutlined style={{ fontSize: 18, color: '#aaa' }} />
               </div>
             )}
           </div>
@@ -281,14 +281,14 @@ export function MovieManage() {
       search: false,
       render: (_, record) => (
         <Space size={8}>
-          <Button size="small" icon={<Edit2 size={14} />} onClick={() => openEdit(record)}>
+          <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)}>
             编辑
           </Button>
           {record.status === 'offline' ? (
             <Button
               size="small"
               type="link"
-              icon={<Power size={14} />}
+              icon={<ArrowUpOutlined />}
               onClick={() => handleToggle(record, 'showing')}
             >
               上架
@@ -298,7 +298,7 @@ export function MovieManage() {
               size="small"
               danger
               type="link"
-              icon={<PowerOff size={14} />}
+              icon={<ArrowDownOutlined />}
               onClick={() => handleToggle(record, 'offline')}
             >
               下架
@@ -341,7 +341,7 @@ export function MovieManage() {
         scroll={{ x: 'max-content' }}
         headerTitle="影片管理"
         toolBarRender={() => [
-          <Button key="add" type="primary" icon={<Plus size={16} />} onClick={openAdd}>
+          <Button key="add" type="primary" icon={<PlusOutlined />} onClick={openAdd}>
             新增影片
           </Button>,
         ]}
@@ -374,7 +374,7 @@ export function MovieManage() {
       >
         {hasScheduleTip && (
           <div className={styles.scheduleTip}>
-            <AlertTriangle size={18} color="#f59e0b" />
+            <WarningOutlined style={{ fontSize: 18, color: '#f59e0b' }} />
             <div>
               <div className={styles.scheduleTipTitle}>该影片存在关联场次</div>
               <div className={styles.scheduleTipDesc}>修改信息会影响排期展示，请谨慎编辑</div>

@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Input, Space, Button, Typography } from 'antd';
-import { MapPin, Navigation } from 'lucide-react';
+import { EnvironmentOutlined, CompassOutlined } from '@ant-design/icons';
 import styles from './MapPicker.module.css';
 
 export interface Coordinate {
@@ -96,7 +96,7 @@ const MapPicker: React.FC<MapPickerProps> = ({
         className={styles.mapPlaceholder}
         style={{ height }}
       >
-        <MapPin size={40} color="#bfbfbf" />
+        <EnvironmentOutlined style={{ fontSize: 40, color: '#bfbfbf' }} />
         <Typography.Text type="secondary" className={styles.mapHint}>
           地图组件待集成（高德/百度 SDK）
         </Typography.Text>
@@ -106,7 +106,7 @@ const MapPicker: React.FC<MapPickerProps> = ({
         {!disabled && (
           <Button
             size="small"
-            icon={<Navigation size={14} />}
+            icon={<CompassOutlined />}
             onClick={useCurrentLocation}
           >
             使用当前位置

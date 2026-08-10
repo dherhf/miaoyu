@@ -1,4 +1,4 @@
-import { User, ChevronDown, LogOut } from 'lucide-react';
+import { UserOutlined, DownOutlined, LogoutOutlined } from '@ant-design/icons';
 import { Button, Dropdown } from 'antd';
 import { message } from "@/shared/utils/globalMessage";
 import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
@@ -26,7 +26,7 @@ export function AdminHeader({ collapsed, onToggle }: HeaderProps) {
     {
       key: 'logout',
       danger: true,
-      icon: <LogOut size={16} />,
+      icon: <LogoutOutlined />,
       label: '退出登录',
       onClick: handleLogout
     }
@@ -50,7 +50,7 @@ export function AdminHeader({ collapsed, onToggle }: HeaderProps) {
           <div className={styles.trigger}>
             {/* 头像 */}
             <div className={styles.avatar}>
-              <User size={18} color="#2563eb" />
+              <UserOutlined style={{ fontSize: 18, color: '#2563eb' }} />
             </div>
 
             <div className={styles.userInfo}>
@@ -58,7 +58,7 @@ export function AdminHeader({ collapsed, onToggle }: HeaderProps) {
                 {profile?.name || '管理员'}
               </div>
             </div>
-            <ChevronDown size={14} color="#9ca3af" />
+            <DownOutlined style={{ fontSize: 14, color: '#9ca3af' }} />
           </div>
         </Dropdown>
       </div>

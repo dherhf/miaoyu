@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Upload, Button } from 'antd';
 import { message } from "@/shared/utils/globalMessage";
-import { UploadCloud, Loader, Trash2 } from 'lucide-react';
+import { CloudUploadOutlined, LoadingOutlined, DeleteOutlined } from '@ant-design/icons';
 import styles from './ImageUpload.module.css';
 
 export interface ImageUploadProps {
@@ -106,7 +106,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
           <Button
             size="small"
             danger
-            icon={<Trash2 size={14} />}
+            icon={<DeleteOutlined />}
             onClick={handleRemove}
             className={styles.removeButton}
           />
@@ -126,12 +126,12 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       <div className={containerClassName} style={{ width, height }}>
         {uploading ? (
           <>
-            <Loader size={24} color="#1677ff" />
+            <LoadingOutlined style={{ fontSize: 24, color: '#1677ff' }} />
             <span className={styles.hintText}>读取中...</span>
           </>
         ) : (
           <>
-            <UploadCloud size={20} color="#999" />
+            <CloudUploadOutlined style={{ fontSize: 20, color: '#999' }} />
             <span className={styles.hintText}>{placeholder}</span>
             <span className={styles.subHint}>
               JPG/PNG, ≤{maxSizeMB}MB

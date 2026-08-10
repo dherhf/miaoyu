@@ -1,13 +1,13 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Layout } from 'antd';
 import {
-  LayoutDashboard,
-  Film,
-  Building2,
-  MapPin,
-  CalendarDays,
-  ShoppingCart,
-} from 'lucide-react';
+  DashboardOutlined,
+  VideoCameraOutlined,
+  ShopOutlined,
+  EnvironmentOutlined,
+  CalendarOutlined,
+  ShoppingCartOutlined,
+} from '@ant-design/icons';
 import styles from './Sidebar.module.css';
 const { Sider } = Layout;
 
@@ -16,12 +16,12 @@ export interface SidebarProps {
 }
 
 const menuItems = [
-  { path: '/dashboard', label: '数据看板', icon: LayoutDashboard },
-  { path: '/movies', label: '影片管理', icon: Film },
-  { path: '/cinemas', label: '影院管理', icon: Building2 },
-  { path: '/halls', label: '影厅管理', icon: MapPin },
-  { path: '/schedules', label: '场次管理', icon: CalendarDays },
-  { path: '/orders', label: '订单明细', icon: ShoppingCart },
+  { path: '/dashboard', label: '数据看板', icon: DashboardOutlined },
+  { path: '/movies', label: '影片管理', icon: VideoCameraOutlined },
+  { path: '/cinemas', label: '影院管理', icon: ShopOutlined },
+  { path: '/halls', label: '影厅管理', icon: EnvironmentOutlined },
+  { path: '/schedules', label: '场次管理', icon: CalendarOutlined },
+  { path: '/orders', label: '订单明细', icon: ShoppingCartOutlined },
 ];
 
 export function Sidebar({ collapsed }: SidebarProps) {
@@ -61,7 +61,7 @@ export function Sidebar({ collapsed }: SidebarProps) {
                 className={itemClass}
                 title={collapsed ? item.label : undefined}
               >
-                <Icon size={20} className={styles.menuIcon} />
+                <Icon style={{ fontSize: 20 }} className={styles.menuIcon} />
                 {!collapsed && <span className={styles.menuText}>{item.label}</span>}
               </div>
             </Link>
