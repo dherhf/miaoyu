@@ -6,6 +6,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -45,10 +46,10 @@ public class PickupCodeService {
         for (int i = 0; i < 5; i++) {
             String code = randomCode();
             Boolean ok = redisTemplate.opsForValue().setIfAbsent(
-                    "pickup:code:" + code, orderId.toString(), VERIFY_TTL, TimeUnit.SECONDS);
+                    "pickup:code:" + code, orderId.toString(), Duration.ofSeconds(VERIFY_TTL));
             if (Boolean.TRUE.equals(ok)) {
                 redisTemplate.opsForValue().set(
-                        "pickup:order:" + orderId, code, CODE_TTL, TimeUnit.SECONDS);
+                        "pickup:order:" + orderId, code, Duration.ofSeconds(CODE_TTL));
                 return code;
             }
         }
