@@ -757,11 +757,10 @@ public class ScheduleServiceImpl implements ScheduleService {
                     new LambdaQueryWrapper<ScheduleSeat>()
                             .eq(ScheduleSeat::getScheduleId, scheduleId)
                             .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.LOCKED.getCode()));
-            Long soldCountDb = scheduleSeatMapper.selectCount(
+            soldCount = scheduleSeatMapper.selectCount(
                     new LambdaQueryWrapper<ScheduleSeat>()
                             .eq(ScheduleSeat::getScheduleId, scheduleId)
                             .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.SOLD.getCode()));
-            soldCount = soldCountDb;
         }
         return new SeatCounts(lockedCount, soldCount);
     }

@@ -1,5 +1,7 @@
 package org.dherhf.agent.enums;
 
+import lombok.Getter;
+
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
@@ -10,6 +12,7 @@ import java.util.stream.Collectors;
  * <br>避免在 Prompt、ContextService、OutputValidatorService 等多处重复定义。
  * </p>
  */
+@Getter
 public enum SlotEnum {
 
     /** 影片 ID（searchMovies 回填） */
@@ -54,9 +57,25 @@ public enum SlotEnum {
     /** 连续否定次数（系统维护，LLM 不设置） */
     NEGATE_COUNT("negateCount", "连续否定次数（由系统维护，LLM 不设置）", false, true);
 
+    /**
+     * -- GETTER --
+     *  槽位键名（JSON 中的 key，如 "movieId"、"priceMax"）。
+     */
     private final String key;
+    /**
+     * -- GETTER --
+     *  中文描述（用于提示词生成）。
+     */
     private final String descriptionZh;
+    /**
+     * -- GETTER --
+     *  是否为必填槽位。
+     */
     private final boolean required;
+    /**
+     * -- GETTER --
+     *  是否由系统自动维护（LLM 不应设置）。
+     */
     private final boolean systemMaintained;
 
     /**
@@ -72,42 +91,6 @@ public enum SlotEnum {
         this.descriptionZh = descriptionZh;
         this.required = required;
         this.systemMaintained = systemMaintained;
-    }
-
-    /**
-     * 槽位键名（JSON 中的 key，如 "movieId"、"priceMax"）。
-     *
-     * @return 槽位键名字符串
-     */
-    public String getKey() {
-        return key;
-    }
-
-    /**
-     * 中文描述（用于提示词生成）。
-     *
-     * @return 槽位的中文描述
-     */
-    public String getDescriptionZh() {
-        return descriptionZh;
-    }
-
-    /**
-     * 是否为必填槽位。
-     *
-     * @return true 表示必填，false 表示非必填
-     */
-    public boolean isRequired() {
-        return required;
-    }
-
-    /**
-     * 是否由系统自动维护（LLM 不应设置）。
-     *
-     * @return true 表示由系统维护，false 表示 LLM 可设置
-     */
-    public boolean isSystemMaintained() {
-        return systemMaintained;
     }
 
     /**

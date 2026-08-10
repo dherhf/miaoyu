@@ -56,17 +56,6 @@ export function Header() {
       ? '定位中...'
       : '未定位'
 
-  // GPS 定位成功时打印调试日志
-  useEffect(() => {
-    if (location && location.source === 'gps') {
-      console.log('[Header] GPS 定位结果:', {
-        经度: location.longitude,
-        纬度: location.latitude,
-        地址: location.address,
-      })
-    }
-  }, [location])
-
   // 登录后获取用户信息和通知列表
   useEffect(() => {
     if (!token) return

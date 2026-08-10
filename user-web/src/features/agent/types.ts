@@ -48,16 +48,16 @@ export interface SessionSummary {
   createdAt: string
 }
 
-/** 会话列表接口的响应类型 */
-export interface SessionListResponse {
-  /** 会话总数 */
+/** 通用分页结果类型（与后端 PageResult 对应） */
+export interface PageResult<T> {
+  /** 总数 */
   total: number
   /** 当前页码 */
   page: number
   /** 每页条数 */
   size: number
-  /** 会话摘要记录数组 */
-  records: SessionSummary[]
+  /** 记录数组 */
+  records: T[]
 }
 
 /** 历史消息记录项（来自消息列表） */

@@ -97,14 +97,18 @@ public class UploadController {
             return false;
         }
         String ct = file.getContentType();
-        return switch (ct) {
-            case "image/jpeg" -> startsWith(header, JPEG_MAGIC);
-            case "image/png" -> startsWith(header, PNG_MAGIC);
-            case "image/gif" -> startsWith(header, GIF_MAGIC_87) || startsWith(header, GIF_MAGIC_89);
-            case "image/webp" -> startsWith(header, WEBP_MAGIC);
-            case "image/bmp" -> startsWith(header, BMP_MAGIC);
-            default -> false;
-        };
+        if (ct != null) {
+            return switch (ct) {
+                case "image/jpeg" -> startsWith(header, JPEG_MAGIC);
+                case "image/png" -> startsWith(header, PNG_MAGIC);
+                case "image/gif" -> startsWith(header, GIF_MAGIC_87) || startsWith(header, GIF_MAGIC_89);
+                case "image/webp" -> startsWith(header, WEBP_MAGIC);
+                case "image/bmp" -> startsWith(header, BMP_MAGIC);
+                default -> false;
+            };
+        } else {
+            return false;
+        }
     }
 
     /**

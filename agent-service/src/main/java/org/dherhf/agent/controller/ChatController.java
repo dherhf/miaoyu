@@ -9,7 +9,7 @@ import org.dherhf.agent.model.dto.CreateSessionRequest;
 import org.dherhf.agent.model.dto.CreateSessionResponse;
 import org.dherhf.agent.model.dto.SendMessageRequest;
 import org.dherhf.agent.model.dto.SessionDetailResponse;
-import org.dherhf.agent.model.dto.SessionListResponse;
+import org.dherhf.agent.model.dto.SessionSummary;
 import org.dherhf.agent.document.ChatMessage;
 import org.dherhf.agent.document.ChatSessionDocument;
 import org.dherhf.agent.service.ChatSessionService;
@@ -17,6 +17,7 @@ import org.dherhf.agent.service.agent.ChatService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.dherhf.common.result.PageResult;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -117,7 +118,7 @@ public class ChatController {
      */
     @Operation(summary = "查询会话列表", description = "分页查询当前用户的对话会话列表")
     @GetMapping("/sessions")
-    public Result<SessionListResponse> listSessions(
+    public Result<PageResult<SessionSummary>> listSessions(
             @Parameter(description = "页码，从 0 开始") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") int size,
             @Parameter(hidden = true) @RequestHeader("X-User-Id") Long userId
@@ -125,21 +126,17 @@ public class ChatController {
         List<ChatSessionDocument> sessions = chatSessionService.listSessions(userId, page, size);
         long total = chatSessionService.countSessions(userId);
 
-        SessionListResponse resp = new SessionListResponse();
-        resp.setTotal(total);
-        resp.setPage(page);
-        resp.setSize(size);
-        resp.setRecords(sessions.stream().map(s -> {
-            SessionListResponse.SessionSummary summary = new SessionListResponse.SessionSummary();
+        List<SessionSummary> records = sessions.stream().map(s -> {
+            SessionSummary summary = new SessionSummary();
             summary.setSessionId(s.getSessionId());
             summary.setTitle(s.getTitle());
             summary.setStatus(s.getStatus());
             summary.setLastMessageAt(s.getLastMessageAt());
             summary.setCreatedAt(s.getCreatedAt());
             return summary;
-        }).collect(Collectors.toList()));
+        }).collect(Collectors.toList());
 
-        return Result.success(resp);
+        return Result.success(new PageResult<>(total, page, size, records));
     }
 
     /**

@@ -4,7 +4,8 @@ import { router } from '@/router'
 import type {
   CreateSessionRequest,
   CreateSessionResponse,
-  SessionListResponse,
+  PageResult,
+  SessionSummary,
   SessionDetailResponse,
   SendMessageRequest,
   SseCallbacks,
@@ -35,8 +36,8 @@ export async function createSession(title?: string): Promise<CreateSessionRespon
 export async function listSessions(
   page: number,
   size: number,
-): Promise<SessionListResponse> {
-  const res = await request.get<SessionListResponse>('/chat/sessions', {
+): Promise<PageResult<SessionSummary>> {
+  const res = await request.get<PageResult<SessionSummary>>('/chat/sessions', {
     params: { page, size },
   })
   return res.data

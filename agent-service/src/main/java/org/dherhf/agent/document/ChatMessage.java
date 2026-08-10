@@ -10,7 +10,6 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.util.List;
 
 /**
  * 对话消息（独立文档，存储于 chat_messages 集合）。
@@ -57,22 +56,4 @@ public class ChatMessage implements Serializable {
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
 
-    /**
-     * 将历史对话列表格式化为文本块（含【历史对话】标题），为空时返回空字符串。
-     *
-     * @param messages 历史对话消息列表
-     * @return 格式化后的历史对话文本块；列表为空时返回空字符串
-     */
-    public static String formatHistory(List<ChatMessage> messages) {
-        if (messages == null || messages.isEmpty()) return "";
-        StringBuilder sb = new StringBuilder("【历史对话】\n");
-        for (ChatMessage msg : messages) {
-            String role = msg.getRole();
-            String text = msg.getContent();
-            if (role != null && text != null) {
-                sb.append(role.equals("user") ? "用户" : "助手").append(": ").append(text).append("\n");
-            }
-        }
-        return sb.toString();
-    }
 }
