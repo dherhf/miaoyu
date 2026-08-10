@@ -161,7 +161,7 @@ public class ContextService {
     /**
      * 合并新槽位到已有状态。
      * <p>
-     * 已填槽位保持有效，新输入仅更新非 null 的字段。
+     * 已填槽位可被新输入覆写，incoming 中非 null 字段直接覆盖 existing 对应字段。
      * 对于 negateSlot，合并时先清除对应槽位旧值再将 negateCount +1。
      * </p>
      */
@@ -248,7 +248,7 @@ public class ContextService {
     // ========== 内部工具方法 ==========
 
     /**
-     * 将 source 中非 null 的字段复制到 target（不覆盖 target 已有非 null 值）。
+     * 将 source 中非 null 的字段复制到 target（覆盖 target 已有值）。
      */
     private static void copyNonNull(SlotState target, SlotState source) {
         if (source == null) return;
