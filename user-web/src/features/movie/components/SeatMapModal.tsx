@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { Modal, Spin, Button, Tag, Result, App } from 'antd'
 import { getSeatMap, lockSeat, payOrder } from '../api'
-import { getPickupCode } from '@/features/order/api'
+import { getPickupCode, cancelOrder } from '@/features/order/api'
 import type { ScheduleListVO, SeatMapVO, SeatVO, LockSeatResultVO, PayResultVO } from '../types'
 
 const MAX_SEATS = 6
@@ -15,7 +15,7 @@ export default function SeatMapModal({
   schedule: ScheduleListVO | null
   onClose: () => void
 }) {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
   const [seatMap, setSeatMap] = useState<SeatMapVO | null>(null)
   const [loading, setLoading] = useState(false)
   const [selectedSeats, setSelectedSeats] = useState<SeatVO[]>([])
@@ -30,7 +30,7 @@ export default function SeatMapModal({
   const pickupTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const fetchSeatMap = useCallback(() => {
-    if (!schedule) return
+    if (!schedule) return Promise.resolve()
     setLoading(true)
     setPhase('seats')
     setSelectedSeats([])
@@ -38,7 +38,7 @@ export default function SeatMapModal({
     setPayResult(null)
     setPickupCode(null)
     setPickupExpiresIn(60)
-    getSeatMap(schedule.id)
+    return getSeatMap(schedule.id)
       .then(setSeatMap)
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -125,6 +125,25 @@ export default function SeatMapModal({
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleCancelOrder = () => {
+    if (!lockResult) return
+    modal.confirm({
+      title: '取消订单',
+      content: '确定放弃这些座位吗？取消后座位将被释放。',
+      okText: '确认取消',
+      cancelText: '关闭',
+      onOk: async () => {
+        try {
+          await cancelOrder(lockResult.id)
+          message.success('订单已取消')
+          await fetchSeatMap()
+        } catch {
+          // 拦截器已统一提示
+        }
+      },
+    })
   }
 
   const refreshPickupCode = useCallback(async (orderId: number) => {
@@ -233,7 +252,7 @@ export default function SeatMapModal({
           </div>
 
           <div className="flex gap-2">
-            <Button onClick={() => { setPhase('seats'); setLockResult(null) }}>返回选座</Button>
+            <Button onClick={handleCancelOrder}>取消订单</Button>
             <Button type="primary" loading={submitting} onClick={handlePay} disabled={countdownSeconds <= 0} className="flex-1">
               {countdownSeconds <= 0 ? '订单已失效' : '立即支付'}
             </Button>

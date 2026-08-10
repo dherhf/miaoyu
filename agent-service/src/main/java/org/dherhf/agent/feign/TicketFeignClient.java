@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -72,12 +71,6 @@ public interface TicketFeignClient {
 
     @PostMapping("/internal/orders/{id}/pay")
     Result<Object> payOrder(
-            @PathVariable("id") Long orderId,
-            @RequestBody Map<String, Object> body
-    );
-
-    @PostMapping("/internal/orders/{id}/cancel")
-    Result<Object> cancelOrder(
             @PathVariable("id") Long orderId,
             @RequestBody Map<String, Object> body
     );

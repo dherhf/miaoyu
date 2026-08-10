@@ -36,16 +36,6 @@ export function Header() {
       : '未定位'
 
   useEffect(() => {
-    if (location && location.source === 'gps') {
-      console.log('[Header] GPS 定位结果:', {
-        经度: location.longitude,
-        纬度: location.latitude,
-        地址: location.address,
-      })
-    }
-  }, [location])
-
-  useEffect(() => {
     if (!token) return
     fetchCurrentUser().catch(() => {})
     getNotifications(1, 20)

@@ -42,6 +42,7 @@ public class AuditLogAspect {
             }
 
             // 从请求 Header 获取操作人信息（由 Gateway 注入）
+            // ip / userAgent 必须在请求线程中提取，@Async 线程无法读取 RequestContextHolder
             HttpServletRequest request = ((ServletRequestAttributes)
                     Objects.requireNonNull(RequestContextHolder.getRequestAttributes())).getRequest();
 
@@ -57,7 +58,9 @@ public class AuditLogAspect {
                     auditLogAnnotation.targetType(),
                     targetId,
                     null,
-                    null
+                    null,
+                    request.getRemoteAddr(),
+                    request.getHeader("User-Agent")
             );
         } catch (Exception e) {
             log.warn("Failed to capture audit log info", e);

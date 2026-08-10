@@ -239,7 +239,7 @@ export function HallPage() {
             };
           }}
           search={{ labelWidth: 'auto', span: 6, defaultCollapsed: false }}
-          pagination={{ pageSize: 10, pageSizeOptions: [10, 20, 50], showSizeChanger: true }}
+          pagination={{ defaultPageSize: 10, pageSizeOptions: [10, 20, 50], showSizeChanger: true }}
           bordered
           scroll={{ x: 'max-content' }}
           headerTitle={`${currentCinema?.name ?? ''} 影厅列表`}

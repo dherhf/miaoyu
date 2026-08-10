@@ -244,7 +244,7 @@ export function CinemaManage() {
           };
         }}
         search={{ labelWidth: 'auto', span: 8, defaultCollapsed: false }}
-        pagination={{ pageSize: 10 }}
+        pagination={{ defaultPageSize: 10, pageSizeOptions: [10, 20, 50], showSizeChanger: true }}
         bordered
         scroll={{ x: 'max-content' }}
         headerTitle="影院管理"

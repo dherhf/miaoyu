@@ -333,7 +333,7 @@ export function MovieManage() {
         }}
         search={{ labelWidth: 'auto', span: 6, defaultCollapsed: false }}
         pagination={{
-          pageSize: 10,
+          defaultPageSize: 10,
           pageSizeOptions: [10, 20, 50],
           showSizeChanger: true,
         }}

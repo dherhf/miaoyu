@@ -141,7 +141,6 @@ export function SchedulePage() {
   // 表单校验
   const validateForm = () => {
     const err: ScheduleFormErr = {};
-    if (!formData.cinemaId) err.cinemaId = '请选择影院';
     if (!formData.hallId) err.hallId = '请选择影厅';
     if (!formData.movieId) err.movieId = '请选择影片';
     if (!formData.showDate) err.showDate = '请选择放映日期';
@@ -467,7 +466,7 @@ export function SchedulePage() {
             };
           }}
           search={{ labelWidth: 'auto', span: 6, defaultCollapsed: false }}
-          pagination={{ pageSize: 10, pageSizeOptions: [10, 20, 50], showSizeChanger: true }}
+          pagination={{ defaultPageSize: 10, pageSizeOptions: [10, 20, 50], showSizeChanger: true }}
           bordered
           scroll={{ x: 'max-content' }}
           headerTitle={`${currentCinema?.name ?? ''} 排期列表`}
@@ -490,7 +489,6 @@ export function SchedulePage() {
           data={formData}
           errors={formErrors}
           onChange={setFormData}
-          cinemas={cinemas}
           halls={allHalls}
           movies={movies}
         />

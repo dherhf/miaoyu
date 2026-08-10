@@ -31,11 +31,11 @@ export interface SessionSummary {
   createdAt: string
 }
 
-export interface SessionListResponse {
+export interface PageResult<T> {
   total: number
   page: number
   size: number
-  records: SessionSummary[]
+  records: T[]
 }
 
 export interface MessageItem {

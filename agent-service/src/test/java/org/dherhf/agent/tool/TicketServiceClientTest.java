@@ -219,35 +219,6 @@ class TicketServiceClientTest {
         System.out.println("[TicketServiceClientTest] ✓ payOrder_success PASSED");
     }
 
-    // ========== cancelOrder ==========
-
-    @Test
-    @DisplayName("cancelOrder - 成功取消")
-    void cancelOrder_success() {
-        System.out.println("[TicketServiceClientTest] ▶ cancelOrder_success");
-        when(feignClient.cancelOrder(any(), any()))
-                .thenReturn(Result.success(null));
-
-        Result<Object> result = client.cancelOrder(1L, 1L, "req-cancel-001");
-
-        assertEquals(0, result.getCode());
-        System.out.println("[TicketServiceClientTest] ✓ cancelOrder_success PASSED");
-    }
-
-    @Test
-    @DisplayName("cancelOrder - HTTP异常返回错误")
-    void cancelOrder_httpError() {
-        System.out.println("[TicketServiceClientTest] ▶ cancelOrder_httpError");
-        when(feignClient.cancelOrder(any(), any()))
-                .thenThrow(new RuntimeException("Connection refused"));
-
-        Result<Object> result = client.cancelOrder(1L, 1L, "req-cancel-002");
-
-        assertEquals(ErrorCodeEnum.TOOL_ERROR.getCode(), result.getCode());
-        assertTrue(result.getMessage().contains("取消订单失败"));
-        System.out.println("[TicketServiceClientTest] ✓ cancelOrder_httpError PASSED");
-    }
-
     // ========== refundOrder ==========
 
     @Test

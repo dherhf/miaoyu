@@ -8,17 +8,27 @@ import org.dherhf.auth.mapper.UserMapper;
 import org.dherhf.schedule.mapper.ScheduleSeatMapper;
 import org.dherhf.cinema.mapper.HallCellMapper;
 import org.dherhf.order.vo.AdminOrderDetailVO;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
+
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class AdminOrderServiceTest {
 
     @Mock
@@ -31,9 +41,21 @@ class AdminOrderServiceTest {
     private HallCellMapper hallCellMapper;
     @Mock
     private PickupCodeService pickupCodeService;
+    @Mock
+    private RedissonClient redissonClient;
+    @Mock
+    private RLock rLock;
 
     @InjectMocks
     private AdminOrderServiceImpl adminOrderService;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        when(redissonClient.getLock(anyString())).thenReturn(rLock);
+        when(rLock.tryLock(anyLong(), anyLong(), any(TimeUnit.class))).thenReturn(true);
+        when(rLock.isHeldByCurrentThread()).thenReturn(true);
+        doNothing().when(rLock).unlock();
+    }
 
     @Test
     void detail_notFound_throws404() {
@@ -69,8 +91,9 @@ class AdminOrderServiceTest {
         System.out.println("[AdminOrderServiceTest] ▶ checkTicket_success");
         when(pickupCodeService.verifyCode("AB3K9X")).thenReturn(1L);
         Order order = Order.builder().id(1L).userId(1L).status("paid").orderNo("20260730100001").movieName("流浪地球3").cinemaName("万达影城").build();
-        when(orderMapper.selectById(1L)).thenReturn(order);
-        when(orderMapper.updateById(any(Order.class))).thenReturn(1);
+        Order checkedOrder = Order.builder().id(1L).userId(1L).status("checked").orderNo("20260730100001").movieName("流浪地球3").cinemaName("万达影城").build();
+        when(orderMapper.selectById(1L)).thenReturn(order, checkedOrder);
+        when(orderMapper.updateToCheckedIfPaid(anyLong(), any(java.time.LocalDateTime.class))).thenReturn(1);
 
         User user = User.builder().id(1L).phone("encrypted_phone_data").build();
         when(userMapper.selectById(1L)).thenReturn(user);
@@ -78,8 +101,6 @@ class AdminOrderServiceTest {
 
         AdminOrderDetailVO result = adminOrderService.checkTicket("AB3K9X");
 
-        assertEquals("checked", order.getStatus());
-        assertNotNull(order.getCheckedAt());
         assertEquals("checked", result.getStatus());
         verify(pickupCodeService).removeCode(1L);
         System.out.println("[AdminOrderServiceTest] ✓ checkTicket_success PASSED");

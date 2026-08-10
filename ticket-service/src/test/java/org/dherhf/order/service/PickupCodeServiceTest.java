@@ -10,8 +10,8 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
-import org.springframework.data.redis.core.TimeoutUtils;
 
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -43,7 +43,7 @@ class PickupCodeServiceTest {
         String code = pickupCodeService.getOrCreateCode(1L);
 
         assertEquals("AB3K9X", code);
-        verify(valueOps, never()).setIfAbsent(anyString(), anyString(), anyLong(), any(TimeUnit.class));
+        verify(valueOps, never()).setIfAbsent(anyString(), anyString(), any(Duration.class));
         System.out.println("[PickupCodeServiceTest] ✓ getOrCreateCode_existingCode_returnsSame PASSED");
     }
 
@@ -51,20 +51,20 @@ class PickupCodeServiceTest {
     void getOrCreateCode_noExisting_generatesNew() {
         System.out.println("[PickupCodeServiceTest] ▶ getOrCreateCode_noExisting_generatesNew");
         when(valueOps.get("pickup:order:1")).thenReturn(null);
-        when(valueOps.setIfAbsent(anyString(), anyString(), anyLong(), any(TimeUnit.class))).thenReturn(true);
+        when(valueOps.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
 
         String code = pickupCodeService.getOrCreateCode(1L);
 
         assertNotNull(code);
         assertEquals(6, code.length());
-        verify(valueOps).set(eq("pickup:order:1"), eq(code), eq(60L), eq(TimeUnit.SECONDS));
+        verify(valueOps).set(eq("pickup:order:1"), eq(code), eq(Duration.ofSeconds(60)));
         System.out.println("[PickupCodeServiceTest] ✓ getOrCreateCode_noExisting_generatesNew PASSED");
     }
 
     @Test
     void generateCode_sixCharacters() {
         System.out.println("[PickupCodeServiceTest] ▶ generateCode_sixCharacters");
-        when(valueOps.setIfAbsent(anyString(), anyString(), anyLong(), any(TimeUnit.class))).thenReturn(true);
+        when(valueOps.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
 
         String code = pickupCodeService.generateCode(1L);
 
@@ -82,7 +82,7 @@ class PickupCodeServiceTest {
     void generateCode_doesNotDeleteOldCode() {
         System.out.println("[PickupCodeServiceTest] ▶ generateCode_doesNotDeleteOldCode");
         when(valueOps.get("pickup:order:1")).thenReturn("OLDCODE");
-        when(valueOps.setIfAbsent(anyString(), anyString(), anyLong(), any(TimeUnit.class))).thenReturn(true);
+        when(valueOps.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
 
         pickupCodeService.generateCode(1L);
 

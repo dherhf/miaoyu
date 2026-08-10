@@ -26,7 +26,6 @@ export interface ScheduleFormData {
 }
 
 export interface ScheduleFormErr {
-  cinemaId?: string;
   hallId?: string;
   movieId?: string;
   showDate?: string;
@@ -39,12 +38,11 @@ interface ScheduleFormProps {
   data: ScheduleFormData;
   errors: ScheduleFormErr;
   onChange: (vals: ScheduleFormData) => void;
-  cinemas: Array<{ id: string; name: string; branch?: string; address: string }>;
   halls: Array<{ id: string; cinemaId: string; name: string; totalSeats: number }>;
   movies: Array<{ id: string; name: string; duration: number; status: string }>;
 }
 
-export function ScheduleForm({ data, errors, onChange, cinemas, halls, movies }: ScheduleFormProps) {
+export function ScheduleForm({ data, errors, onChange, halls, movies }: ScheduleFormProps) {
   const updateField = (key: keyof ScheduleFormData, val: unknown) => {
     onChange({ ...data, [key]: val });
   };
@@ -54,7 +52,7 @@ export function ScheduleForm({ data, errors, onChange, cinemas, halls, movies }:
     return halls.filter(h => h.cinemaId === data.cinemaId);
   }, [halls, data.cinemaId]);
 
-  // 切换影院自动填充第一个影厅
+  // 自动选中第一个影厅
   useEffect(() => {
     if (data.cinemaId && cinemaHalls.length && !data.hallId) {
       updateField('hallId', cinemaHalls[0].id);
@@ -72,31 +70,6 @@ export function ScheduleForm({ data, errors, onChange, cinemas, halls, movies }:
 
   return (
     <Form layout="vertical">
-      {/* 影院选择 */}
-      <Form.Item
-        label="选择影院"
-        required
-        validateStatus={errors.cinemaId ? 'error' : ''}
-        help={errors.cinemaId}
-        className={styles.formItem}
-      >
-        <Radio.Group
-          value={data.cinemaId}
-          onChange={(e) => updateField('cinemaId', e.target.value)}
-        >
-          <Space direction="vertical" size={8} className={styles.cinemaListSpace}>
-            {cinemas.map(cinema => (
-              <Radio key={cinema.id} value={cinema.id} className={styles.radioAlignStart}>
-                <div>
-                  <div className={styles.cinemaName}>{cinema.name} {cinema.branch}</div>
-                  <div className={styles.cinemaAddress}>{cinema.address}</div>
-                </div>
-              </Radio>
-            ))}
-          </Space>
-        </Radio.Group>
-      </Form.Item>
-
       {/* 影厅选择 */}
       <Form.Item
         label="选择影厅"
@@ -105,9 +78,7 @@ export function ScheduleForm({ data, errors, onChange, cinemas, halls, movies }:
         help={errors.hallId}
         className={styles.formItem}
       >
-        {!data.cinemaId ? (
-          <div className={styles.placeholderHint}>请先选择影院</div>
-        ) : cinemaHalls.length === 0 ? (
+        {cinemaHalls.length === 0 ? (
           <div className={styles.placeholderHint}>该影院暂无可用影厅</div>
         ) : (
           <Radio.Group value={data.hallId} onChange={(e) => updateField('hallId', e.target.value)}>
