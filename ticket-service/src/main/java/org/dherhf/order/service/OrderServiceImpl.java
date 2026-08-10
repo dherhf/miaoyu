@@ -14,6 +14,7 @@ import org.dherhf.cinema.mapper.CinemaMapper;
 import org.dherhf.cinema.mapper.HallCellMapper;
 import org.dherhf.cinema.mapper.HallMapper;
 import org.dherhf.movie.mapper.MovieMapper;
+import org.dherhf.notification.service.NotificationService;
 import org.dherhf.order.mapper.OrderMapper;
 import org.dherhf.schedule.mapper.ScheduleMapper;
 import org.dherhf.schedule.mapper.ScheduleSeatMapper;
@@ -27,6 +28,7 @@ import org.dherhf.schedule.entity.Schedule;
 import org.dherhf.schedule.entity.ScheduleSeat;
 import org.dherhf.schedule.enums.ScheduleSeatStatus;
 import org.dherhf.schedule.enums.ScheduleStatus;
+import org.dherhf.schedule.service.SeatBitmapService;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
@@ -66,15 +68,22 @@ public class OrderServiceImpl implements OrderService {
     private final OrderTimeoutService orderTimeoutService;
     private final PickupCodeService pickupCodeService;
     private final RedissonClient redissonClient;
-    private final org.dherhf.notification.service.NotificationService notificationService;
-    private final org.dherhf.schedule.service.SeatBitmapService seatBitmapService;
+    private final NotificationService notificationService;
+    private final SeatBitmapService seatBitmapService;
 
     @Lazy
     @Autowired
     private OrderService self;
 
+    /**
+     * 锁座（无 @Transactional）。
+     * <p>
+     * 并发控制：Redisson 用户级锁（防重复下单）+ 逐座位分布式锁（防座位竞争）。
+     * 事务边界：锁的获取与释放均在事务外，事务收缩到 {@link #doLockSeat}，
+     * 避免锁释放先于事务提交导致并发请求读到未提交的 pending 订单。
+     * 幂等：通过 requestId 在 Redis 缓存结果，重复请求直接返回。
+     */
     @Override
-    @Transactional
     public LockSeatResultVO lockSeat(Long userId, LockSeatDTO dto, String requestId) {
         // Redis 幂等校验
         LockSeatResultVO cached = idempotentService.getIfPresent(userId, requestId, LockSeatResultVO.class);
@@ -123,7 +132,7 @@ public class OrderServiceImpl implements OrderService {
             }
 
             try {
-                LockSeatResultVO result = doLockSeat(userId, dto, schedule);
+                LockSeatResultVO result = self.doLockSeat(userId, dto, schedule);
                 idempotentService.put(userId, requestId, result);
                 orderTimeoutService.schedule(result.getId());
                 notificationService.sendNotification(
@@ -144,7 +153,16 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
-    private LockSeatResultVO doLockSeat(Long userId, LockSeatDTO dto, Schedule schedule) {
+    /**
+     * 锁座核心事务（{@code @Transactional}）。
+     * <p>
+     * 通过 self 代理调用以确保事务生效。SELECT ... FOR UPDATE 对目标座位加行级排他锁，
+     * 二次校验座位状态后创建订单并更新座位为 LOCKED，同步 Redis Bitmap。
+     * 事务在锁释放前提交，保证并发请求持有分布式锁时可见已提交数据。
+     */
+    @Override
+    @Transactional
+    public LockSeatResultVO doLockSeat(Long userId, LockSeatDTO dto, Schedule schedule) {
         // SELECT ... FOR UPDATE 加排他锁,确保并发安全
         List<ScheduleSeat> seats = scheduleSeatMapper.selectForUpdate(
                 dto.getScheduleId(), dto.getSeatIds());
@@ -211,6 +229,13 @@ public class OrderServiceImpl implements OrderService {
         return vo;
     }
 
+    /**
+     * 支付订单。
+     * <p>
+     * 并发控制：Redisson 订单级分布式锁 + CAS 条件更新（{@code updateToPaidIfPending}）。
+     * 即使分布式锁存在极端竞态，数据库 CAS 仍能保证幂等——并发请求的 affected=0 直接失败。
+     * 座位状态 LOCKED → SOLD，同步 Redis Bitmap，取消超时取消任务，生成动态取票码。
+     */
     @Override
     @Transactional
     public PayResultVO payOrder(Long userId, Long orderId, String requestId) {
@@ -299,6 +324,12 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
+    /**
+     * 取消订单（用户主动取消）。
+     * <p>
+     * 并发控制：Redisson 订单级分布式锁 + CAS 条件更新（{@code updateToCancelledIfPending}）。
+     * 座位状态 LOCKED → AVAILABLE，释放 Redis Bitmap 锁定位，取消超时取消任务，清理取票码。
+     */
     @Override
     @Transactional
     public void cancelOrder(Long userId, Long orderId, String requestId) {
@@ -369,6 +400,12 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
+    /**
+     * 退票（已支付订单退款）。
+     * <p>
+     * 并发控制：Redisson 订单级分布式锁 + CAS 条件更新（{@code updateToRefundedIfPaid}）。
+     * 校验放映未开始后，座位状态 SOLD → AVAILABLE，清除 Redis Bitmap 已售+锁定位，清理取票码。
+     */
     @Override
     @Transactional
     public void refundOrder(Long userId, Long orderId, String requestId) {
@@ -444,6 +481,7 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
+    /** 用户端订单分页查询，按状态/日期/影片名筛选。 */
     @Override
     public PageResult<OrderListVO> listOrders(Long userId, String status, String dateFrom, String dateTo, String keyword, Integer page, Integer size) {
         Page<Order> pageParam = new Page<>(page, size);
@@ -463,6 +501,7 @@ public class OrderServiceImpl implements OrderService {
         return new PageResult<>(result.getTotal(), page, size, records);
     }
 
+    /** 订单详情，仅已支付订单返回动态取票码。 */
     @Override
     public OrderDetailVO detail(Long userId, Long orderId) {
         Order order = orderMapper.selectById(orderId);
@@ -482,6 +521,11 @@ public class OrderServiceImpl implements OrderService {
         return vo;
     }
 
+    /**
+     * 查询用户当前待支付订单。
+     * <p>
+     * 若订单已超时但数据库状态仍为 PENDING，通过 self 代理调用 {@link #timeoutCancel} 同步取消。
+     */
     @Override
     public PendingOrderVO pendingOrder(Long userId) {
         Order order = orderMapper.selectOne(
@@ -518,6 +562,7 @@ public class OrderServiceImpl implements OrderService {
         return vo;
     }
 
+    /** 查询待支付订单剩余支付时间，已过期或非待支付状态返回 expired=true。 */
     @Override
     public RemainingTimeVO remainingTime(Long userId, Long orderId) {
         Order order = orderMapper.selectById(orderId);
@@ -543,6 +588,7 @@ public class OrderServiceImpl implements OrderService {
         return vo;
     }
 
+    /** 获取动态取票码（Redis 存储定时刷新），仅已出票订单可获取。 */
     @Override
     public PickupCodeVO getPickupCode(Long userId, Long orderId) {
         Order order = orderMapper.selectById(orderId);
@@ -557,6 +603,11 @@ public class OrderServiceImpl implements OrderService {
         return PickupCodeVO.builder().pickupCode(code).expiresIn(expiresIn).build();
     }
 
+    /**
+     * Agent 服务内部锁座入口。
+     * <p>
+     * 通过 self 代理调用 {@link #lockSeat}，确保 {@code @Transactional} 在 {@link #doLockSeat} 中生效。
+     */
     @Override
     public LockSeatResultVO internalLockSeat(InternalLockSeatDTO dto) {
         LockSeatDTO lockSeatDTO = LockSeatDTO.builder()
@@ -564,24 +615,28 @@ public class OrderServiceImpl implements OrderService {
                 .seatIds(dto.getSeatIds())
                 .ticketCount(dto.getTicketCount())
                 .build();
-        return lockSeat(dto.getUserId(), lockSeatDTO, dto.getRequestId());
+        return self.lockSeat(dto.getUserId(), lockSeatDTO, dto.getRequestId());
     }
 
+    /** Agent 服务内部支付入口，通过 self 代理确保 {@code @Transactional} 生效。 */
     @Override
     public PayResultVO internalPayOrder(Long userId, Long orderId, String requestId) {
-        return payOrder(userId, orderId, requestId);
+        return self.payOrder(userId, orderId, requestId);
     }
 
+    /** Agent 服务内部取消入口，通过 self 代理确保 {@code @Transactional} 生效。 */
     @Override
     public void internalCancelOrder(Long userId, Long orderId, String requestId) {
-        cancelOrder(userId, orderId, requestId);
+        self.cancelOrder(userId, orderId, requestId);
     }
 
+    /** Agent 服务内部退票入口，通过 self 代理确保 {@code @Transactional} 生效。 */
     @Override
     public void internalRefundOrder(Long userId, Long orderId, String requestId) {
-        refundOrder(userId, orderId, requestId);
+        self.refundOrder(userId, orderId, requestId);
     }
 
+    /** Agent 服务内部订单分页查询，支持按影片名/影院名/订单号模糊搜索。 */
     @Override
     public PageResult<OrderListVO> internalListOrders(Long userId, String keyword, String status, String dateFrom, String dateTo, Integer page, Integer size) {
         Page<Order> pageParam = new Page<>(page, size);
@@ -603,6 +658,12 @@ public class OrderServiceImpl implements OrderService {
         return new PageResult<>(result.getTotal(), page, size, records);
     }
 
+    /**
+     * 超时取消单个订单（延迟队列触发或定时扫描触发）。
+     * <p>
+     * 并发控制：Redisson 订单级锁 + CAS 条件更新（{@code updateToCancelledIfPending}）。
+     * CAS 幂等保证重复触发安全。座位状态 LOCKED → AVAILABLE，释放 Redis Bitmap 锁定位。
+     */
     @Override
     @Transactional
     public void timeoutCancel(Long orderId) {
@@ -650,15 +711,6 @@ public class OrderServiceImpl implements OrderService {
                     "您的订单已超时取消，座位已释放，如需购票请重新选座。影片：《" + order.getMovieName() + "》",
                     orderId);
 
-            // SETBIT schedule:seat:occupied:{scheduleId} {seat_index} 0
-            for (ScheduleSeat seat : seats) {
-                seatBitmapService.clearOccupiedIfNotSold(order.getScheduleId(), seat.getSeatIndex());
-            }
-            notificationService.sendNotification(
-                    order.getUserId(), "TIMEOUT_CANCEL", "订单超时取消",
-                    "您的订单已超时取消，座位已释放，如需购票请重新选座。影片：《" + order.getMovieName() + "》",
-                    orderId);
-
             log.info("Order {} timeout cancelled", orderId);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -668,6 +720,11 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
+    /**
+     * 批量取消超时订单。
+     * <p>
+     * 查询所有 PENDING 且创建时间早于 deadline 的订单，逐个通过 self 代理调用 {@link #timeoutCancel}。
+     */
     @Override
     public void cancelTimeoutOrders(LocalDateTime deadline) {
         List<Order> timeoutOrders = orderMapper.selectList(
@@ -686,17 +743,20 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
+    /** 定时扫描（每 60s）超时未支付订单并取消，作为延迟队列的兜底补偿。 */
     @Scheduled(fixedRate = 60000)
     public void scanTimeoutOrders() {
         LocalDateTime deadline = LocalDateTime.now().minusSeconds(ORDER_TIMEOUT_SECONDS);
         cancelTimeoutOrders(deadline);
     }
 
+    /** 生成订单号：时间戳(14位) + 随机数(6位)。 */
     private String generateOrderNo() {
         return LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
                 + String.format("%06d", (int) (Math.random() * 1000000));
     }
 
+    /** Order → OrderListVO 转换，待支付订单计算剩余支付倒计时。 */
     private OrderListVO toListVO(Order order) {
         OrderListVO vo = new OrderListVO();
         BeanUtils.copyProperties(order, vo);
