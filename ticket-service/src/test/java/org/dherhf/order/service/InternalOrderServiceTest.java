@@ -103,6 +103,8 @@ class InternalOrderServiceTest {
         doNothing().when(orderTimeoutService).schedule(any());
         doNothing().when(orderTimeoutService).cancel(any());
         doNothing().when(notificationService).sendNotification(anyLong(), anyString(), anyString(), anyString(), any());
+        // 默认无待支付订单
+        when(orderMapper.selectCount(any())).thenReturn(0L);
     }
 
     // ========== internalLockSeat ==========
@@ -183,7 +185,7 @@ class InternalOrderServiceTest {
         ScheduleSeat lockedSeat = ScheduleSeat.builder().id(200L).seatIndex(0).status("locked").build();
         when(scheduleSeatMapper.selectList(any())).thenReturn(List.of(lockedSeat));
         when(scheduleSeatMapper.updateById(any(ScheduleSeat.class))).thenReturn(1);
-        when(orderMapper.updateById(any(Order.class))).thenReturn(1);
+        when(orderMapper.updateToPaidIfPending(anyLong(), any(LocalDateTime.class))).thenReturn(1);
 
         Schedule schedule = Schedule.builder().cinemaId(1L).build();
         when(scheduleMapper.selectById(1L)).thenReturn(schedule);
@@ -225,11 +227,11 @@ class InternalOrderServiceTest {
         ScheduleSeat lockedSeat = ScheduleSeat.builder().id(200L).seatIndex(0).status("locked").build();
         when(scheduleSeatMapper.selectList(any())).thenReturn(List.of(lockedSeat));
         when(scheduleSeatMapper.updateById(any(ScheduleSeat.class))).thenReturn(1);
-        when(orderMapper.updateById(any(Order.class))).thenReturn(1);
+        when(orderMapper.updateToCancelledIfPending(anyLong(), any(LocalDateTime.class), anyString())).thenReturn(1);
 
         orderService.internalCancelOrder(1L, 1L, "req-internal-cancel-001");
 
-        assertEquals("cancelled", order.getStatus());
+        verify(orderMapper).updateToCancelledIfPending(eq(1L), any(LocalDateTime.class), eq("用户主动取消"));
         System.out.println("[InternalOrderServiceTest] ✓ internalCancelOrder_success PASSED");
     }
 
@@ -264,11 +266,11 @@ class InternalOrderServiceTest {
         ScheduleSeat soldSeat = ScheduleSeat.builder().id(300L).seatIndex(0).status("sold").build();
         when(scheduleSeatMapper.selectList(any())).thenReturn(List.of(soldSeat));
         when(scheduleSeatMapper.updateById(any(ScheduleSeat.class))).thenReturn(1);
-        when(orderMapper.updateById(any(Order.class))).thenReturn(1);
+        when(orderMapper.updateToRefundedIfPaid(anyLong(), any(LocalDateTime.class), anyString())).thenReturn(1);
 
         orderService.internalRefundOrder(1L, 1L, "req-internal-refund-001");
 
-        assertEquals("refunded", order.getStatus());
+        verify(orderMapper).updateToRefundedIfPaid(eq(1L), any(LocalDateTime.class), eq("用户退票"));
         System.out.println("[InternalOrderServiceTest] ✓ internalRefundOrder_success PASSED");
     }
 
