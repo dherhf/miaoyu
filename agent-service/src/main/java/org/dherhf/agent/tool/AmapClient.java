@@ -58,8 +58,8 @@ public class AmapClient {
             if ("transit".equals(mode) && city != null && !city.isBlank()) {
                 params.put("city", city);
             }
-            String query = params.entrySet().stream()
-                    .map(e -> e.getKey() + "={" + e.getKey() + "}")
+            String query = params.keySet().stream()
+                    .map(s -> s + "={" + s + "}")
                     .reduce((a, b) -> a + "&" + b)
                     .orElse("");
             return restClient.get()
@@ -68,7 +68,7 @@ public class AmapClient {
                     .body(String.class);
         } catch (Exception e) {
             log.warn("[AmapClient] 路径规划失败: mode={}, origin={}, dest={}, err={}", mode, origin, destination, e.getMessage());
-            return errorJson(ErrorCodeEnum.TOOL_ERROR, "路径规划失败：" + e.getMessage());
+            return errorJson("路径规划失败：" + e.getMessage());
         }
     }
 
@@ -91,7 +91,7 @@ public class AmapClient {
                     .body(String.class);
         } catch (Exception e) {
             log.warn("[AmapClient] 周边搜索失败: location={}, keywords={}, err={}", location, keywords, e.getMessage());
-            return errorJson(ErrorCodeEnum.TOOL_ERROR, "周边搜索失败：" + e.getMessage());
+            return errorJson("周边搜索失败：" + e.getMessage());
         }
     }
 
@@ -110,7 +110,7 @@ public class AmapClient {
                     .body(String.class);
         } catch (Exception e) {
             log.warn("[AmapClient] 天气查询失败: city={}, err={}", city, e.getMessage());
-            return errorJson(ErrorCodeEnum.TOOL_ERROR, "天气查询失败：" + e.getMessage());
+            return errorJson("天气查询失败：" + e.getMessage());
         }
     }
 
@@ -131,14 +131,14 @@ public class AmapClient {
                     .body(String.class);
         } catch (Exception e) {
             log.warn("[AmapClient] 地理编码失败: address={}, err={}", address, e.getMessage());
-            return errorJson(ErrorCodeEnum.TOOL_ERROR, "地理编码失败：" + e.getMessage());
+            return errorJson("地理编码失败：" + e.getMessage());
         }
     }
 
     /**
      * 构建与 {@link org.dherhf.common.result.Result#error(int, String)} 一致的 JSON 错误响应。
      */
-    private static String errorJson(ErrorCodeEnum code, String message) {
-        return "{\"code\":" + code.getCode() + ",\"message\":\"" + message + "\"}";
+    private static String errorJson(String message) {
+        return "{\"code\":" + ErrorCodeEnum.TOOL_ERROR.getCode() + ",\"message\":\"" + message + "\"}";
     }
 }

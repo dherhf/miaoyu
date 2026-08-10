@@ -327,7 +327,8 @@ public class TicketTools {
                 // 查询单个订单时推送 order_confirm 卡片（而非 order_list），
                 // 确保对话服务推送的最后一张卡片是单个订单详情
                 Map<String, Object> cardData = objectMapper.convertValue(
-                        result.getData(), new TypeReference<Map<String, Object>>() {});
+                        result.getData(), new TypeReference<>() {
+                        });
                 String status = (String) cardData.get("status");
                 if ("pending".equals(status)) {
                     String createdAtStr = (String) cardData.get("createdAt");
@@ -557,8 +558,8 @@ public class TicketTools {
                 var records = node.path("records");
                 if (records.isArray() && !records.isEmpty()) {
                     var cinema = records.get(0);
-                    String lng = cinema.path("longitude").asText(null);
-                    String lat = cinema.path("latitude").asText(null);
+                    String lng = cinema.path("longitude").asString(null);
+                    String lat = cinema.path("latitude").asString(null);
                     if (lng != null && lat != null && !lng.equals("null") && !lat.equals("null")) {
                         return lng + "," + lat;
                     }
@@ -574,8 +575,8 @@ public class TicketTools {
             if (node.path("code").asInt(-1) == 200) {
                 var data = node.path("data");
                 if (data.isArray() && !data.isEmpty()) {
-                    String lng = data.get(0).path("longitude").asText(null);
-                    String lat = data.get(0).path("latitude").asText(null);
+                    String lng = data.get(0).path("longitude").asString(null);
+                    String lat = data.get(0).path("latitude").asString(null);
                     if (lng != null && lat != null) {
                         return lng + "," + lat;
                     }
