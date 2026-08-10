@@ -76,12 +76,6 @@ public interface TicketFeignClient {
             @RequestBody Map<String, Object> body
     );
 
-    @PostMapping("/internal/orders/{id}/cancel")
-    Result<Object> cancelOrder(
-            @PathVariable("id") Long orderId,
-            @RequestBody Map<String, Object> body
-    );
-
     @PostMapping("/internal/orders/{id}/refund")
     Result<Object> refundOrder(
             @PathVariable("id") Long orderId,

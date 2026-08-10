@@ -182,27 +182,6 @@ public class TicketServiceClient {
     }
 
     /**
-     * 取消待支付订单。
-     *
-     * @param userId    用户 ID（由请求上下文获取）
-     * @param orderId   订单 ID（由 queryUserOrders 返回）
-     * @param requestId 幂等请求 ID（前端透传，缺失时兜底生成 UUID）
-     * @return {@code Result<Object>}，data 为取消结果；调用失败时 code 非 0 并携带错误信息
-     */
-    public Result<Object> cancelOrder(Long userId, Long orderId, String requestId) {
-        try {
-            Map<String, Object> body = Map.of(
-                    "userId", userId,
-                    "requestId", requestId
-            );
-            return feignClient.cancelOrder(orderId, body);
-        } catch (Exception ex) {
-            log.warn("取消订单失败: {}", ex.getMessage());
-            return Result.error(ErrorCodeEnum.TOOL_ERROR.getCode(), "取消订单失败：" + ex.getMessage());
-        }
-    }
-
-    /**
      * 退票。
      *
      * @param userId    用户 ID（由请求上下文获取）

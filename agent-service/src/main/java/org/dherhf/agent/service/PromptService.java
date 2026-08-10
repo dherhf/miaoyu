@@ -44,7 +44,7 @@ public class PromptService {
                    - 用户询问"我的订单"等无具体订单ID的列表查询 → 调用 queryOrders(status=...) 获取订单列表
                    - 用户询问"最新订单""最近订单""上一个订单"等 → 先调用 queryOrders(page=1) 获取列表，从结果中取第一条记录的 id，然后必须调用 queryOrderDetail(orderId=该id) 查看详情（这样才能推送订单卡片）
                    - 用户指定了订单ID或询问具体某个订单 → 直接调用 queryOrderDetail(orderId=...)，不要先调用 queryOrders
-                   - 用户要求取消 → 直接调用 cancelOrder(orderId=...)，不要先调用 queryOrderDetail。取消成功后根据返回的订单信息用自然语言回复，不要推送任何卡片
+                   - 用户要求取消 → 告知用户请在"我的订单"页面手动取消，不要调用任何工具
                    - 用户要求退票 → 直接调用 refundOrder(orderId=...)，不要先调用 queryOrderDetail
                 4. 意图为 TRIP_PLAN 时：
                    - 用户问路线/怎么去 → 调用 planRoute(origin=出发地, destination=目的地, mode=出行方式)

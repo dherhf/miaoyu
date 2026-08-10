@@ -353,36 +353,6 @@ public class TicketTools {
     }
 
 
-    @Tool("取消待支付订单。用户要求取消未支付订单时调用，释放锁定座位。仅待支付订单可取消。返回后端原始 JSON 数据。")
-    public String cancelOrder(
-            @ToolMemoryId String sessionId,
-            @P("订单 ID（由 queryOrders 返回）") String orderId
-    ) {
-        Long userId = requireUserId(sessionId);
-        Long orderIdLong = parseLong(orderId);
-        if (orderIdLong == null) {
-            return toJson(Result.error(ErrorCodeEnum.TOOL_ERROR.getCode(), "订单ID无效，请从 queryOrders 返回结果中获取有效订单ID"));
-        }
-        String requestId = getRequestId(sessionId);
-        log.info("[Tool:cancelOrder] sessionId={}, userId={}, orderId={}, requestId={}", sessionId, userId, orderIdLong, requestId);
-
-        String cached = idempotentService.getIfPresent(userId, requestId, String.class);
-        if (cached != null) {
-            log.info("[Tool:cancelOrder] 幂等命中缓存: requestId={}", requestId);
-            return cached;
-        }
-
-        Result<Object> result = ticketClient.cancelOrder(userId, orderIdLong, requestId);
-        String json = toJson(result);
-        if (result.getCode() == 0) {
-            idempotentService.put(userId, requestId, json);
-        }
-        // 清空已有卡片并抑制后续卡片，确保取消订单后本轮不推送任何卡片
-        cardBufferOf(sessionId).clear();
-        cardSuppressedFlags.put(sessionId, true);
-        return json;
-    }
-
     @Tool("退票。用户要求退已支付订单时调用，释放已售座位并退款。仅已出票且未放映的订单可退。返回后端原始 JSON 数据。")
     public String refundOrder(
             @ToolMemoryId String sessionId,
