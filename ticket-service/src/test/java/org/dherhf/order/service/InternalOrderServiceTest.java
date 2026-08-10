@@ -33,6 +33,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -77,6 +78,8 @@ class InternalOrderServiceTest {
     private PickupCodeService pickupCodeService;
     @Mock
     private RLock rLock;
+    @Mock
+    private OrderService self;
 
     @InjectMocks
     private OrderServiceImpl orderService;
@@ -94,6 +97,9 @@ class InternalOrderServiceTest {
 
     @BeforeEach
     void setUp() throws Exception {
+        // @InjectMocks 构造器注入成功后不会执行字段注入，需手动注入 self
+        ReflectionTestUtils.setField(orderService, "self", self);
+
         when(idempotentService.getIfPresent(any(), any(), any())).thenReturn(null);
         when(redissonClient.getLock(anyString())).thenReturn(rLock);
         when(rLock.tryLock(anyLong(), anyLong(), any(TimeUnit.class))).thenReturn(true);
@@ -105,6 +111,22 @@ class InternalOrderServiceTest {
         doNothing().when(notificationService).sendNotification(anyLong(), anyString(), anyString(), anyString(), any());
         // 默认无待支付订单
         when(orderMapper.selectCount(any())).thenReturn(0L);
+
+        // self 代理委托回真实实例，模拟 Spring AOP 代理行为
+        when(self.lockSeat(anyLong(), any(org.dherhf.order.dto.LockSeatDTO.class), anyString()))
+                .thenAnswer(inv -> orderService.lockSeat(inv.getArgument(0), inv.getArgument(1), inv.getArgument(2)));
+        when(self.doLockSeat(anyLong(), any(org.dherhf.order.dto.LockSeatDTO.class), any(Schedule.class)))
+                .thenAnswer(inv -> orderService.doLockSeat(inv.getArgument(0), inv.getArgument(1), inv.getArgument(2)));
+        when(self.payOrder(anyLong(), anyLong(), anyString()))
+                .thenAnswer(inv -> orderService.payOrder(inv.getArgument(0), inv.getArgument(1), inv.getArgument(2)));
+        doAnswer(inv -> {
+            orderService.cancelOrder(inv.getArgument(0), inv.getArgument(1), inv.getArgument(2));
+            return null;
+        }).when(self).cancelOrder(anyLong(), anyLong(), anyString());
+        doAnswer(inv -> {
+            orderService.refundOrder(inv.getArgument(0), inv.getArgument(1), inv.getArgument(2));
+            return null;
+        }).when(self).refundOrder(anyLong(), anyLong(), anyString());
     }
 
     // ========== internalLockSeat ==========

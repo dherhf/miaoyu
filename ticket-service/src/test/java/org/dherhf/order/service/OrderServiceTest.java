@@ -35,6 +35,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
+import org.springframework.test.util.ReflectionTestUtils;
 import java.util.concurrent.TimeUnit;
 
 import java.math.BigDecimal;
@@ -82,6 +83,8 @@ class OrderServiceTest {
     private PickupCodeService pickupCodeService;
     @Mock
     private RLock rLock;
+    @Mock
+    private OrderService self;
 
     @InjectMocks
     private OrderServiceImpl orderService;
@@ -102,6 +105,9 @@ class OrderServiceTest {
 
     @BeforeEach
     void setUp() throws Exception {
+        // @InjectMocks 构造器注入成功后不会执行字段注入，需手动注入 self
+        ReflectionTestUtils.setField(orderService, "self", self);
+
         lockSeatDTO = LockSeatDTO.builder().scheduleId(1L).seatIds(List.of(10L, 11L)).ticketCount(2).build();
 
         // Common stubs for all tests
@@ -116,6 +122,14 @@ class OrderServiceTest {
         doNothing().when(notificationService).sendNotification(anyLong(), anyString(), anyString(), anyString(), any());
         // 默认无待支付订单
         when(orderMapper.selectCount(any())).thenReturn(0L);
+
+        // self 代理委托回真实实例，模拟 Spring AOP 代理行为
+        when(self.doLockSeat(anyLong(), any(LockSeatDTO.class), any(Schedule.class)))
+                .thenAnswer(inv -> orderService.doLockSeat(inv.getArgument(0), inv.getArgument(1), inv.getArgument(2)));
+        doAnswer(inv -> {
+            orderService.timeoutCancel(inv.getArgument(0));
+            return null;
+        }).when(self).timeoutCancel(anyLong());
     }
 
     @Test
