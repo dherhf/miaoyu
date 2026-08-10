@@ -3,23 +3,40 @@ import { Button, App } from 'antd'
 import { payOrder, cancelOrder } from '@/features/order/api'
 import type { BaseCardProps, PendingOrderCardData } from '../../types'
 
+/**
+ * 将剩余秒数格式化为 mm:ss 形式。
+ * @param totalSec 剩余秒数
+ * @returns 如 "05:30"
+ */
 function fmtTime(totalSec: number) {
   const m = Math.floor(totalSec / 60).toString().padStart(2, '0')
   const s = (totalSec % 60).toString().padStart(2, '0')
   return `${m}:${s}`
 }
 
+/**
+ * 待支付订单卡片：对话中出现历史待支付订单时提醒用户尽快支付。
+ * 功能：
+ * - 展示影片、影院、座位、金额
+ * - 倒计时：剩余秒数归零后展示"订单已超时释放"
+ * - "继续支付"按钮调用 payOrder 接口
+ * - "放弃订单"按钮弹出确认后调用 cancelOrder 释放座位
+ * - 支付成功 / 已取消 / 已超时分别展示对应遮罩
+ *
+ * 对应后端接口：POST /orders/{id}/pay（支付）、POST /orders/{id}/cancel（取消）
+ */
 export default function PendingOrderCard({ data }: BaseCardProps<PendingOrderCardData>) {
   const { message, modal } = App.useApp()
   const { id, movieName, cinemaName, seatInfo, totalAmount, remainingSeconds } = data || {}
-  const [seconds, setSeconds] = useState(remainingSeconds ?? 0)
-  const [paying, setPaying] = useState(false)
-  const [paid, setPaid] = useState(false)
-  const [cancelled, setCancelled] = useState(false)
+  const [seconds, setSeconds] = useState(remainingSeconds ?? 0) // 倒计时剩余秒数
+  const [paying, setPaying] = useState(false)       // 支付请求 loading
+  const [paid, setPaid] = useState(false)            // 本地标记已支付
+  const [cancelled, setCancelled] = useState(false)  // 本地标记已取消
   const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
-  const expired = seconds <= 0
-  const done = paid || cancelled
+  const expired = seconds <= 0        // 是否已超时
+  const done = paid || cancelled      // 是否已完结（支付或取消）
 
+  /** 继续支付：调用支付接口，成功后标记 paid */
   const handlePay = useCallback(async () => {
     if (expired || done || paying) return
     setPaying(true)
@@ -35,6 +52,7 @@ export default function PendingOrderCard({ data }: BaseCardProps<PendingOrderCar
     }
   }, [expired, done, paying, id, message])
 
+  /** 放弃订单：弹出确认弹窗，确认后调用取消接口释放座位 */
   const handleCancel = useCallback(() => {
     if (expired || done) return
     modal.confirm({
@@ -55,6 +73,7 @@ export default function PendingOrderCard({ data }: BaseCardProps<PendingOrderCar
     })
   }, [expired, done, id, modal, message])
 
+  // 倒计时定时器：每秒递减，到 0 时停止
   useEffect(() => {
     if (expired) return
     timerRef.current = setInterval(() => {
@@ -69,6 +88,7 @@ export default function PendingOrderCard({ data }: BaseCardProps<PendingOrderCar
 
   return (
     <div className="relative w-full overflow-hidden rounded-xl border border-border bg-surface">
+      {/* 超时遮罩 */}
       {expired && !done && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-surface/95">
           <div className="text-sm font-bold text-muted">订单已超时释放</div>
@@ -76,6 +96,7 @@ export default function PendingOrderCard({ data }: BaseCardProps<PendingOrderCar
         </div>
       )}
 
+      {/* 支付成功遮罩 */}
       {paid && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-surface/95">
           <div className="mb-2 text-[40px]">✅</div>
@@ -84,6 +105,7 @@ export default function PendingOrderCard({ data }: BaseCardProps<PendingOrderCar
         </div>
       )}
 
+      {/* 已取消遮罩 */}
       {cancelled && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-surface/95">
           <div className="mb-2 text-[40px]">❌</div>
@@ -92,11 +114,13 @@ export default function PendingOrderCard({ data }: BaseCardProps<PendingOrderCar
         </div>
       )}
 
+      {/* 待支付提醒头 */}
       <div className="flex items-center gap-2 border-b border-warning-border bg-warning-bg px-4 py-2">
         <span className="text-lg">⏰</span>
         <span className="text-sm font-bold text-warning-deep">您有一笔待支付的订单</span>
       </div>
 
+      {/* 订单信息 */}
       <div className="px-4 py-3">
         <div className="flex items-center gap-2 py-1">
           <span className="min-w-[32px] text-xs text-muted/70">影片</span>
@@ -116,11 +140,13 @@ export default function PendingOrderCard({ data }: BaseCardProps<PendingOrderCar
         </div>
       </div>
 
+      {/* 剩余时间倒计时 */}
       <div className="flex items-center justify-between border-y border-danger-soft-border bg-danger-soft-bg px-4 py-1.5">
         <span className="text-[13px] font-medium text-danger-soft-text">剩余时间</span>
         <span className="font-mono text-base font-bold text-price">{fmtTime(seconds)}</span>
       </div>
 
+      {/* 操作按钮 */}
       <div className="flex flex-col gap-2 px-4 py-3">
         <Button type="primary" danger block disabled={expired || done} loading={paying} onClick={handlePay}>继续支付</Button>
         <Button type="default" block disabled={expired || done || paying} onClick={handleCancel}>放弃订单</Button>

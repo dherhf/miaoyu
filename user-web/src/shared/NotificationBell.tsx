@@ -3,11 +3,21 @@ import { BellOutlined } from '@ant-design/icons'
 import { useMemo } from 'react'
 import type { NotificationVO } from '@/features/notification/types'
 
+/** 通知铃铛组件的属性接口 */
 interface NotificationBellProps {
+  /** 通知列表 */
   items: NotificationVO[]
+  /** 标记通知已读的回调 */
   onRead?: (id: number) => void
 }
 
+/**
+ * 格式化通知时间为友好显示。
+ * 1分钟内显示"刚刚"，1小时内显示"X分钟前"，
+ * 当天显示"X小时前"，昨天显示"昨天"，更早显示"MM-DD"。
+ * @param dt 通知创建时间字符串
+ * @returns 格式化后的时间文本
+ */
 function formatTime(dt: string): string {
   if (!dt) return ''
   const date = new Date(dt)
@@ -28,12 +38,19 @@ function formatTime(dt: string): string {
   return `${month}-${day}`
 }
 
+/**
+ * 通知铃铛组件。
+ * 在顶部导航栏展示未读通知数量徽标，
+ * 点击后弹出通知列表浮层，未读通知可点击标记为已读。
+ */
 export default function NotificationBell({ items, onRead }: NotificationBellProps) {
+  // 计算未读通知数量
   const unreadCount = useMemo(
     () => items.filter((i) => i.isRead === 0).length,
     [items],
   )
 
+  // 通知列表内容：空列表显示空状态，否则渲染通知项列表
   const content = items.length === 0 ? (
     <Empty description="暂无通知" image={Empty.PRESENTED_IMAGE_SIMPLE} className="my-2" />
   ) : (
@@ -45,6 +62,7 @@ export default function NotificationBell({ items, onRead }: NotificationBellProp
           className={`py-2.5 px-3 border-b border-border${item.isRead === 0 ? ' cursor-pointer' : ''}${item.isRead === 1 ? ' opacity-60' : ''}`}
         >
           <div className="flex items-center gap-1.5 mb-0.5">
+            {/* 未读通知显示圆点指示器 */}
             {item.isRead === 0 && (
               <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
             )}

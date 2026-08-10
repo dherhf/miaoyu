@@ -18,15 +18,31 @@ import { CinemaForm, CINEMA_STATUS, CINEMA_STATUS_LABELS } from './CinemaForm';
 import type { CinemaFormValues } from './CinemaForm';
 import styles from './CinemaPage.module.css';
 
+/**
+ * 影院管理页面组件
+ *
+ * 功能：
+ * 1. 影院列表展示（ProTable，支持按名称和状态搜索）
+ * 2. 新增影院（弹出表单，含地图选点）
+ * 3. 编辑影院信息
+ * 4. 影院营业/停业切换（停业前检查是否有未结束场次）
+ * 5. 影院名称查重（客户端校验）
+ */
 export function CinemaManage() {
+  // ProTable 操作引用（用于手动刷新表格）
   const actionRef = useRef<ActionType>(null);
   const { message, modal } = App.useApp();
+  // 影院 store
   const { fetchCinemas, addCinema, updateCinema, toggleCinemaStatus } = useCinemaStore();
+  // 排期 store（用于停业前检查未结束场次）
   const { schedules } = useScheduleStore();
 
+  // 弹窗状态
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // 当前编辑的影院记录（null 表示新增模式）
   const [editRow, setEditRow] = useState<CinemaItem | null>(null);
+  // 表单数据
   const [formData, setFormData] = useState<CinemaFormValues>({
     name: '',
     address: '',
@@ -37,6 +53,10 @@ export function CinemaManage() {
     phone: null,
   });
 
+  /**
+   * 打开新增影院弹窗
+   * 重置表单数据为初始空值
+   */
   const openAdd = () => {
     setEditRow(null);
     setFormData({
@@ -51,6 +71,10 @@ export function CinemaManage() {
     setModalOpen(true);
   };
 
+  /**
+   * 打开编辑影院弹窗
+   * 将选中影院的数据回填到表单
+   */
   const openEdit = (record: CinemaItem) => {
     setEditRow(record);
     setFormData({
@@ -65,17 +89,26 @@ export function CinemaManage() {
     setModalOpen(true);
   };
 
+  /**
+   * 表单提交处理（新增或编辑）
+   * 1. 客户端校验影院名称是否重复
+   * 2. 调用 store 的 addCinema 或 updateCinema
+   * 3. 成功后关闭弹窗并刷新表格
+   */
   const handleSubmit: FormProps['onFinish'] = async () => {
     setSubmitting(true);
     try {
+      // 构建提交参数，空值转为 undefined
       const payload: CinemaCreateParams = {
         ...formData,
         rating: formData.rating ?? undefined,
         phone: formData.phone ?? undefined,
         facilities: formData.facilities.length > 0 ? formData.facilities : undefined,
       };
+      // 获取当前所有影院列表用于查重
       const allCinemas = useCinemaStore.getState().cinemas;
       if (editRow) {
+        // 编辑模式：排除自身后检查名称是否重复
         const repeatName = allCinemas.some((c) => c.name === formData.name && c.id !== editRow.id);
         if (repeatName) {
           void message.error('影院名称已存在');
@@ -84,6 +117,7 @@ export function CinemaManage() {
         await updateCinema(editRow.id, payload);
         message.success('影院更新成功');
       } else {
+        // 新增模式：检查名称是否重复
         const repeatName = allCinemas.some((c) => c.name === formData.name);
         if (repeatName) {
           void message.error('影院名称已存在');
@@ -101,13 +135,21 @@ export function CinemaManage() {
     }
   };
 
+  /**
+   * 切换影院营业/停业状态
+   * - 停业前检查是否有未结束场次，有则弹窗确认
+   * - 营业→停业或停业→营业
+   */
   const toggleStatus = async (record: CinemaItem) => {
+    // 计算目标状态（当前营业→停业，当前停业→营业）
     const targetStatus: CinemaStatus =
       record.status === CINEMA_STATUS.ACTIVE ? CINEMA_STATUS.CLOSED : CINEMA_STATUS.ACTIVE;
     const targetText = targetStatus === CINEMA_STATUS.ACTIVE ? '营业' : '停业';
+    // 检查是否有未结束/未取消的场次
     const hasUnFinishSchedule = schedules.some(
       (s) => String(s.cinemaId) === String(record.id) && s.status !== 'cancelled' && s.status !== 'ended',
     );
+    // 停业且有未结束场次：弹窗确认
     if (targetStatus === CINEMA_STATUS.CLOSED && hasUnFinishSchedule) {
       modal.confirm({
         title: '确认停业',
@@ -122,16 +164,19 @@ export function CinemaManage() {
       });
       return;
     }
+    // 无冲突直接切换
     await toggleCinemaStatus(record.id, targetStatus);
     message.success(`影院已${targetText}`);
     actionRef.current?.reload();
   };
 
+  // ProTable 列配置
   const columns: ProColumns<CinemaItem>[] = [
     {
       title: '影院名称',
       dataIndex: 'name',
       width: 240,
+      // 自定义渲染：图标 + 名称 + 地址
       render: (_, record) => (
         <Space size={12}>
           <div className={styles.cinemaIcon}>
@@ -149,6 +194,7 @@ export function CinemaManage() {
       dataIndex: 'facilities',
       width: 180,
       search: false,
+      // 设施标签渲染
       render: (_, record) => {
         const list = record.facilities;
         if (!list?.length) return '-';
@@ -174,6 +220,7 @@ export function CinemaManage() {
       width: 100,
       align: 'center',
       search: false,
+      // 评分渲染：星星图标 + 数值
       render: (_, record) =>
         record.rating === null ? (
           '-'
@@ -189,11 +236,13 @@ export function CinemaManage() {
       dataIndex: 'status',
       width: 100,
       align: 'center',
+      // 状态筛选下拉
       valueType: 'select',
       valueEnum: {
         active: { text: '营业中' },
         closed: { text: '停业' },
       },
+      // 状态标签渲染
       render: (_, record) => {
         const cfg = CINEMA_STATUS_LABELS[record.status];
         return <Tag color={cfg.color}>{cfg.label}</Tag>;
@@ -205,6 +254,7 @@ export function CinemaManage() {
       width: 160,
       align: 'center',
       search: false,
+      // 操作按钮：编辑 + 营业/停业切换
       render: (_, record) => (
         <Space size={8}>
           <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)}>
@@ -225,11 +275,13 @@ export function CinemaManage() {
 
   return (
     <div className={styles.page}>
+      {/* 影院列表 ProTable */}
       <ProTable<CinemaItem>
         actionRef={actionRef}
         rowKey="id"
         columns={columns}
         request={async (params) => {
+          // 调用 store 获取影院列表
           await fetchCinemas({
             keyword: params.name || undefined,
             status: params.status === 'active' ? 1 : params.status === 'closed' ? 0 : undefined,
@@ -255,6 +307,7 @@ export function CinemaManage() {
         ]}
       />
 
+      {/* 新增/编辑影院弹窗 */}
       <Modal
         title={editRow ? '编辑影院' : '新增影院'}
         open={modalOpen}

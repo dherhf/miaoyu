@@ -4,6 +4,7 @@ import request from '@/shared/request'
 import { payOrder, cancelOrder, refundOrder } from '@/features/order/api'
 import type { BaseCardProps, OrderListCardData, OrderItem } from '../../types'
 
+/** 订单状态筛选标签配置 */
 const FILTERS = [
   { key: '', label: '全部' },
   { key: 'pending', label: '待支付' },
@@ -13,6 +14,7 @@ const FILTERS = [
   { key: 'expired', label: '已过期' },
 ] as const
 
+/** 订单状态 → 标签文本 + 颜色 映射表 */
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
   pending: { label: '待支付', color: 'warning' },
   paid: { label: '已出票', color: 'success' },
@@ -22,6 +24,12 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
   expired: { label: '已过期', color: 'default' },
 }
 
+/**
+ * 格式化日期 + 时间为 "MM月DD日 HH:mm" 形式。
+ * @param dateStr 日期字符串（YYYY-MM-DD）
+ * @param timeStr 时间字符串（HH:mm）
+ * @returns 格式化后的文本，如 "08月10日 14:30"
+ */
 function fmtDate(dateStr: string, timeStr: string) {
   if (!dateStr || !timeStr) return '-'
   const d = new Date(dateStr)
@@ -30,12 +38,22 @@ function fmtDate(dateStr: string, timeStr: string) {
   return `${m}月${day}日 ${timeStr}`
 }
 
+/**
+ * 将剩余秒数格式化为 mm:ss。
+ * @param totalSec 剩余秒数
+ * @returns 如 "05:30"
+ */
 function fmtTime(totalSec: number) {
   const m = Math.floor(totalSec / 60).toString().padStart(2, '0')
   const s = (totalSec % 60).toString().padStart(2, '0')
   return `${m}:${s}`
 }
 
+/**
+ * 过期倒计时子组件：每秒递减，到 0 自动消失。
+ * 仅在待支付订单有 remainingSeconds 时渲染。
+ * @param remainingSeconds 初始剩余秒数
+ */
 function ExpireCountdown({ remainingSeconds }: { remainingSeconds: number }) {
   const [seconds, setSeconds] = useState(remainingSeconds)
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined)
@@ -62,24 +80,45 @@ function ExpireCountdown({ remainingSeconds }: { remainingSeconds: number }) {
   )
 }
 
+/** 每页显示的订单数量 */
 const PAGE_SIZE = 5
 
+/**
+ * 订单列表卡片：查询并展示用户的历史订单，支持状态筛选、分页、支付/取消/退票/查看取票码。
+ *
+ * 功能：
+ * - 顶部状态筛选标签栏（全部/待支付/已出票/已检票/已退票/已过期）
+ * - 每条订单展示影片、影院、场次、座位、金额、订单号
+ * - 待支付订单：支付倒计时 + 去支付 / 取消订单 按钮
+ * - 已出票订单：查看取票码 / 退票 按钮
+ * - 分页加载
+ *
+ * 对应后端接口：
+ * - GET /orders（订单列表分页查询）
+ * - GET /orders/{id}（订单详情，含取票码）
+ * - GET /orders/{id}/pickup-code（获取取票码）
+ * - POST /orders/{id}/pay（支付）
+ * - POST /orders/{id}/cancel（取消）
+ * - POST /orders/{id}/refund（退票）
+ */
 export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>) {
   const { modal, message } = App.useApp()
+  // 从 props 初始化分页数据
   const initFromProps = (d: OrderListCardData | undefined) => ({
     records: d?.records || [],
     total: d?.total || 0,
     page: d?.page || 1,
   })
   const [state, setState] = useState(() => initFromProps(data))
-  const [activeFilter, setActiveFilter] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [cancelledIds, setCancelledIds] = useState<Set<number>>(new Set())
-  const [pickupModal, setPickupModal] = useState<{
+  const [activeFilter, setActiveFilter] = useState('')     // 当前激活的状态筛选
+  const [loading, setLoading] = useState(false)             // 列表加载状态
+  const [cancelledIds, setCancelledIds] = useState<Set<number>>(new Set()) // 本地已取消订单 ID 集合
+  const [pickupModal, setPickupModal] = useState<{          // 取票码弹窗状态
     open: boolean; loading: boolean; orderId: number | null; data: Record<string, any> | null
   }>({ open: false, loading: false, orderId: null, data: null })
-  const dataRef = useRef(data)
+  const dataRef = useRef(data)  // 用于检测 props 变化
 
+  // props 数据变化时重新初始化列表（如后端推送了新的订单列表卡片）
   useEffect(() => {
     if (data !== dataRef.current && data) {
       dataRef.current = data
@@ -89,6 +128,9 @@ export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>
     }
   }, [data])
 
+  /** 按状态筛选并分页查询订单
+   *  对应后端接口：GET /orders?status=&page=&size=
+   */
   const fetchPage = useCallback(async (page: number, status: string) => {
     setLoading(true)
     try {
@@ -103,11 +145,13 @@ export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>
     }
   }, [])
 
+  /** 切换筛选标签 */
   const handleFilter = (key: string) => {
     setActiveFilter(key)
     fetchPage(1, key)
   }
 
+  /** 支付订单：调用 payOrder 接口后刷新列表 */
   const handlePay = useCallback(async (orderId: number) => {
     try {
       await payOrder(orderId)
@@ -118,6 +162,7 @@ export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>
     }
   }, [message, fetchPage, state.page, activeFilter])
 
+  /** 取消订单：弹出确认弹窗，确认后调用 cancelOrder 接口 */
   const handleCancel = useCallback((orderId: number) => {
     modal.confirm({
       title: '取消订单',
@@ -127,6 +172,7 @@ export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>
       onOk: async () => {
         try {
           await cancelOrder(orderId)
+          // 本地标记已取消，不重新拉取整个列表
           setCancelledIds((prev) => new Set(prev).add(orderId))
           message.success('订单已取消')
         } catch {
@@ -136,6 +182,7 @@ export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>
     })
   }, [modal, message])
 
+  /** 退票：弹出确认弹窗，确认后调用 refundOrder 接口并刷新列表 */
   const handleRefund = useCallback((orderId: number) => {
     modal.confirm({
       title: '确认退票',
@@ -154,11 +201,14 @@ export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>
     })
   }, [modal, message, fetchPage, state.page, activeFilter])
 
+  /** 查看取票码：先查订单详情，若无取票码则请求获取接口 */
   const handleViewPickupCode = async (orderId: number) => {
     setPickupModal({ open: true, loading: true, orderId, data: null })
     try {
+      // 先从订单详情获取取票码
       let res = await request.get(`/orders/${orderId}`)
       let detail: Record<string, any> = res.data as Record<string, any>
+      // 若详情中没有取票码，再调用取票码接口获取
       if (!detail.pickupCode) {
         const codeRes = await request.get(`/orders/${orderId}/pickup-code`)
         detail = { ...detail, pickupCode: (codeRes.data as any)?.pickupCode }
@@ -197,6 +247,7 @@ export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>
             <Empty description="暂无订单" />
           ) : (
             records.map((order) => {
+              // 本地取消的订单显示为 cancelled 状态
               const locallyCancelled = cancelledIds.has(order.id)
               const effectiveStatus = locallyCancelled ? 'cancelled' : order.status
               const st = STATUS_MAP[effectiveStatus] || STATUS_MAP.pending
@@ -205,6 +256,7 @@ export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>
 
               return (
                 <div key={order.id} className={`overflow-hidden rounded-lg border border-border ${(isCancelled || isRefunded) ? 'opacity-60' : ''}`}>
+                  {/* 影片名 + 状态标签 */}
                   <div className="flex items-center justify-between border-b border-border/30 px-3.5 py-2.5">
                     <span className="text-[15px] font-bold text-heading">🎬 {order.movieName}</span>
                     <Tag color={st.color} className="!rounded-full !m-0">
@@ -212,6 +264,7 @@ export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>
                     </Tag>
                   </div>
 
+                  {/* 订单明细 */}
                   <div className="px-3.5 pt-2 pb-3">
                     <div className="flex justify-between py-0.5 text-[13px] text-muted">
                       <span>场次</span>
@@ -237,6 +290,7 @@ export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>
                     </div>
                   </div>
 
+                  {/* 待支付订单：倒计时 + 支付/取消按钮 */}
                   {order.status === 'pending' && !locallyCancelled && order.remainingSeconds != null && order.remainingSeconds > 0 && (
                     <ExpireCountdown remainingSeconds={order.remainingSeconds} />
                   )}
@@ -259,6 +313,7 @@ export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>
                       </Button>
                     </div>
                   )}
+                  {/* 已出票订单：查看取票码 / 退票按钮 */}
                   {order.status === 'paid' && (
                     <div className="flex gap-2 px-3.5 pt-0 pb-3">
                       <Button
@@ -287,7 +342,7 @@ export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>
         </div>
       </Spin>
 
-      {/* 分页 */}
+      {/* 分页（总数超过每页条数时显示） */}
       {total > PAGE_SIZE && (
         <div className="flex justify-center border-t border-border/50 px-4 py-2.5">
           <Pagination
@@ -312,6 +367,7 @@ export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>
         <Spin spinning={pickupModal.loading}>
           {pickupModal.data ? (
             <div>
+              {/* 取票码展示区：点击复制 */}
               <div className="mb-4 rounded-lg bg-surface-alt px-4 py-4 text-center">
                 <div className="mb-1 text-xs text-muted/70">取票码</div>
                 <div
@@ -326,6 +382,7 @@ export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>
                 </div>
                 <div className="mt-1 text-xs text-muted/70">点击复制取票码</div>
               </div>
+              {/* 订单详情 */}
               <Descriptions column={1} size="small" colon={false}>
                 <Descriptions.Item label="影片">{pickupModal.data.movieName}</Descriptions.Item>
                 <Descriptions.Item label="影院">{pickupModal.data.cinemaName}</Descriptions.Item>

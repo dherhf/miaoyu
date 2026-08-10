@@ -7,15 +7,25 @@ import type { MovieListVO } from '@/features/movie/types'
 import MovieCard from '@/features/movie/components/MovieCard'
 import { useHeaderBack } from '@/layouts/navBarStore'
 
+/**
+ * 首页组件。
+ * 展示"正在热映"影片列表，点击影片卡片跳转到影片详情页。
+ * 页面加载时并行获取当前用户信息和热映影片列表（前6条）。
+ */
 export default function HomePage() {
   const navigate = useNavigate()
+  // 获取当前用户信息的方法
   const fetchCurrentUser = useAuthStore((s) => s.fetchCurrentUser)
+  // 加载状态
   const [loading, setLoading] = useState(true)
+  // 热映影片列表
   const [movies, setMovies] = useState<MovieListVO[]>([])
 
+  // 配置 Header 不显示返回按钮
   useHeaderBack()
 
   useEffect(() => {
+    // 并行请求：获取用户信息 + 获取热映影片列表（第1页，6条）
     Promise.all([
       fetchCurrentUser().catch(() => {}),
       getMovieList({ page: 1, size: 6 }).then((res) => res.records).catch(() => []),
@@ -24,6 +34,7 @@ export default function HomePage() {
     }).finally(() => setLoading(false))
   }, [fetchCurrentUser])
 
+  // 加载中显示骨架
   if (loading) {
     return (
       <div className="flex-1 p-12 text-center">

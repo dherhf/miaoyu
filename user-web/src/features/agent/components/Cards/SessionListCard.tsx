@@ -1,6 +1,11 @@
 import { Button, Tag, Empty } from 'antd'
 import type { BaseCardProps, SessionListCardData } from '../../types'
 
+/**
+ * 根据剩余座位数返回座位状态信息（文本 + 颜色 + 是否售罄）。
+ * @param n 剩余可选座位数
+ * @returns { text, color, soldOut }
+ */
 function getSeatInfo(n: number) {
   if (n === 0) return { text: '售罄', color: 'default' as const, soldOut: true }
   if (n < 10) return { text: `紧张 ${n}席`, color: 'error' as const, soldOut: false }
@@ -8,13 +13,25 @@ function getSeatInfo(n: number) {
   return { text: '充足', color: 'success' as const, soldOut: false }
 }
 
+/**
+ * 场次列表卡片：展示满足条件的电影场次，按影院分组展示。
+ *
+ * 每个场次项包含：
+ * - 开演时间（大号字体）、散场时间
+ * - 影厅名称、语言版本（如 国语2D）
+ * - 票价、座位状态标签（售罄/紧张/仅剩/充足）
+ * - "选座购票"按钮（售罄时禁用），点击触发 onAction 发送选座意图
+ *
+ * 数据来源：后端 sessionList 卡片。
+ */
 export default function SessionListCard({ data, onAction }: BaseCardProps<SessionListCardData>) {
   const sessions = data?.records || []
+  // 无数据时展示空状态
   if (sessions.length === 0) {
     return <Empty description="暂无符合条件的场次" />
   }
 
-  // 按影院分组
+  // 按影院名称分组
   const groups: Record<string, typeof sessions> = {}
   sessions.forEach((s) => {
     const key = s.cinemaName || '未知影院'
@@ -25,9 +42,11 @@ export default function SessionListCard({ data, onAction }: BaseCardProps<Sessio
     <div>
       {Object.entries(groups).map(([cinemaName, list]) => (
         <div key={cinemaName} className="bg-surface rounded-lg overflow-hidden mb-4 last:mb-0">
+          {/* 影院名称分组标题 */}
           <div className="px-4 py-2 bg-subtle-bg border-b border-border font-bold text-sm text-heading">{cinemaName}</div>
           {list.map((s) => {
             const seat = getSeatInfo(s.availableSeats)
+            // 判断是否跨天场次（放映日期不是今天）
             const today = new Date()
             const showMonth = parseInt(s.showDate.split('-')[1], 10)
             const showDay = parseInt(s.showDate.split('-')[2], 10)
@@ -35,18 +54,22 @@ export default function SessionListCard({ data, onAction }: BaseCardProps<Sessio
             const dateLabel = `${showMonth}月${showDay}日`
             return (
               <div key={s.id} className="px-4 py-2.5 border-b border-border last:border-b-0 flex items-center justify-between">
+                {/* 左侧：开演时间 + 散场时间 + 影厅/版本 */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
                     <span className="text-2xl font-bold text-heading">{s.startTime}</span>
+                    {/* 跨天场次显示日期标签 */}
                     {cross && <Tag color="processing">{dateLabel}</Tag>}
                   </div>
                   <div className="text-[13px] text-muted">{s.endTime} 散场</div>
                   <div className="text-[13px] text-muted mt-0.5">{s.hallName} · {s.languageVersion}</div>
                 </div>
+                {/* 右侧：票价 + 座位状态 */}
                 <div className="flex flex-col items-end gap-1 min-w-[80px]">
                   <span className="text-base font-bold text-price">¥{Number(s.price).toFixed(1)}</span>
                   <Tag color={seat.color}>{seat.text}</Tag>
                 </div>
+                {/* 选座购票按钮：售罄时禁用 */}
                 <div className="ml-3">
                   <Button
                     size="small"

@@ -19,6 +19,7 @@ import { mapMovieStatus, toApiStatus } from './types';
 import { MovieForm } from './MovieForm';
 import styles from './MoviePage.module.css';
 
+/** 空表单初始值 */
 const EMPTY_FORM: MovieFormValues = {
   name: '',
   types: [],
@@ -32,23 +33,44 @@ const EMPTY_FORM: MovieFormValues = {
   status: 'showing',
 };
 
-//主页面 Movie 影片管理
+/**
+ * 影片管理页面组件
+ *
+ * 功能：
+ * 1. 影片列表展示（ProTable，支持按名称、类型、状态搜索）
+ * 2. 新增影片（弹窗表单，含海报上传）
+ * 3. 编辑影片（先回填列表数据，再拉取详情补全）
+ * 4. 单条上架/下架（有关联场次时弹窗确认）
+ * 5. 批量上架/下架
+ * 6. 海报上传策略：选择时暂存，提交时上传到 OSS
+ * 7. 关联场次提示：编辑有关联场次的影片时显示警告
+ */
 export function MovieManage() {
   const actionRef = useRef<ActionType>(null);
   const { message, modal } = App.useApp();
+  // 影片 store
   const { fetchMovies, addMovie, editMovie, toggleStatus } = useMovieStore();
+  // 排期 store（用于检查影片是否有关联场次）
   const { hasMovieSchedule } = useScheduleStore();
 
+  // 弹窗状态
   const [modalOpen, setModalOpen] = useState(false);
+  // 当前编辑的影片（null 表示新增模式）
   const [editingMovie, setEditingMovie] = useState<MovieItem | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // 是否有关联场次（编辑模式下显示提示）
   const [hasScheduleTip, setHasScheduleTip] = useState(false);
+  // 批量选中 ID
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  // 暂存的海报文件（提交时上传到 OSS）
   const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   const [form] = Form.useForm<MovieFormValues>();
 
-  // 打开新增弹窗
+  /**
+   * 打开新增弹窗
+   * 重置表单为空值
+   */
   const openAdd = () => {
     setEditingMovie(null);
     setHasScheduleTip(false);
@@ -58,11 +80,17 @@ export function MovieManage() {
     setModalOpen(true);
   };
 
-  // 打开编辑弹窗（拉取详情补全 director/actors/description）
+  /**
+   * 打开编辑弹窗
+   * 1. 先用列表数据回填表单（快速展示）
+   * 2. 异步拉取详情补全 director/actors/description
+   */
   const openEdit = async (row: MovieItem) => {
     setEditingMovie(row);
+    // 检查影片是否有关联场次
     const existSchedule = hasMovieSchedule(row.id);
     setHasScheduleTip(existSchedule);
+    // 先用列表数据回填
     form.setFieldsValue({
       name: row.name,
       types: row.types,
@@ -76,6 +104,7 @@ export function MovieManage() {
       status: row.status,
     } as unknown as Partial<MovieFormValues>);
     setModalOpen(true);
+    // 异步拉取详情补全完整字段
     try {
       const detail = await movieApi.getMovieDetail(row.id);
       form.setFieldsValue({
@@ -95,9 +124,14 @@ export function MovieManage() {
     }
   };
 
-  // 单条上下架
+  /**
+   * 单条上下架
+   * - 下架有关联场次时弹窗确认
+   * - 上架直接执行
+   */
   const handleToggle = async (row: MovieItem, targetStatus: MovieStatus) => {
     const action = targetStatus === 'showing' ? '上架' : '下架';
+    // 下架时检查关联场次
     if (targetStatus === 'offline' && hasMovieSchedule(row.id)) {
       modal.confirm({
         title: '确认下架',
@@ -118,10 +152,15 @@ export function MovieManage() {
     actionRef.current?.reload();
   };
 
-  // 批量操作
+  /**
+   * 批量上下架
+   * - 批量下架时检查关联场次
+   * - 无选中时提示
+   */
   const batchOperate = async (targetStatus: MovieStatus) => {
     if (selectedIds.length === 0) return message.warning('请先勾选影片');
     const action = targetStatus === 'showing' ? '上架' : '下架';
+    // 批量下架时检查关联场次
     const hasRelated = selectedIds.some((id) => hasMovieSchedule(id));
     if (targetStatus === 'offline' && hasRelated) {
       modal.confirm({
@@ -145,7 +184,13 @@ export function MovieManage() {
     actionRef.current?.reload();
   };
 
-  // 保存提交
+  /**
+   * 表单提交处理（新增或编辑）
+   * 1. 如果有暂存的海报文件，提交时上传到 OSS
+   * 2. 构建提交参数（处理空值和日期格式化）
+   * 3. 编辑模式：更新影片 + 如果状态变更则上下架
+   * 4. 新增模式：创建影片 + 如果选择上架则自动上架
+   */
   const onSubmitForm = async () => {
     try {
       const values = await form.validateFields();
@@ -158,12 +203,14 @@ export function MovieManage() {
         posterUrl = res.objectKey;
       }
 
+      // 构建提交参数
       const payload: MovieCreateParams = {
         name: values.name,
         types: values.types,
         posterUrl,
         rating: values.rating ?? 0,
         duration: values.duration,
+        // 日期格式化：dayjs → 字符串
         releaseDate: dayjs.isDayjs(values.releaseDate)
           ? values.releaseDate.format('YYYY-MM-DD')
           : values.releaseDate,
@@ -172,13 +219,17 @@ export function MovieManage() {
         description: values.description || undefined,
       };
       if (editingMovie) {
+        // 编辑模式：更新影片信息
         await editMovie(editingMovie.id, payload);
+        // 如果状态有变更，执行上下架
         if (editingMovie.status !== values.status) {
           await toggleStatus([editingMovie.id], values.status);
         }
         message.success('影片更新成功');
       } else {
+        // 新增模式：创建影片
         const detail = await addMovie(payload);
+        // 如果新增时选择上架，自动执行上架操作
         if (values.status === 'showing') {
           await toggleStatus([detail.id], 'showing');
         }
@@ -194,10 +245,12 @@ export function MovieManage() {
     }
   };
 
+  // ProTable 列配置
   const columns: ProColumns<MovieItem>[] = [
     {
       title: '影片名称',
       dataIndex: 'name',
+      // 自定义渲染：海报缩略图 + 名称 + 类型
       render: (_, record) => (
         <Space size={12}>
           <div className={styles.posterThumb}>
@@ -222,8 +275,10 @@ export function MovieManage() {
       title: '评分',
       dataIndex: 'rating',
       align: 'center',
+      // 支持点击表头排序
       sorter: (a, b) => (a.rating ?? 0) - (b.rating ?? 0),
       search: false,
+      // 评分颜色：≥8高 / ≥6中 / 其他低
       render: (_, record) => {
         const val = record.rating ?? 0;
         return (
@@ -253,6 +308,7 @@ export function MovieManage() {
         showing: { text: '上架' },
         offline: { text: '下架' },
       },
+      // 状态标签：上架=绿色 / 下架=灰色
       render: (_, record) => (
         <Tag color={record.status === 'showing' ? 'green' : 'default'}>
           {record.status === 'showing' ? '上架' : '下架'}
@@ -263,12 +319,14 @@ export function MovieManage() {
       title: '上映日期',
       dataIndex: 'releaseDate',
       align: 'center',
+      // 支持点击表头排序
       sorter: (a, b) => (a.releaseDate || '').localeCompare(b.releaseDate || ''),
       search: false,
     },
     {
       title: '类型',
       dataIndex: 'type',
+      // 在表格中隐藏，仅用于搜索筛选
       hideInTable: true,
       valueType: 'select',
       valueEnum: Object.fromEntries(MOVIE_TYPES.map((t) => [t.value, { text: t.label }])),
@@ -279,11 +337,13 @@ export function MovieManage() {
       width: 160,
       align: 'center',
       search: false,
+      // 操作按钮：编辑 + 上架/下架
       render: (_, record) => (
         <Space size={8}>
           <Button size="small" icon={<Edit2 size={14} />} onClick={() => openEdit(record)}>
             编辑
           </Button>
+          {/* 根据当前状态显示上架或下架按钮 */}
           {record.status === 'offline' ? (
             <Button
               size="small"
@@ -311,11 +371,13 @@ export function MovieManage() {
 
   return (
     <div className={styles.page}>
+      {/* 影片列表 ProTable */}
       <ProTable<MovieItem>
         actionRef={actionRef}
         rowKey="id"
         columns={columns}
         request={async (params) => {
+          // 查询影片列表
           const statusValue = params.status as MovieStatus | undefined;
           await fetchMovies({
             keyword: params.name || undefined,
@@ -345,10 +407,12 @@ export function MovieManage() {
             新增影片
           </Button>,
         ]}
+        // 行选择配置
         rowSelection={{
           selectedRowKeys: selectedIds,
           onChange: (keys) => setSelectedIds(keys as string[]),
         }}
+        // 选中行时的批量操作栏
         tableAlertOptionRender={() => (
           <Space size={12}>
             <span>已选{selectedIds.length}部</span>
@@ -362,7 +426,9 @@ export function MovieManage() {
         )}
       />
 
-      <Modal        title={editingMovie ? '编辑影片' : '新增影片'}
+      {/* 新增/编辑影片弹窗 */}
+      <Modal
+        title={editingMovie ? '编辑影片' : '新增影片'}
         open={modalOpen}
         width={620}
         maskClosable={false}
@@ -372,6 +438,7 @@ export function MovieManage() {
         onCancel={() => setModalOpen(false)}
         onOk={onSubmitForm}
       >
+        {/* 关联场次警告提示 */}
         {hasScheduleTip && (
           <div className={styles.scheduleTip}>
             <AlertTriangle size={18} color="#f59e0b" />

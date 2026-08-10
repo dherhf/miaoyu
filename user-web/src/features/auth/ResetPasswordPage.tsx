@@ -4,19 +4,34 @@ import { App, Button, Form, Input } from 'antd'
 import * as authApi from './api'
 import { useHeaderBack } from '@/layouts/navBarStore'
 
+/**
+ * 重置密码页组件。
+ * 提供手机号 + 图形验证码 + 短信验证码 + 新密码的重置表单。
+ * 流程：输入手机号 → 输入图形验证码 → 发送短信验证码 → 填写新密码并提交。
+ * 重置成功后跳转登录页。
+ */
 export default function ResetPasswordPage() {
   const navigate = useNavigate()
   const { message } = App.useApp()
+  // 提交中加载状态
   const [loading, setLoading] = useState(false)
+  // 图形验证码ID（提交短信验证码时需携带）
   const [captchaId, setCaptchaId] = useState('')
+  // 图形验证码图片（Base64）
   const [captchaImage, setCaptchaImage] = useState('')
+  // 短信验证码发送中状态
   const [smsSending, setSmsSending] = useState(false)
+  // 短信验证码倒计时（秒），>0 时按钮禁用
   const [countdown, setCountdown] = useState(0)
+  // Ant Design 表单实例
   const [form] = Form.useForm()
+  // 倒计时定时器引用
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // 配置 Header 显示返回按钮
   useHeaderBack(true)
 
+  /** 刷新图形验证码 */
   const refreshCaptcha = useCallback(async () => {
     try {
       const data = await authApi.getCaptcha()
@@ -27,16 +42,19 @@ export default function ResetPasswordPage() {
     }
   }, [])
 
+  // 页面加载时获取图形验证码
   useEffect(() => {
     refreshCaptcha()
   }, [refreshCaptcha])
 
+  // 组件卸载时清理倒计时定时器
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
   }, [])
 
+  /** 启动短信验证码 60 秒倒计时 */
   const startCountdown = () => {
     setCountdown(60)
     timerRef.current = setInterval(() => {
@@ -50,29 +68,41 @@ export default function ResetPasswordPage() {
     }, 1000)
   }
 
+  /**
+   * 发送短信验证码。
+   * 需先输入手机号和图形验证码，发送后启动 60 秒倒计时。
+   */
   const handleSendSms = async () => {
     const phone = form.getFieldValue('phone')
     const captchaCode = form.getFieldValue('captchaCode')
+    // 校验手机号格式
     if (!phone || !/^1[3-9]\d{9}$/.test(phone)) {
       message.error('请输入正确的手机号')
       return
     }
+    // 校验图形验证码
     if (!captchaCode) {
       message.error('请先输入图形验证码')
       return
     }
     setSmsSending(true)
     try {
+      // 发送短信验证码（场景：重置密码）
       await authApi.sendSmsCode({ phone, captchaId, captchaCode, scene: 'reset-password' })
       message.success('短信验证码已发送')
       startCountdown()
     } catch {
+      // 发送失败则刷新图形验证码
       refreshCaptcha()
     } finally {
       setSmsSending(false)
     }
   }
 
+  /**
+   * 处理重置密码表单提交。
+   * @param values 表单值：手机号、新密码、短信验证码
+   */
   const handleSubmit = async (values: {
     phone: string
     newPassword: string
@@ -80,6 +110,7 @@ export default function ResetPasswordPage() {
   }) => {
     setLoading(true)
     try {
+      // 调用重置密码接口
       await authApi.resetPassword({
         phone: values.phone,
         newPassword: values.newPassword,
@@ -88,6 +119,7 @@ export default function ResetPasswordPage() {
       message.success('密码重置成功')
       navigate('/login')
     } catch {
+      // 失败则刷新图形验证码
       refreshCaptcha()
     } finally {
       setLoading(false)
@@ -98,6 +130,7 @@ export default function ResetPasswordPage() {
     <div className="flex-1 p-3 sm:p-4 md:p-6 lg:max-w-[960px] lg:mx-auto lg:w-full lg:px-6 lg:py-8 xl:max-w-[1200px] xl:p-8">
       <div className="max-w-[400px] mx-auto w-full">
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
+          {/* 手机号输入（校验格式：1开头11位） */}
           <Form.Item
             name="phone"
             label="手机号"
@@ -108,6 +141,7 @@ export default function ResetPasswordPage() {
           >
             <Input placeholder="请输入手机号" allowClear size="large" />
           </Form.Item>
+          {/* 图形验证码输入 + 验证码图片（点击刷新） */}
           <Form.Item
             name="captchaCode"
             label="图形验证码"
@@ -131,6 +165,7 @@ export default function ResetPasswordPage() {
               )}
             </div>
           </Form.Item>
+          {/* 短信验证码输入 + 发送按钮（60秒倒计时） */}
           <Form.Item
             name="smsCode"
             label="短信验证码"
@@ -155,6 +190,7 @@ export default function ResetPasswordPage() {
               </Button>
             </div>
           </Form.Item>
+          {/* 新密码输入（6-20位） */}
           <Form.Item
             name="newPassword"
             label="新密码"
@@ -171,6 +207,7 @@ export default function ResetPasswordPage() {
             </Button>
           </Form.Item>
         </Form>
+        {/* 底部链接：想起密码去登录 */}
         <div className="text-center mt-4">
           想起密码了？<Link to="/login">去登录</Link>
         </div>

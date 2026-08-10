@@ -3,29 +3,48 @@ import { Button, Tag, App } from 'antd'
 import { payOrder, cancelOrder } from '@/features/order/api'
 import type { BaseCardProps, OrderConfirmCardData } from '../../types'
 
+/**
+ * 将剩余秒数格式化为 mm:ss 形式。
+ * @param totalSec 剩余秒数
+ * @returns 如 "05:30"
+ */
 function fmtTime(totalSec: number) {
   const m = Math.floor(totalSec / 60).toString().padStart(2, '0')
   const s = (totalSec % 60).toString().padStart(2, '0')
   return `${m}:${s}`
 }
 
+/**
+ * 订单确认卡片：用户选座下单后展示的待支付订单详情。
+ * 功能：
+ * - 展示影片、影院、影厅、放映时间、座位、票数、金额等订单详情
+ * - 支付倒计时：剩余时间 ≤0 时订单自动超时，剩余 ≤60s 时倒计时红色高亮
+ * - "立即支付"按钮调用 payOrder 接口完成支付
+ * - "取消订单"按钮弹出确认弹窗，确认后调用 cancelOrder 释放座位
+ * - 支付成功 / 订单取消 / 订单超时后展示对应遮罩状态
+ *
+ * 对应后端接口：POST /orders/{id}/pay（支付）、POST /orders/{id}/cancel（取消）
+ */
 export default function OrderConfirmCard({ data }: BaseCardProps<OrderConfirmCardData>) {
   const { modal, message } = App.useApp()
   const { id, status, movieName, cinemaName, hallName, showDate, startTime, seatInfo, ticketCount, totalAmount, orderNo, remainingTime, expireAt } = data || {}
+
+  // 根据过期时间计算初始剩余秒数；若没有 expireAt 则用 remainingTime 兜底
   const calcInitial = () => {
     if (!expireAt) return remainingTime ?? 0
     const diff = Math.max(0, Math.ceil((new Date(expireAt).getTime() - Date.now()) / 1000))
     return diff
   }
 
-  const [seconds, setSeconds] = useState(calcInitial)
-  const [paying, setPaying] = useState(false)
-  const [paid, setPaid] = useState(false)
-  const [cancelled, setCancelled] = useState(false)
+  const [seconds, setSeconds] = useState(calcInitial) // 倒计时剩余秒数
+  const [paying, setPaying] = useState(false)       // 支付请求 loading
+  const [paid, setPaid] = useState(false)            // 本地标记已支付
+  const [cancelled, setCancelled] = useState(false)  // 本地标记已取消
   const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
-  const expired = seconds <= 0
-  const urgent = seconds > 0 && seconds <= 60
+  const expired = seconds <= 0        // 是否已超时
+  const urgent = seconds > 0 && seconds <= 60  // 是否进入紧急倒计时（≤60s）
 
+  // 倒计时定时器：每秒递减，到 0 时停止
   useEffect(() => {
     if (expired) return
     timerRef.current = setInterval(() => {
@@ -38,6 +57,7 @@ export default function OrderConfirmCard({ data }: BaseCardProps<OrderConfirmCar
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [expired])
 
+  /** 立即支付：调用支付接口，成功后标记 paid */
   const handlePay = useCallback(async () => {
     if (expired || cancelled || status !== 'pending' || paying) return
     setPaying(true)
@@ -53,6 +73,7 @@ export default function OrderConfirmCard({ data }: BaseCardProps<OrderConfirmCar
     }
   }, [expired, cancelled, status, paying, id, message])
 
+  /** 取消订单：弹出确认弹窗，确认后调用取消接口释放座位 */
   const handleCancel = useCallback(() => {
     if (expired || cancelled) return
     modal.confirm({
@@ -73,12 +94,15 @@ export default function OrderConfirmCard({ data }: BaseCardProps<OrderConfirmCar
     })
   }, [expired, cancelled, id, modal, message])
 
+  // 综合判定订单最终状态（后端状态 or 本地操作标记）
   const isPaid = status === 'paid' || paid
   const isCancelled = status === 'cancelled' || cancelled
   const disabled = expired || cancelled || status !== 'pending'
 
+  // 格式化放映时间显示
   const fmtShowTime = showDate && startTime ? `${showDate} ${startTime}` : '-'
 
+  // 已支付成功：展示成功提示
   if (isPaid) {
     return (
       <div className="w-full overflow-hidden rounded-xl border border-border bg-surface">
@@ -91,6 +115,7 @@ export default function OrderConfirmCard({ data }: BaseCardProps<OrderConfirmCar
 
   return (
     <div className="relative w-full overflow-hidden rounded-xl border border-border bg-surface">
+      {/* 订单超时遮罩 */}
       {expired && !isCancelled && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-surface-alt/90">
           <div className="mb-2 text-[40px]">⏰</div>
@@ -99,7 +124,7 @@ export default function OrderConfirmCard({ data }: BaseCardProps<OrderConfirmCar
         </div>
       )}
 
-
+      {/* 订单取消遮罩 */}
       {isCancelled && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-surface-alt/90">
           <div className="mb-2 text-[40px]">❌</div>
@@ -108,11 +133,13 @@ export default function OrderConfirmCard({ data }: BaseCardProps<OrderConfirmCar
         </div>
       )}
 
+      {/* 订单头：订单号 + 待支付标签 */}
       <div className="flex items-center justify-between border-b border-border/50 bg-card-header-bg px-4 py-2">
         <span className="font-mono text-xs text-muted/70">{orderNo}</span>
         <Tag color="warning" className="!rounded-full">待支付</Tag>
       </div>
 
+      {/* 影片 / 影院 / 影厅信息 */}
       <div className="px-4 py-3">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#3b82f6] to-[#8b5cf6] text-white">
@@ -128,6 +155,7 @@ export default function OrderConfirmCard({ data }: BaseCardProps<OrderConfirmCar
           </div>
         </div>
 
+        {/* 订单明细 */}
         <div className="mt-3 rounded-lg bg-surface-alt px-3 py-2">
           <div className="flex justify-between py-1 text-[13px] text-muted"><span>放映时间</span><span>{fmtShowTime}</span></div>
           <div className="flex justify-between py-1 text-[13px] text-muted"><span>座位信息</span><span>{seatInfo}</span></div>
@@ -135,11 +163,13 @@ export default function OrderConfirmCard({ data }: BaseCardProps<OrderConfirmCar
         </div>
       </div>
 
+      {/* 金额 */}
       <div className="flex items-center justify-between border-t border-border/50 px-4 py-2.5">
         <span className="text-sm text-muted">订单金额</span>
         <span className="text-2xl font-bold text-price">¥{totalAmount}</span>
       </div>
 
+      {/* 支付倒计时（未超时才显示） */}
       {!expired && (
         <div className="flex items-center justify-between border-t border-warning-border bg-warning-bg px-4 py-1.5">
           <span className="text-[13px] text-warning-text">支付倒计时</span>
@@ -149,6 +179,7 @@ export default function OrderConfirmCard({ data }: BaseCardProps<OrderConfirmCar
         </div>
       )}
 
+      {/* 操作按钮：支付 + 取消 */}
       <div className="flex flex-col gap-2 px-4 pb-3 pt-2">
         <Button
           type="primary"

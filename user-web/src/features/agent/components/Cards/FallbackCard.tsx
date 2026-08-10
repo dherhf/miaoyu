@@ -1,7 +1,12 @@
 import { Empty } from 'antd'
 import type { BaseCardProps } from '../../types'
 
+/**
+ * 兜底卡片：当 CardRenderer 在注册表中找不到匹配的卡片类型时使用。
+ * 以 JSON 文本形式展示原始数据，方便开发调试与问题排查。
+ */
 export default function FallbackCard({ data }: BaseCardProps<unknown>) {
+  // 尝试将原始数据格式化为可读 JSON，失败则转为字符串
   const jsonStr = (() => {
     try {
       return JSON.stringify(data, null, 2)

@@ -1,19 +1,26 @@
 import { StarFilled } from '@ant-design/icons'
 import type { MovieListVO } from '../types'
 
-export default function MovieCard({
-  movie,
-  onClick,
-}: {
+/** 影片卡片组件属性 */
+interface MovieCardProps {
+  /** 影片信息 */
   movie: MovieListVO
+  /** 点击卡片/购票按钮的回调 */
   onClick: () => void
-}) {
+}
 
+/**
+ * 影片卡片组件。
+ * 展示影片海报、类型标签、评分、上映日期和片长。
+ * 包含"购票"按钮，点击后跳转到影片详情页选座购票。
+ */
+export default function MovieCard({ movie, onClick }: MovieCardProps) {
   return (
     <div
       className="group bg-surface-alt rounded-xl overflow-hidden cursor-pointer transition-[box-shadow,transform] duration-300 hover:shadow-card hover:-translate-y-0.5 active:scale-[0.98] motion-reduce:transition-none motion-reduce:transform-none"
       onClick={onClick}
     >
+      {/* 海报区域 */}
       <div className="relative aspect-[3/4] overflow-hidden bg-code-bg">
         {movie.posterUrl ? (
           <img
@@ -26,6 +33,7 @@ export default function MovieCard({
           <div className="w-full h-full flex items-center justify-center text-muted text-[13px]">无海报</div>
         )}
 
+        {/* 类型标签（最多显示3个） */}
         {movie.types && movie.types.length > 0 && (
           <div className="absolute bottom-1.5 left-1.5 flex flex-wrap gap-1 max-w-[80%]">
             {movie.types.slice(0, 3).map((t) => (
@@ -34,12 +42,16 @@ export default function MovieCard({
           </div>
         )}
 
+        {/* 悬浮遮罩层 */}
         <div className="absolute inset-0 bg-transparent transition-colors duration-300 pointer-events-none group-hover:bg-black/15 motion-reduce:transition-none" />
       </div>
 
+      {/* 信息区域 */}
       <div className="py-2.5 px-3">
+        {/* 影片名称 */}
         <h3 className="text-[15px] font-medium text-heading mb-1 overflow-hidden text-ellipsis whitespace-nowrap transition-colors duration-200 group-hover:text-accent motion-reduce:transition-none">{movie.name}</h3>
 
+        {/* 评分（有评分时显示） */}
         {movie.rating > 0 && (
           <div className="flex items-center gap-1 mb-1 text-sm font-semibold text-rating">
             <StarFilled className="text-[13px]" />
@@ -47,10 +59,12 @@ export default function MovieCard({
           </div>
         )}
 
+        {/* 上映日期 · 片长 */}
         <div className="text-xs text-muted mb-2">
           {movie.releaseDate} · {movie.duration}分钟
         </div>
 
+        {/* 购票按钮（阻止冒泡，避免重复触发卡片点击） */}
         <button
           className="w-full py-1.5 border-none rounded-lg bg-accent text-white text-[13px] font-medium cursor-pointer transition-[background,box-shadow] duration-200 hover:brightness-110 hover:shadow-[0_2px_8px_var(--color-accent-soft)] active:scale-[0.97] motion-reduce:transition-none motion-reduce:transform-none"
           onClick={(e) => {

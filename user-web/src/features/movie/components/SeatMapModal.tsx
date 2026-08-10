@@ -4,34 +4,66 @@ import { getSeatMap, lockSeat, payOrder } from '../api'
 import { getPickupCode, cancelOrder } from '@/features/order/api'
 import type { ScheduleListVO, SeatMapVO, SeatVO, LockSeatResultVO, PayResultVO } from '../types'
 
+/** 每次最多可选座位数 */
 const MAX_SEATS = 6
 
+/** 弹窗阶段：选座 → 确认支付 → 支付成功 */
 type Phase = 'seats' | 'confirm' | 'success'
 
-export default function SeatMapModal({
-  schedule,
-  onClose,
-}: {
+/** 座位图弹窗属性 */
+interface SeatMapModalProps {
+  /** 当前选中的场次（为 null 时弹窗关闭） */
   schedule: ScheduleListVO | null
+  /** 关闭弹窗的回调 */
   onClose: () => void
-}) {
+}
+
+/**
+ * 座位图弹窗组件。
+ * 包含三个阶段：
+ * 1. seats（选座）：展示座位图，用户选择座位后点击"锁座下单"
+ * 2. confirm（确认支付）：展示订单信息，含支付倒计时，点击"立即支付"
+ * 3. success（支付成功）：展示取票码和订单详情，取票码定期刷新
+ *
+ * 支持取消订单（释放座位）并返回选座阶段。
+ * @param schedule 当前场次
+ * @param onClose 关闭回调
+ */
+export default function SeatMapModal({ schedule, onClose }: SeatMapModalProps) {
   const { message, modal } = App.useApp()
+  // 座位图数据
   const [seatMap, setSeatMap] = useState<SeatMapVO | null>(null)
+  // 加载状态
   const [loading, setLoading] = useState(false)
+  // 用户选中的座位列表
   const [selectedSeats, setSelectedSeats] = useState<SeatVO[]>([])
+  // 当前弹窗阶段
   const [phase, setPhase] = useState<Phase>('seats')
+  // 锁座结果（订单信息）
   const [lockResult, setLockResult] = useState<LockSeatResultVO | null>(null)
+  // 支付结果
   const [payResult, setPayResult] = useState<PayResultVO | null>(null)
+  // 提交中状态（锁座/支付）
   const [submitting, setSubmitting] = useState(false)
+  // 支付倒计时剩余秒数
   const [countdownSeconds, setCountdownSeconds] = useState(0)
+  // 支付倒计时定时器
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
+  // 取票码
   const [pickupCode, setPickupCode] = useState<string | null>(null)
+  // 取票码刷新倒计时（秒）
   const [pickupExpiresIn, setPickupExpiresIn] = useState(60)
+  // 取票码刷新定时器
   const pickupTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  /**
+   * 获取座位图数据并重置弹窗状态。
+   * 每次打开弹窗或取消订单后调用。
+   */
   const fetchSeatMap = useCallback(() => {
     if (!schedule) return Promise.resolve()
     setLoading(true)
+    // 重置为选座阶段
     setPhase('seats')
     setSelectedSeats([])
     setLockResult(null)
@@ -44,6 +76,7 @@ export default function SeatMapModal({
       .finally(() => setLoading(false))
   }, [schedule])
 
+  // 场次变化时加载座位图
   useEffect(() => {
     if (schedule) {
       fetchSeatMap()
@@ -52,7 +85,10 @@ export default function SeatMapModal({
     }
   }, [schedule, fetchSeatMap])
 
-  // Build 2D grid: rowIndex → colIndex → SeatVO
+  /**
+   * 构建二维座位网格：行索引 → 列索引 → 座位对象。
+   * 将扁平的座位数组转换为行列矩阵，方便渲染。
+   */
   const seatGrid = useMemo(() => {
     if (!seatMap) return []
     const rowMap = new Map<number, Map<number, SeatVO>>()
@@ -64,6 +100,7 @@ export default function SeatMapModal({
       }
       row.set(seat.colIndex, seat)
     }
+    // 按行索引排序，每行按列索引填充（空位用 null 占位）
     const sortedRows = [...rowMap.keys()].sort((a, b) => a - b)
     return sortedRows.map((rowIdx) => {
       const row = rowMap.get(rowIdx)!
@@ -72,13 +109,20 @@ export default function SeatMapModal({
     })
   }, [seatMap])
 
+  /**
+   * 切换座位选中状态。
+   * 已选中的取消选中，未选中的添加选中（受 MAX_SEATS 限制）。
+   * @param seat 座位对象
+   */
   const toggleSeat = (seat: SeatVO) => {
     if (seat.status !== 'available') return
     setSelectedSeats((prev) => {
       const exists = prev.find((s) => s.seatIndex === seat.seatIndex)
       if (exists) {
+        // 已选中则取消
         return prev.filter((s) => s.seatIndex !== seat.seatIndex)
       }
+      // 超过最大选座数则提示
       if (prev.length >= MAX_SEATS) {
         message.warning(`最多可选 ${MAX_SEATS} 个座位`)
         return prev
@@ -87,14 +131,17 @@ export default function SeatMapModal({
     })
   }
 
+  /** 判断座位是否已选中 */
   const isSelected = (seat: SeatVO) =>
     selectedSeats.some((s) => s.seatIndex === seat.seatIndex)
 
+  // 计算总价：单价 × 选座数量
   const totalPrice = useMemo(() => {
     if (!schedule || selectedSeats.length === 0) return 0
     return Number(schedule.price) * selectedSeats.length
   }, [schedule, selectedSeats])
 
+  /** 锁座下单：调用后端锁定座位并创建待支付订单 */
   const handleLockSeat = async () => {
     if (!schedule || selectedSeats.length === 0) return
     setSubmitting(true)
@@ -104,6 +151,7 @@ export default function SeatMapModal({
         selectedSeats.map((s) => s.hallCellId),
       )
       setLockResult(result)
+      // 进入确认支付阶段
       setPhase('confirm')
     } catch {
       // 拦截器已统一提示
@@ -112,6 +160,7 @@ export default function SeatMapModal({
     }
   }
 
+  /** 立即支付：调用后端支付接口，成功后进入支付成功阶段 */
   const handlePay = async () => {
     if (!lockResult) return
     setSubmitting(true)
@@ -119,6 +168,7 @@ export default function SeatMapModal({
       const result = await payOrder(lockResult.id)
       setPayResult(result)
       setPickupCode(result.pickupCode || null)
+      // 进入支付成功阶段
       setPhase('success')
     } catch {
       // 拦截器已统一提示
@@ -127,6 +177,7 @@ export default function SeatMapModal({
     }
   }
 
+  /** 取消订单：弹出确认框，确认后调用后端取消订单并返回选座阶段 */
   const handleCancelOrder = () => {
     if (!lockResult) return
     modal.confirm({
@@ -138,6 +189,7 @@ export default function SeatMapModal({
         try {
           await cancelOrder(lockResult.id)
           message.success('订单已取消')
+          // 取消后重新加载座位图（座位状态会更新）
           await fetchSeatMap()
         } catch {
           // 拦截器已统一提示
@@ -146,6 +198,11 @@ export default function SeatMapModal({
     })
   }
 
+  /**
+   * 刷新取票码。
+   * 取票码有过期时间，到期后自动刷新获取新码。
+   * @param orderId 订单ID
+   */
   const refreshPickupCode = useCallback(async (orderId: number) => {
     try {
       const res = await getPickupCode(orderId)
@@ -156,14 +213,16 @@ export default function SeatMapModal({
     }
   }, [])
 
-  // 确认阶段倒计时
+  // 确认支付阶段：启动支付倒计时
   useEffect(() => {
     if (phase !== 'confirm' || !lockResult) return
+    // 计算初始倒计时：优先用过期时间计算，降级用 remainingTime
     const init = lockResult.expireAt
       ? Math.max(0, Math.ceil((new Date(lockResult.expireAt).getTime() - Date.now()) / 1000))
       : (lockResult.remainingTime ?? 0)
     setCountdownSeconds(init)
 
+    // 每秒递减，到 0 时停止
     countdownTimerRef.current = setInterval(() => {
       setCountdownSeconds((prev) => {
         const next = prev - 1
@@ -174,9 +233,12 @@ export default function SeatMapModal({
     return () => { clearInterval(countdownTimerRef.current) }
   }, [phase, lockResult])
 
+  // 支付成功阶段：启动取票码刷新倒计时
   useEffect(() => {
     if (phase !== 'success' || !payResult?.id) return
+    // 首次获取取票码
     refreshPickupCode(payResult.id)
+    // 每秒递减，到 0 时刷新取票码并重置倒计时
     pickupTimerRef.current = setInterval(() => {
       setPickupExpiresIn((prev) => {
         if (prev <= 1) {
@@ -191,10 +253,12 @@ export default function SeatMapModal({
     }
   }, [phase, payResult, refreshPickupCode])
 
+  /** 关闭弹窗 */
   const handleClose = () => {
     onClose()
   }
 
+  // 弹窗标题：影院 · 影厅 · 日期 时间
   const title = schedule
     ? `${schedule.cinemaName} · ${schedule.hallName} · ${schedule.showDate} ${schedule.startTime}`
     : ''
@@ -209,8 +273,10 @@ export default function SeatMapModal({
       destroyOnClose
     >
       {loading ? (
+        /* 加载中 */
         <div className="py-12 text-center"><Spin /></div>
       ) : phase === 'success' && payResult ? (
+        /* 支付成功页面：展示取票码和订单详情 */
         <Result
           status="success"
           title="支付成功"
@@ -230,6 +296,7 @@ export default function SeatMapModal({
           }
         />
       ) : phase === 'confirm' && lockResult ? (
+        /* 确认支付页面：展示订单信息和支付倒计时 */
         <div className="py-4">
           <h3 className="text-base mb-3 text-heading">确认支付</h3>
           <div className="space-y-1.5 mb-4 text-sm">
@@ -243,7 +310,7 @@ export default function SeatMapModal({
             <div className="flex justify-between font-medium text-base pt-1"><span className="text-heading">合计</span><span className="text-accent">¥{Number(lockResult.totalAmount).toFixed(1)}</span></div>
           </div>
 
-          {/* 支付倒计时 */}
+          {/* 支付倒计时条 */}
           <div className="flex items-center justify-between rounded px-3 py-2 mb-3 border" style={{ background: 'var(--color-warning-bg)', borderColor: 'var(--color-warning-border)' }}>
             <span className="text-[13px]" style={{ color: 'var(--color-warning-text)' }}>支付倒计时</span>
             <span className={`font-mono text-base font-bold ${countdownSeconds > 0 && countdownSeconds <= 60 ? '' : ''}`} style={{ color: countdownSeconds > 0 && countdownSeconds <= 60 ? 'var(--color-warning-urgent)' : 'var(--color-warning-text)' }}>
@@ -259,16 +326,18 @@ export default function SeatMapModal({
           </div>
         </div>
       ) : seatMap ? (
+        /* 选座页面：展示座位图 */
         <div>
-          {/* Screen indicator */}
+          {/* 银幕指示器 */}
           <div className="mx-auto mb-6 w-[70%] h-2 rounded-t-[50%] bg-accent/30" />
           <p className="text-center text-xs text-muted mb-4">银幕</p>
 
-          {/* Seat grid */}
+          {/* 座位网格 */}
           <div className="overflow-x-auto pb-2">
             <div className="inline-flex flex-col gap-1.5 mx-auto min-w-full">
               {seatGrid.map((row) => (
                 <div key={row.rowIndex} className="flex gap-1.5 justify-center items-center">
+                  {/* 行号 */}
                   <span className="text-xs text-muted w-5 text-center shrink-0">{row.rowIndex}</span>
                   {row.cols.map((seat, colIdx) =>
                     seat ? (
@@ -279,6 +348,7 @@ export default function SeatMapModal({
                         onClick={() => toggleSeat(seat)}
                       />
                     ) : (
+                      // 空位占位
                       <div key={colIdx} className="w-7 h-7 shrink-0" />
                     ),
                   )}
@@ -287,7 +357,7 @@ export default function SeatMapModal({
             </div>
           </div>
 
-          {/* Legend */}
+          {/* 座位图例 */}
           <div className="flex gap-4 justify-center mt-4 mb-3 text-xs text-muted">
             <span className="flex items-center gap-1"><span className="inline-block w-3.5 h-3.5 rounded bg-surface border border-border" />可选</span>
             <span className="flex items-center gap-1"><span className="inline-block w-3.5 h-3.5 rounded bg-accent" />已选</span>
@@ -295,7 +365,7 @@ export default function SeatMapModal({
             <span className="flex items-center gap-1"><span className="inline-block w-3.5 h-3.5 rounded bg-danger/40" />已售</span>
           </div>
 
-          {/* Selected seats + action bar */}
+          {/* 已选座位 + 操作栏 */}
           <div className="border-t border-border pt-3 mt-2">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="flex-1 min-w-0">
@@ -310,10 +380,12 @@ export default function SeatMapModal({
                 )}
               </div>
               <div className="flex items-center gap-3 shrink-0">
+                {/* 票数和总价 */}
                 <div className="text-sm">
                   <span className="text-muted">{selectedSeats.length} 张 · </span>
                   <span className="text-accent font-medium text-base">¥{totalPrice.toFixed(1)}</span>
                 </div>
+                {/* 锁座下单按钮 */}
                 <Button
                   type="primary"
                   disabled={selectedSeats.length === 0}
@@ -331,17 +403,27 @@ export default function SeatMapModal({
   )
 }
 
-function SeatCell({
-  seat,
-  selected,
-  onClick,
-}: {
+/** 座位格子组件属性 */
+interface SeatCellProps {
+  /** 座位信息 */
   seat: SeatVO
+  /** 是否已选中 */
   selected: boolean
+  /** 点击回调 */
   onClick: () => void
-}) {
+}
+
+/**
+ * 单个座位格子组件。
+ * 根据座位状态（可选/已售/已锁定/已选中）渲染不同样式。
+ * @param seat 座位信息
+ * @param selected 是否已选中
+ * @param onClick 点击回调
+ */
+function SeatCell({ seat, selected, onClick }: SeatCellProps) {
   const base = 'w-7 h-7 rounded text-[10px] flex items-center justify-center cursor-pointer transition-colors duration-150 shrink-0 select-none'
 
+  // 已选中状态
   if (selected) {
     return (
       <div className={`${base} bg-accent text-white`} onClick={onClick} title={seat.seatLabel}>
@@ -350,6 +432,7 @@ function SeatCell({
     )
   }
 
+  // 已售状态（不可点击）
   if (seat.status === 'sold') {
     return (
       <div className={`${base} bg-danger/40 text-white/70 cursor-not-allowed`} title={`${seat.seatLabel}（已售）`}>
@@ -358,6 +441,7 @@ function SeatCell({
     )
   }
 
+  // 已锁定状态（不可点击）
   if (seat.status === 'locked') {
     return (
       <div className={`${base} bg-code-bg text-muted cursor-not-allowed`} title={`${seat.seatLabel}（已锁定）`}>
@@ -366,6 +450,7 @@ function SeatCell({
     )
   }
 
+  // 可选状态
   return (
     <div
       className={`${base} bg-surface border border-border text-muted hover:border-accent hover:text-accent`}

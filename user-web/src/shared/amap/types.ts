@@ -1,12 +1,12 @@
-/** 定位结果 */
+/** 定位结果数据 */
 export interface GeolocationData {
-  /** GCJ-02 经度 */
+  /** GCJ-02 经度（火星坐标系） */
   longitude: number
-  /** GCJ-02 纬度 */
+  /** GCJ-02 纬度（火星坐标系） */
   latitude: number
-  /** 精度（米） */
+  /** 定位精度（米） */
   accuracy: number
-  /** 格式化地址 */
+  /** 格式化地址（逆地理编码结果） */
   address?: string
   /** 省份 */
   province?: string

@@ -1,3 +1,6 @@
+/**
+ * 场次管理模块统一导出
+ */
 export { SchedulePage } from './SchedulePage';
 export { ScheduleForm, LANGUAGE_VERSIONS } from './ScheduleForm';
 export type { ScheduleFormData, ScheduleFormErr } from './ScheduleForm';

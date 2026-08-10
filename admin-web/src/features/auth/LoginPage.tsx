@@ -8,22 +8,41 @@ import { useAuthStore } from './store';
 import type { LoginParams } from './types';
 import styles from './LoginPage.module.css';
 
+/**
+ * 登录页组件
+ * 管理员通过手机号 + 密码登录管理后台。
+ * 登录成功后：
+ * 1. 将 token 存入 auth store（持久化到 localStorage）
+ * 2. 将管理员信息存入 auth store
+ * 3. 跳转到数据看板页
+ */
 export function LoginPage() {
   const navigate = useNavigate();
   const [form] = Form.useForm<LoginParams>();
+  // 登录中 loading 状态
   const [loading, setLoading] = useState(false);
   const { message } = AntApp.useApp();
 
+  /**
+   * 表单提交处理（登录）
+   * 1. 调用登录 API
+   * 2. 成功：存 token + 管理员信息，跳转看板
+   * 3. 失败：由 axios 响应拦截器统一提示错误
+   */
   const handleSubmit: FormProps<LoginParams>['onFinish'] = async (values) => {
     setLoading(true);
     try {
+      // 调用登录接口获取 token 和管理员信息
       const { token, adminInfo } = await authApi.login(values);
+      // 存储 token（会持久化到 localStorage）
       useAuthStore.getState().setToken(token);
+      // 存储管理员信息（内存中，刷新后重新拉取）
       useAuthStore.getState().setProfile(adminInfo);
       message.success('登录成功，欢迎使用妙语购票管理后台');
+      // 跳转到数据看板
       navigate('/dashboard');
     } catch {
-      // 错误提示已由 request 拦截器处理
+      // 错误提示已由 request 响应拦截器处理
     } finally {
       setLoading(false);
     }
@@ -37,7 +56,7 @@ export function LoginPage() {
         <div className={styles.blobPurple} />
       </div>
 
-      {/* 登录 */}
+      {/* 登录卡片 */}
       <Card
         className={styles.card}
         variant="borderless"
@@ -59,6 +78,7 @@ export function LoginPage() {
           autoComplete="off"
           size="large"
         >
+          {/* 手机号输入 */}
           <Form.Item
             name="phone"
             label="手机号"
@@ -67,6 +87,7 @@ export function LoginPage() {
             <Input prefix={<PhoneOutlined />} placeholder="请输入手机号" />
           </Form.Item>
 
+          {/* 密码输入 */}
           <Form.Item
             name="password"
             label="密码"
@@ -75,6 +96,7 @@ export function LoginPage() {
             <Input.Password prefix={<LockOutlined />} placeholder="请输入密码" />
           </Form.Item>
 
+          {/* 登录按钮 */}
           <Form.Item className={styles.submitItem}>
             <Button
               type="primary"

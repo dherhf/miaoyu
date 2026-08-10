@@ -1,3 +1,6 @@
+/**
+ * 影厅管理模块统一导出
+ */
 export { HallPage } from './HallPage';
 export {
   useHallStore,

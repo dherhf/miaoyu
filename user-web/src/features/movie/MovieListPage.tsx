@@ -6,6 +6,7 @@ import type { MovieListVO } from './types'
 import MovieCard from './components/MovieCard'
 import { useHeaderBack } from '@/layouts/navBarStore'
 
+/** 影片类型筛选选项 */
 const TYPE_OPTIONS = [
   { label: '全部', value: '' },
   { label: '动作', value: '动作' },
@@ -18,27 +19,49 @@ const TYPE_OPTIONS = [
   { label: '其他', value: '其他' },
 ]
 
+/** 排序选项 */
 const SORT_OPTIONS = [
   { label: '最新上映', value: '' },
   { label: '评分最高', value: 'rating_desc' },
 ]
 
+/** 每页条数 */
 const PAGE_SIZE = 10
 
+/**
+ * 影片列表页组件。
+ * 提供影片搜索（关键词）、类型筛选、排序功能。
+ * 支持滚动加载更多（分页加载），点击影片卡片跳转详情页。
+ */
 export default function MovieListPage() {
   const navigate = useNavigate()
+  // 影片列表
   const [movies, setMovies] = useState<MovieListVO[]>([])
+  // 实际搜索关键词（按下搜索按钮后更新）
   const [keyword, setKeyword] = useState('')
+  // 搜索框输入文本
   const [searchText, setSearchText] = useState('')
+  // 当前选中的类型筛选
   const [type, setType] = useState<string>('')
+  // 当前选中的排序方式
   const [sort, setSort] = useState<string>('')
+  // 当前页码
   const [page, setPage] = useState(1)
+  // 加载状态
   const [loading, setLoading] = useState(false)
+  // 是否还有更多数据
   const [hasMore, setHasMore] = useState(true)
+  // 防止重复请求的标记（使用 ref 避免闭包问题）
   const loadingRef = useRef(false)
 
+  // 配置 Header 显示返回按钮
   useHeaderBack(true)
 
+  /**
+   * 获取影片列表。
+   * @param pageNum 页码
+   * @param reset 是否重置列表（true=替换，false=追加）
+   */
   const fetchMovies = useCallback(
     async (pageNum: number, reset: boolean) => {
       if (loadingRef.current) return
@@ -53,10 +76,13 @@ export default function MovieListPage() {
           sort: sort || undefined,
         })
         if (reset) {
+          // 重置：替换列表
           setMovies(res.records)
         } else {
+          // 加载更多：追加到列表
           setMovies((prev) => [...prev, ...res.records])
         }
+        // 返回条数不足一页则无更多数据
         setHasMore(res.records.length === PAGE_SIZE)
       } catch {
         // 拦截器已统一提示
@@ -68,15 +94,18 @@ export default function MovieListPage() {
     [keyword, type, sort],
   )
 
+  // 搜索关键词、类型或排序变化时重新加载第一页
   useEffect(() => {
     setPage(1)
     fetchMovies(1, true)
   }, [fetchMovies])
 
+  /** 点击搜索按钮：将输入框文本设为搜索关键词 */
   const handleSearch = () => {
     setKeyword(searchText)
   }
 
+  /** 加载更多：页码+1，追加数据 */
   const handleLoadMore = () => {
     if (!hasMore || loading) return
     const nextPage = page + 1
@@ -84,13 +113,16 @@ export default function MovieListPage() {
     fetchMovies(nextPage, false)
   }
 
+  /** 点击影片卡片：跳转到影片详情页 */
   const handleMovieClick = (id: string) => {
     navigate(`/movies/${id}`)
   }
 
   return (
     <div className="flex-1 p-3 sm:p-4 md:p-6 lg:max-w-[960px] lg:mx-auto lg:w-full lg:px-6 lg:py-8 xl:max-w-[1200px] xl:p-8">
+      {/* 搜索与筛选区域 */}
       <div className="flex flex-col gap-2 mb-4">
+        {/* 关键词搜索框 */}
         <Input.Search
           placeholder="搜索影片名称"
           value={searchText}
@@ -102,6 +134,7 @@ export default function MovieListPage() {
             setKeyword('')
           }}
         />
+        {/* 类型筛选标签 */}
         <div className="flex gap-1.5 flex-wrap">
           {TYPE_OPTIONS.map((opt) => (
             <Tag.CheckableTag
@@ -113,6 +146,7 @@ export default function MovieListPage() {
             </Tag.CheckableTag>
           ))}
         </div>
+        {/* 排序标签 */}
         <div className="flex gap-1.5">
           {SORT_OPTIONS.map((opt) => (
             <Tag.CheckableTag
@@ -126,6 +160,7 @@ export default function MovieListPage() {
         </div>
       </div>
 
+      {/* 影片列表区域 */}
       {movies.length === 0 && !loading ? (
         <Empty description="暂无影片" className="py-12" />
       ) : (
@@ -139,6 +174,7 @@ export default function MovieListPage() {
               />
             ))}
           </div>
+          {/* 加载更多 / 没有更多 */}
           {hasMore ? (
             <div className="p-4 text-center">
               {loading ? (

@@ -5,13 +5,25 @@ import { getScheduleList } from '../api'
 import type { ScheduleListVO } from '../types'
 import SeatMapModal from './SeatMapModal'
 
+/** 每场次最多可选座位数 */
 const MAX_SEATS = 6
 
+/**
+ * 排片场次表格组件。
+ * 在影片详情页中展示该影片的所有排片场次，
+ * 包括放映日期、时间、影院、影厅、版本、票价和可选座位数。
+ * 点击场次行或"选座购票"按钮打开座位图弹窗。
+ * @param movieId 影片ID
+ */
 export default function ScheduleTable({ movieId }: { movieId: string }) {
+  // 排片场次列表
   const [schedules, setSchedules] = useState<ScheduleListVO[]>([])
+  // 加载状态
   const [loading, setLoading] = useState(true)
+  // 当前选中的场次（用于打开座位图弹窗）
   const [selectedSchedule, setSelectedSchedule] = useState<ScheduleListVO | null>(null)
 
+  // 影片ID变化时重新加载排片场次
   useEffect(() => {
     setLoading(true)
     getScheduleList(movieId)
@@ -20,6 +32,7 @@ export default function ScheduleTable({ movieId }: { movieId: string }) {
       .finally(() => setLoading(false))
   }, [movieId])
 
+  // 表格列定义
   const columns: ColumnsType<ScheduleListVO> = [
     {
       title: '放映日期',
@@ -32,6 +45,7 @@ export default function ScheduleTable({ movieId }: { movieId: string }) {
       dataIndex: 'startTime',
       key: 'showTime',
       width: 90,
+      // 显示开始时间和散场时间
       render: (v: string, record) => (
         <>
           <span>{v.slice(0, 5)}</span>
@@ -72,6 +86,7 @@ export default function ScheduleTable({ movieId }: { movieId: string }) {
       dataIndex: 'availableSeats',
       key: 'availableSeats',
       width: 70,
+      // 根据剩余座位数显示不同颜色：已满灰色，少量红色警告，充足显示比例
       render: (v: number, record) => {
         if (v <= 0) return <span className="text-muted">已满</span>
         if (v <= MAX_SEATS) return <span className="text-danger">{v}</span>
@@ -114,6 +129,7 @@ export default function ScheduleTable({ movieId }: { movieId: string }) {
           size="middle"
           pagination={false}
           scroll={{ x: 800 }}
+          // 点击行也可打开座位图（需有可选座位）
           onRow={(record) => ({
             onClick: () => {
               if (record.availableSeats > 0) {
@@ -124,6 +140,7 @@ export default function ScheduleTable({ movieId }: { movieId: string }) {
           })}
         />
       )}
+      {/* 座位图弹窗 */}
       <SeatMapModal
         schedule={selectedSchedule}
         onClose={() => setSelectedSchedule(null)}

@@ -12,47 +12,102 @@ import { Clock } from 'lucide-react';
 import dayjs from 'dayjs';
 import styles from './SchedulePage.module.css';
 
-export const LANGUAGE_VERSIONS = ['国语 2D', '国语 3D', '国语 IMAX', '英语 2D', '英语 3D', '英语 IMAX', '日语原声', '韩语原声'];
+/**
+ * 语言版本选项列表
+ * 用于场次排片时选择影片的语言版本
+ */
+export const LANGUAGE_VERSIONS = [
+  '国语 2D', '国语 3D', '国语 IMAX',
+  '英语 2D', '英语 3D', '英语 IMAX',
+  '日语原声', '韩语原声',
+];
 
+/**
+ * 排期表单数据
+ * 用于新增/编辑排期时的表单数据
+ */
 export interface ScheduleFormData {
+  /** 影院 ID */
   cinemaId: string;
+  /** 影厅 ID */
   hallId: string;
+  /** 影片 ID */
   movieId: string;
+  /** 放映日期（YYYY-MM-DD） */
   showDate: string;
+  /** 开始时间（HH:mm） */
   showTime: string;
+  /** 结束时间（HH:mm，自动计算） */
   endTime: string;
+  /** 票价（元） */
   price: number;
+  /** 语言版本 */
   languageVersion: string;
 }
 
+/**
+ * 表单校验错误信息
+ */
 export interface ScheduleFormErr {
+  /** 影厅错误 */
   hallId?: string;
+  /** 影片错误 */
   movieId?: string;
+  /** 日期错误 */
   showDate?: string;
+  /** 时间错误 */
   showTime?: string;
+  /** 票价错误 */
   price?: string;
+  /** 语言版本错误 */
   languageVersion?: string;
 }
 
+/**
+ * 排期表单组件属性
+ */
 interface ScheduleFormProps {
+  /** 当前表单数据 */
   data: ScheduleFormData;
+  /** 校验错误信息 */
   errors: ScheduleFormErr;
+  /** 表单数据变更回调 */
   onChange: (vals: ScheduleFormData) => void;
+  /** 可选影厅列表（已按影院过滤） */
   halls: Array<{ id: string; cinemaId: string; name: string; totalSeats: number }>;
+  /** 可选影片列表 */
   movies: Array<{ id: string; name: string; duration: number; status: string }>;
 }
 
+/**
+ * 排期表单组件
+ *
+ * 表单字段：
+ * 1. 影厅选择（根据选中影院过滤，Radio 按钮组）
+ * 2. 影片选择（下拉，仅显示上架影片）
+ * 3. 放映日期 + 开始时间
+ * 4. 结束时间（根据影片时长自动计算）
+ * 5. 票价 + 语言版本
+ *
+ * 自动行为：
+ * - 选中影院后自动选中第一个影厅
+ * - 选择影片和时间后自动计算结束时间
+ */
 export function ScheduleForm({ data, errors, onChange, halls, movies }: ScheduleFormProps) {
+  /**
+   * 通用字段更新
+   * 更新指定字段的值并通知父组件
+   */
   const updateField = (key: keyof ScheduleFormData, val: unknown) => {
     onChange({ ...data, [key]: val });
   };
 
-  // 根据选中影院过滤影厅
+  // 根据选中影院过滤影厅列表
   const cinemaHalls = useMemo(() => {
     return halls.filter(h => h.cinemaId === data.cinemaId);
   }, [halls, data.cinemaId]);
 
-  // 自动选中第一个影厅
+  // 自动选中第一个影厅（选中影院后未选影厅时）
   useEffect(() => {
     if (data.cinemaId && cinemaHalls.length && !data.hallId) {
       updateField('hallId', cinemaHalls[0].id);
@@ -63,6 +118,7 @@ export function ScheduleForm({ data, errors, onChange, halls, movies }: Schedule
   useEffect(() => {
     const targetMovie = movies.find(m => m.id === data.movieId);
     if (!targetMovie || !data.showDate || !data.showTime) return;
+    // 开始时间 + 影片时长 = 结束时间
     const start = dayjs(`${data.showDate} ${data.showTime}`);
     const end = start.add(targetMovie.duration, 'minute');
     updateField('endTime', end.format('HH:mm'));
@@ -70,7 +126,7 @@ export function ScheduleForm({ data, errors, onChange, halls, movies }: Schedule
 
   return (
     <Form layout="vertical">
-      {/* 影厅选择 */}
+      {/* 影厅选择（Radio 按钮组，按影院过滤） */}
       <Form.Item
         label="选择影厅"
         required
@@ -91,7 +147,7 @@ export function ScheduleForm({ data, errors, onChange, halls, movies }: Schedule
         )}
       </Form.Item>
 
-      {/* 影片下拉 */}
+      {/* 影片下拉选择（仅显示上架影片） */}
       <Form.Item
         label="选择影片"
         required
@@ -113,7 +169,7 @@ export function ScheduleForm({ data, errors, onChange, halls, movies }: Schedule
         </Select>
       </Form.Item>
 
-      {/* 日期 + 时间 双栏 */}
+      {/* 放映日期 + 开始时间 双栏 */}
       <div className={styles.twoColWrap}>
         <Form.Item
           label="放映日期"
@@ -125,6 +181,7 @@ export function ScheduleForm({ data, errors, onChange, halls, movies }: Schedule
           <DatePicker
             value={data.showDate ? dayjs(data.showDate) : undefined}
             onChange={(d) => updateField('showDate', d?.format('YYYY-MM-DD'))}
+            // 不允许选择今天之前的日期
             disabledDate={(d) => d.isBefore(dayjs().subtract(1, 'day'))}
             className={styles.fullWidth}
           />
@@ -145,7 +202,7 @@ export function ScheduleForm({ data, errors, onChange, halls, movies }: Schedule
         </Form.Item>
       </div>
 
-      {/* 自动计算结束时间 */}
+      {/* 自动计算的结束时间展示 */}
       {data.endTime && (
         <div className={styles.endTimeBar}>
           <span className={styles.endTimeLabel}>预计结束时间</span>
@@ -156,7 +213,7 @@ export function ScheduleForm({ data, errors, onChange, halls, movies }: Schedule
         </div>
       )}
 
-      {/* 票价 & 语言版本 */}
+      {/* 票价 + 语言版本 双栏 */}
       <div className={styles.twoColWrap}>
         <Form.Item
           label="票价"
@@ -194,7 +251,6 @@ export function ScheduleForm({ data, errors, onChange, halls, movies }: Schedule
           </Select>
         </Form.Item>
       </div>
-
     </Form>
   );
 }
