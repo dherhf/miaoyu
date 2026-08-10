@@ -18,20 +18,16 @@ public class AuditLogService {
     private final AuditLogMapper auditLogMapper;
 
     @Async
-    public void record(Long operatorId, String operatorName, String operatorType,
+    public void record(Long operatorId, String operatorType,
                        String action, String targetType, Long targetId,
-                       String beforeData, String afterData,
                        String ip, String userAgent) {
         try {
             AuditLog logEntry = AuditLog.builder()
                     .operatorId(operatorId)
-                    .operatorName(operatorName)
                     .operatorType(operatorType)
                     .action(action)
                     .targetType(targetType)
                     .targetId(targetId)
-                    .beforeData(beforeData)
-                    .afterData(afterData)
                     .ip(ip)
                     .userAgent(userAgent)
                     .build();

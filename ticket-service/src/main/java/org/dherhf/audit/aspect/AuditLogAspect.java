@@ -52,13 +52,10 @@ public class AuditLogAspect {
 
             auditLogService.record(
                     operatorId,
-                    operatorType != null ? operatorType : "unknown",
                     operatorType != null ? operatorType : "admin",
                     auditLogAnnotation.action(),
                     auditLogAnnotation.targetType(),
                     targetId,
-                    null,
-                    null,
                     request.getRemoteAddr(),
                     request.getHeader("User-Agent")
             );

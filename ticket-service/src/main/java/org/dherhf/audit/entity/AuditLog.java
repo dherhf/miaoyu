@@ -22,8 +22,6 @@ public class AuditLog {
 
     private Long operatorId;
 
-    private String operatorName;
-
     private String operatorType;
 
     private String action;
@@ -31,10 +29,6 @@ public class AuditLog {
     private String targetType;
 
     private Long targetId;
-
-    private String beforeData;
-
-    private String afterData;
 
     private String ip;
 
