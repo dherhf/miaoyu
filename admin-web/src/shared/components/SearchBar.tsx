@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Input } from 'antd';
-import { Search, X } from 'lucide-react';
+import { SearchOutlined, CloseOutlined } from '@ant-design/icons';
 import type { InputProps } from 'antd';
 import styles from './SearchBar.module.css';
 
@@ -89,12 +89,11 @@ const SearchBar: React.FC<SearchBarProps> = ({
       onChange={handleChange}
       onKeyDown={handleKeyDown}
       placeholder={placeholder}
-      prefix={<Search size={14} color="#9ca3af" />}
+      prefix={<SearchOutlined style={{ fontSize: 14, color: '#9ca3af' }} />}
       suffix={
         allowClear && value ? (
-          <X
-            size={14}
-            color="#9ca3af"
+          <CloseOutlined
+            style={{ fontSize: 14, color: '#9ca3af' }}
             className={styles.clearIcon}
             onClick={handleClear}
           />

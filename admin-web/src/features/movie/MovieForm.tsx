@@ -1,7 +1,7 @@
 import { Form, Input, InputNumber, DatePicker, Radio, Checkbox, Upload, Space } from 'antd';
 import type { FormInstance, UploadProps } from 'antd';
 import { message } from "@/shared/utils/globalMessage";
-import { Film } from 'lucide-react';
+import { VideoCameraOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useState } from 'react';
 import { MOVIE_TYPES } from './store';
@@ -155,12 +155,12 @@ export function MovieForm({ form, onFileSelect }: MovieFormProps) {
             <img src={previewUrl} alt="海报" className={styles.uploadImage} />
           ) : selectedFileName ? (
             <div className={styles.uploadPlaceholder}>
-              <Film size={20} />
+              <VideoCameraOutlined style={{ fontSize: 20 }} />
               <div className={styles.uploadPlaceholderText}>已选择: {selectedFileName}</div>
             </div>
           ) : (
             <div className={styles.uploadPlaceholder}>
-              <Film size={20} />
+              <VideoCameraOutlined style={{ fontSize: 20 }} />
               <div className={styles.uploadPlaceholderText}>上传海报</div>
             </div>
           )}

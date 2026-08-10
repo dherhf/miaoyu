@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import { Table } from 'antd';
 import type { TableProps } from 'antd';
-import { Inbox } from 'lucide-react';
+import { InboxOutlined } from '@ant-design/icons';
 import styles from './DataTable.module.css';
 
 export interface DataTableColumnConfig {
@@ -82,7 +82,7 @@ function DataTable<T extends Record<string, any>>({
       locale={{
         emptyText: (
           <div className={styles.emptyState}>
-            {emptyIcon || <Inbox size={48} color="#d9d9d9" />}
+            {emptyIcon || <InboxOutlined style={{ fontSize: 48, color: '#d9d9d9' }} />}
             <div className={styles.emptyText}>
               {emptyText}
             </div>

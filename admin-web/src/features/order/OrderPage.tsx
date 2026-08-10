@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react';
 import {
-  Eye,
-  Receipt,
-  TicketCheck,
-} from 'lucide-react';
+  EyeOutlined,
+  FileTextOutlined,
+  SafetyOutlined,
+} from '@ant-design/icons';
 import {
   Modal,
   Input,
@@ -375,7 +375,7 @@ const OrderManage: React.FC = () => {
         <Button
           type="link"
           size="small"
-          icon={<Eye size={14} />}
+          icon={<EyeOutlined />}
           onClick={() => openDetail(record)}
         >
           详情
@@ -396,7 +396,7 @@ const OrderManage: React.FC = () => {
         </div>
         <Button
           type="primary"
-          icon={<TicketCheck size={16} />}
+          icon={<SafetyOutlined />}
           onClick={() => setCheckTicketOpen(true)}
         >
           检票
@@ -438,7 +438,7 @@ const OrderManage: React.FC = () => {
         locale={{
           emptyText: (
             <div className={styles.emptyState}>
-              <Receipt size={48} color="#ccc" />
+              <FileTextOutlined style={{ fontSize: 48, color: '#ccc' }} />
               <div className={styles.emptyText}>暂无订单数据</div>
             </div>
           ),

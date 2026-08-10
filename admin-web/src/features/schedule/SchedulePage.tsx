@@ -1,16 +1,16 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import {
-  Plus,
-  Edit2,
-  Trash2,
-  Calendar,
-  Clock,
-  MapPin,
-  Armchair,
-  ArrowLeft,
-  Ban,
-  RotateCcw,
-} from "lucide-react";
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  CalendarOutlined,
+  ClockCircleOutlined,
+  EnvironmentOutlined,
+  AppstoreOutlined,
+  ArrowLeftOutlined,
+  StopOutlined,
+  UndoOutlined,
+} from "@ant-design/icons";
 import { Modal, Button, Space, Tag, Card } from "antd";
 import { message, modal } from "@/shared/utils/globalMessage";
 import { ProTable } from "@ant-design/pro-components";
@@ -307,11 +307,11 @@ export function SchedulePage() {
       render: (_, record) => (
         <div className={styles.cellShowTime}>
           <div className={styles.cellDateRow}>
-            <Calendar size={14} color="#999" />
+            <CalendarOutlined style={{ fontSize: 14, color: "#999" }} />
             {record.showDate}
           </div>
           <div className={styles.cellTimeRow}>
-            <Clock size={14} />
+            <ClockCircleOutlined style={{ fontSize: 14 }} />
             {record.showTime} - {record.endTime}
           </div>
         </div>
@@ -369,7 +369,7 @@ export function SchedulePage() {
         return (
           <div className={styles.cellCenter}>
             <Space size={4} className={styles.cellCenterSpace}>
-              <Armchair size={14} color="#999" />
+              <AppstoreOutlined style={{ fontSize: 14, color: "#999" }} />
               <span>
                 {record.soldSeats}/{record.totalSeats}
               </span>
@@ -415,7 +415,7 @@ export function SchedulePage() {
             {!isEnd && !isCancel && (
               <Button
                 size="small"
-                icon={<Edit2 size={14} />}
+                icon={<EditOutlined />}
                 disabled={hasSold}
                 onClick={() => openEdit(record)}
               >
@@ -427,7 +427,7 @@ export function SchedulePage() {
                 size="small"
                 danger
                 ghost
-                icon={<Ban size={14} />}
+                icon={<StopOutlined />}
                 disabled={hasSold}
                 onClick={() => handleCancelSchedule(record)}
               >
@@ -439,7 +439,7 @@ export function SchedulePage() {
                 size="small"
                 type="primary"
                 ghost
-                icon={<RotateCcw size={14} />}
+                icon={<UndoOutlined />}
                 onClick={() => handleRestoreSchedule(record)}
               >
                 恢复
@@ -449,7 +449,7 @@ export function SchedulePage() {
               <Button
                 size="small"
                 danger
-                icon={<Trash2 size={14} />}
+                icon={<DeleteOutlined />}
                 disabled={hasSold}
                 onClick={() => handleDeleteSchedule(record)}
               >
@@ -471,7 +471,7 @@ export function SchedulePage() {
             <Button
               type="link"
               size="small"
-              icon={<ArrowLeft size={16} />}
+              icon={<ArrowLeftOutlined />}
               onClick={backCinema}
               className={styles.backButton}
             >
@@ -486,7 +486,7 @@ export function SchedulePage() {
           </p>
         </div>
         {selectedCinemaId && (
-          <Button type="primary" icon={<Plus size={16} />} onClick={openAdd}>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>
             新增排期
           </Button>
         )}
@@ -496,7 +496,7 @@ export function SchedulePage() {
       {!selectedCinemaId && (
         <div className={styles.cinemaSelectPanel}>
           <div className={styles.cinemaIconCircle}>
-            <MapPin size={32} color="#1677ff" />
+            <EnvironmentOutlined style={{ fontSize: 32, color: "#1677ff" }} />
           </div>
           <h3 className={styles.cinemaSelectTitle}>请选择影院</h3>
           <p className={styles.cinemaSelectDesc}>
@@ -515,7 +515,7 @@ export function SchedulePage() {
                 <div className={styles.cardCinemaName}>{cinema.name}</div>
                 <div className={styles.cardCinemaAddress}>{cinema.address}</div>
                 <div className={styles.cardHallCount}>
-                  <Armchair size={12} /> {cinema.hallCount} 个影厅
+                  <AppstoreOutlined style={{ fontSize: 12 }} /> {cinema.hallCount} 个影厅
                 </div>
               </Card>
             ))}
