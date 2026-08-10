@@ -85,6 +85,8 @@ public class UploadController {
                 case "image/bmp" -> startsWith(header, BMP_MAGIC);
                 default -> false;
             };
+        } else {
+            return false;
         }
     }
 
