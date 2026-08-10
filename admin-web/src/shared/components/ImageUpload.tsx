@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Upload, Button, App } from 'antd';
+import { Upload, Button } from 'antd';
+import { message } from "@/shared/utils/globalMessage";
 import { UploadCloud, Loader, Trash2 } from 'lucide-react';
 import styles from './ImageUpload.module.css';
 
@@ -41,7 +42,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
 }) => {
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | undefined>(value);
-  const { message } = App.useApp();
 
   // 同步外部 value 变化
   React.useEffect(() => {

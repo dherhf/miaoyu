@@ -5,7 +5,6 @@ import {
   TicketCheck,
 } from 'lucide-react';
 import {
-  App,
   Modal,
   Input,
   Button,
@@ -15,6 +14,7 @@ import {
   Divider,
   Spin,
 } from 'antd';
+import { message } from "@/shared/utils/globalMessage";
 import { ProTable } from '@ant-design/pro-components';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import dayjs from 'dayjs';
@@ -128,7 +128,6 @@ interface CheckTicketModalProps {
 }
 
 const CheckTicketModal: React.FC<CheckTicketModalProps> = ({ open, onClose, onSuccess }) => {
-  const { message } = App.useApp();
   const { checkTicket } = useOrderStore();
   const [code, setCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
