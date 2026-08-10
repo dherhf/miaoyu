@@ -1,6 +1,6 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import { getGlobalMessage } from './globalMessage';
-import { useAuthStore } from '../../features/auth';
+import { message } from '@/shared/utils/globalMessage';
+import { useAuthStore } from '@/features/auth';
 
 // 通用 API 响应类型
 
@@ -59,7 +59,7 @@ request.interceptors.response.use(
       return Promise.reject(new Error('未登录或登录已过期'));
     }
 
-    getGlobalMessage()?.error(errMsg);
+    message.error(errMsg);
     return Promise.reject(new Error(errMsg));
   },
   (error: AxiosError<ApiResponse>) => {
@@ -67,33 +67,33 @@ request.interceptors.response.use(
     const status = error.response?.status;
     const serverMsg = error.response?.data?.message;
 
-    let message = '网络异常，请稍后重试';
+    let errorMsg = '网络异常，请稍后重试';
 
     switch (status) {
       case 400:
-        message = serverMsg || '请求参数错误';
+        errorMsg = serverMsg || '请求参数错误';
         break;
       case 401:
         useAuthStore.getState().clear();
         window.location.href = '/admin/login';
-        message = '未登录或登录已过期';
+        errorMsg = '未登录或登录已过期';
         break;
       case 403:
-        message = serverMsg || '权限不足或账号已锁定';
+        errorMsg = serverMsg || '权限不足或账号已锁定';
         break;
       case 404:
-        message = serverMsg || '请求的资源不存在';
+        errorMsg = serverMsg || '请求的资源不存在';
         break;
       case 409:
-        message = serverMsg || '业务冲突，请稍后重试';
+        errorMsg = serverMsg || '业务冲突，请稍后重试';
         break;
       case 500:
-        message = '系统繁忙，请稍后重试';
+        errorMsg = '系统繁忙，请稍后重试';
         break;
     }
 
-    getGlobalMessage()?.error(message);
-    return Promise.reject(new Error(message));
+    message.error(errorMsg);
+    return Promise.reject(new Error(errorMsg));
   },
 );
 

@@ -6,7 +6,8 @@ import {
   ColumnWidthOutlined,
   DashOutlined,
 } from '@ant-design/icons';
-import { Button, Card, Space, Typography, App } from 'antd';
+import { Button, Card, Space, Typography } from 'antd';
+import { message } from "@/shared/utils/globalMessage";
 import type { SeatItem } from './types';
 import { SEAT_STATUS, countAvailableSeats, addRow, removeRow, addCol, removeCol } from './store';
 import { SeatLegend } from './SeatLegend';
@@ -18,7 +19,6 @@ interface SeatLayoutEditorProps {
 }
 
 export function SeatLayoutEditor({ value, onChange }: SeatLayoutEditorProps) {
-  const { message } = App.useApp();
   const currentSeats = value || [];
   const emit = (list: SeatItem[]) => onChange?.(list);
   const rowCount = useMemo(() => currentSeats.length ? Math.max(...currentSeats.map(s => s.row)) : 0, [currentSeats]);

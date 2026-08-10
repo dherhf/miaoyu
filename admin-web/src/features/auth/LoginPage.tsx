@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Card, Form, Input, Button, Typography, App as AntApp } from 'antd';
+import { Card, Form, Input, Button, Typography } from 'antd';
+import { message } from "@/shared/utils/globalMessage";
 import type { FormProps } from 'antd';
 import { PhoneOutlined, LockOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
@@ -12,7 +13,6 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [form] = Form.useForm<LoginParams>();
   const [loading, setLoading] = useState(false);
-  const { message } = AntApp.useApp();
 
   const handleSubmit: FormProps<LoginParams>['onFinish'] = async (values) => {
     setLoading(true);

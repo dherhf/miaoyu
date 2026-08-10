@@ -1,30 +1,22 @@
 import { RouterProvider, createBrowserRouter, Navigate } from 'react-router-dom';
-import { App as AntApp } from 'antd';
 
 // 布局文件
-import { MainLayout } from './layouts';
+import { MainLayout } from '@/layouts/index';
 
 // 页面组件
-import { LoginPage } from './features/auth';
-import { DashboardPage } from './features/dashboard';
-import { MoviePage } from './features/movie';
-import { CinemaPage } from './features/cinema';
-import { HallPage } from './features/hall';
-import { SchedulePage } from './features/schedule';
-import { OrderPage } from './features/order';
-import NotFound from './pages/NotFound';
+import { LoginPage } from '@/features/auth';
+import { DashboardPage } from '@/features/dashboard';
+import { MoviePage } from '@/features/movie';
+import { CinemaPage } from '@/features/cinema';
+import { HallPage } from '@/features/hall';
+import { SchedulePage } from '@/features/schedule';
+import { OrderPage } from '@/features/order';
+import NotFound from '@/pages/NotFound';
 
 // 状态管理
-import { useAuthStore, authApi } from './features/auth';
-import { setGlobalMessage } from './shared/utils/globalMessage';
+import { useAuthStore, authApi } from '@/features/auth';
+import GlobalMessage from '@/shared/utils/globalMessage';
 import React, { useEffect } from "react";
-
-/** 将 antd message 实例注入全局，供非组件模块（如 axios 拦截器）使用 */
-function GlobalMessageSetup() {
-  const { message } = AntApp.useApp();
-  setGlobalMessage(message);
-  return null;
-}
 
 /** 登录态恢复：有 token 但无 profile 时重新拉取 */
 function ProfileInitializer() {
@@ -87,7 +79,7 @@ const router = createBrowserRouter([
 function App() {
   return (
     <>
-      <GlobalMessageSetup />
+      <GlobalMessage />
       <ProfileInitializer />
       <RouterProvider router={router} />
     </>

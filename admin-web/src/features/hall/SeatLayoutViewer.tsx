@@ -8,7 +8,8 @@ import {
   BorderOutlined,
   CheckSquareOutlined,
 } from '@ant-design/icons';
-import { Button, Space, Typography, App } from 'antd';
+import { Button, Space, Typography } from 'antd';
+import { message } from "@/shared/utils/globalMessage";
 import type { SeatItem } from './types';
 import { SEAT_STATUS, generateSeats, countAvailableSeats } from './store';
 import { SeatLegend } from './SeatLegend';
@@ -28,7 +29,6 @@ export function SeatLayoutViewer({
   onSave,
 }: SeatLayoutViewerProps) {
   const [isEditMode, setIsEditMode] = useState(false);
-  const { message } = App.useApp();
   const [tempSeats, setTempSeats] = useState<SeatItem[]>(() => initialSeats.length ? initialSeats : generateSeats(rowCount, colCount));
   const [selectedSeats, setSelectedSeats] = useState<Set<string>>(new Set());
   const [isDragging, setIsDragging] = useState(false);
