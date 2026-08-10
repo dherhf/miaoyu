@@ -142,7 +142,7 @@ public class UserAuthService {
     /**
      * 重置密码。
      * <p>
-     * 先通过阿里云号码认证服务核验短信验证码,通过后查找用户并更新密码。
+     * 先核验短信验证码,通过后查找用户并更新密码。
      *
      * @param request 重置密码请求,包含手机号、新密码和短信验证码
      * @throws BusinessException 短信验证码错误时抛出 400,用户不存在时抛出 404

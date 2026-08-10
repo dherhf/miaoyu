@@ -71,7 +71,7 @@ public class SmsService {
     private AsyncClient client;
 
     /**
-     * 初始化阿里云 dypnsapi 异步客户端。
+     * Bean初始化后,初始化阿里云 dypnsapi 异步客户端。
      */
     @PostConstruct
     public void init() {
@@ -97,7 +97,7 @@ public class SmsService {
     }
 
     /**
-     * 关闭阿里云 dypnsapi 异步客户端。
+     * Bean销毁前,关闭阿里云 dypnsapi 异步客户端。
      */
     @PreDestroy
     public void shutdown() {
