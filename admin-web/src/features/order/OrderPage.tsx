@@ -428,7 +428,7 @@ const OrderManage: React.FC = () => {
         }}
         search={{ labelWidth: 'auto', span: 4, defaultCollapsed: false }}
         pagination={{
-          pageSize: 20,
+          defaultPageSize: 20,
           pageSizeOptions: [10, 20, 50],
           showSizeChanger: true,
         }}
