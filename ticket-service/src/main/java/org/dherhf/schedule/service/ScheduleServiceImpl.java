@@ -448,11 +448,18 @@ public class ScheduleServiceImpl implements ScheduleService {
 
         // Redis Bitmap 优先读取座位状态，缓存未命中时从 MySQL 重建并回写
         String[] seatStatuses = seatBitmapService.getSeatStatuses(id, schedule.getTotalSeats());
+        if (seatStatuses == null) {
+            // 缓存未命中，从 MySQL 重建并回写
+            seatBitmapService.rebuildBitmap(id, scheduleSeats);
+            // 重建后重读 Redis，确保返回最新状态
+            seatStatuses = seatBitmapService.getSeatStatuses(id, schedule.getTotalSeats());
+        }
+
         if (seatStatuses != null) {
             availableCount = 0;
             for (SeatVO seatVO : seats) {
                 int idx = seatVO.getSeatIndex();
-                if (idx < seatStatuses.length) {
+                if (idx >= 0 && idx < seatStatuses.length) {
                     String status = seatStatuses[idx];
                     if (status != null) {
                         seatVO.setStatus(status);
@@ -462,9 +469,6 @@ public class ScheduleServiceImpl implements ScheduleService {
                     availableCount++;
                 }
             }
-        } else {
-            // 缓存未命中，从 MySQL 重建并回写
-            seatBitmapService.rebuildBitmap(id, scheduleSeats);
         }
 
         return SeatMapVO.builder()
@@ -598,9 +602,9 @@ public class ScheduleServiceImpl implements ScheduleService {
     }
 
     /**
-     * 座位计数（occupiedCount=已占用，soldCount=已售，lockedCount=锁定，-1表示缓存命中未单独查询）
+     * 座位计数（lockedCount=锁定，soldCount=已售，-1表示缓存未命中）
      */
-    private record SeatCounts(long occupiedCount, long soldCount, long lockedCount) {}
+    private record SeatCounts(long lockedCount, long soldCount) {}
 
     /**
      * 优先从 Redis Bitmap BITCOUNT 获取座位计数，缓存未命中时降级查 MySQL。
@@ -608,10 +612,9 @@ public class ScheduleServiceImpl implements ScheduleService {
      * @param scheduleId 场次ID（非座位ID）
      */
     private SeatCounts getSeatCounts(Long scheduleId) {
-        long occupiedCount = seatBitmapService.getOccupiedCount(scheduleId);
+        long lockedCount = seatBitmapService.getLockedCount(scheduleId);
         long soldCount = seatBitmapService.getSoldCount(scheduleId);
-        long lockedCount = -1;
-        if (occupiedCount < 0 || soldCount < 0) {
+        if (lockedCount < 0 || soldCount < 0) {
             lockedCount = scheduleSeatMapper.selectCount(
                     new LambdaQueryWrapper<ScheduleSeat>()
                             .eq(ScheduleSeat::getScheduleId, scheduleId)
@@ -620,10 +623,9 @@ public class ScheduleServiceImpl implements ScheduleService {
                     new LambdaQueryWrapper<ScheduleSeat>()
                             .eq(ScheduleSeat::getScheduleId, scheduleId)
                             .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.SOLD.getCode()));
-            occupiedCount = lockedCount + soldCountDb;
             soldCount = soldCountDb;
         }
-        return new SeatCounts(occupiedCount, soldCount, lockedCount);
+        return new SeatCounts(lockedCount, soldCount);
     }
 
     private boolean isCoreFieldChanged(Schedule schedule, ScheduleUpdateDTO dto) {
@@ -649,7 +651,7 @@ public class ScheduleServiceImpl implements ScheduleService {
         // 优先从 Redis Bitmap BITCOUNT 获取，缓存未命中时降级查 MySQL
         SeatCounts counts = getSeatCounts(schedule.getId());
 
-        vo.setAvailableSeats(schedule.getTotalSeats() - (int) counts.occupiedCount());
+        vo.setAvailableSeats(schedule.getTotalSeats() - (int) counts.lockedCount() - (int) counts.soldCount());
         vo.setSoldSeats((int) counts.soldCount());
         if (schedule.getTotalSeats() > 0) {
             vo.setOccupancyRate((double) counts.soldCount() / schedule.getTotalSeats());
@@ -683,14 +685,10 @@ public class ScheduleServiceImpl implements ScheduleService {
 
         // 优先从 Redis Bitmap BITCOUNT 获取，缓存未命中时降级查 MySQL
         SeatCounts counts = getSeatCounts(schedule.getId());
-        if (counts.lockedCount() >= 0) {
-            vo.setLockedSeats((int) counts.lockedCount());
-        } else {
-            vo.setLockedSeats((int) (counts.occupiedCount() - counts.soldCount()));
-        }
 
+        vo.setLockedSeats((int) counts.lockedCount());
         vo.setSoldSeats((int) counts.soldCount());
-        vo.setAvailableSeats(schedule.getTotalSeats() - (int) counts.occupiedCount());
+        vo.setAvailableSeats(schedule.getTotalSeats() - (int) counts.lockedCount() - (int) counts.soldCount());
         if (schedule.getTotalSeats() > 0) {
             vo.setOccupancyRate((double) counts.soldCount() / schedule.getTotalSeats());
         }
