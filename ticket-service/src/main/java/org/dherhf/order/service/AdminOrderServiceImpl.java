@@ -33,6 +33,12 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+/**
+ * 管理端订单服务，提供订单列表查询、详情查看和检票功能。
+ * <p>
+ * 与用户端 {@link OrderServiceImpl} 的区别：管理端可查看所有用户订单（含手机号脱敏），
+ * 检票通过取票码而非订单 ID，检票操作使用与用户端相同的订单级分布式锁保证互斥。
+ */
 @Service
 @RequiredArgsConstructor
 public class AdminOrderServiceImpl implements AdminOrderService {
@@ -47,6 +53,10 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     private static final long LOCK_WAIT_SECONDS = 3;
     private static final long LOCK_LEASE_SECONDS = 10;
 
+    /**
+     * 管理端订单分页查询，支持按订单号、影片名、影院名、状态、日期范围筛选。
+     * 返回的手机号经 AES 解密后脱敏处理。
+     */
     @Override
     public PageResult<AdminOrderListVO> list(String orderNo, String movieName, String cinemaName, String status, String dateFrom, String dateTo, Integer page, Integer size) {
         int normalizedPage = PageUtil.normalizePage(page);
@@ -69,6 +79,9 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         return new PageResult<>(result.getTotal(), normalizedPage, normalizedSize, records);
     }
 
+    /**
+     * 查询订单详情，包含座位明细（座位标签 + 状态）和脱敏手机号。
+     */
     @Override
     public AdminOrderDetailVO detail(Long id) {
         Order order = orderMapper.selectById(id);
@@ -102,6 +115,16 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         return vo;
     }
 
+    /**
+     * 检票：通过取票码验证订单后，使用 CAS 将订单状态从 PAID 改为 CHECKED。
+     * <p>
+     * 并发控制：与用户端 payOrder/cancelOrder 共享 {@code lock:order:{orderId}} 锁，
+     * 确保检票与支付/取消/退票互斥。CAS（{@code updateToCheckedIfPaid}）保证幂等，
+     * 并发请求 affected=0 时直接失败。
+     *
+     * @param pickupCode 用户出示的 6 位取票码（字母+数字）
+     * @return 检票成功后的订单详情
+     */
     @Override
     @Transactional
     public AdminOrderDetailVO checkTicket(String pickupCode) {
@@ -146,6 +169,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         }
     }
 
+    /** Order → AdminOrderListVO 转换，附带脱敏手机号。 */
     private AdminOrderListVO toListVO(Order order) {
         AdminOrderListVO vo = new AdminOrderListVO();
         BeanUtils.copyProperties(order, vo);
@@ -153,6 +177,10 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         return vo;
     }
 
+    /**
+     * 获取脱敏手机号：AES 解密后保留前 3 位和后 4 位，中间用 **** 替代。
+     * 解密失败时降级返回原始存储值（可能是明文或已损坏的密文）。
+     */
     private String getMaskedPhone(Long userId) {
         User user = userMapper.selectById(userId);
         if (user == null || user.getPhone() == null) {
@@ -170,6 +198,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
     }
 
+    /** 将日期字符串解析为当天 00:00:00 的 LocalDateTime，用于日期范围查询的起始边界。 */
     private LocalDateTime parseDateTime(String dateStr) {
         if (dateStr == null || dateStr.isBlank()) {
             return null;

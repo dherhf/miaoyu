@@ -14,6 +14,11 @@ interface OrderState {
   checkTicket: (pickupCode: string) => Promise<OrderItem | undefined>;
 }
 
+/**
+ * 订单管理 Zustand store。
+ * fetchOrders 失败时清空列表（不保留旧数据），防止 UI 展示过期信息。
+ * checkTicket 成功后返回 OrderItem 供弹窗展示详情。
+ */
 export const useOrderStore = create<OrderState>((set) => ({
   orders: [],
   total: 0,

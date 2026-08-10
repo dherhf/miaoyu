@@ -21,7 +21,9 @@ import dayjs from 'dayjs';
 import { useOrderStore, type OrderItem, type OrderStatus } from './store';
 import styles from './OrderPage.module.css';
 
-// ===================== 常量 =====================
+/**
+ * 订单状态 → 标签配置映射。未知状态通过 `?? { label, color: 'default' }` 兜底。
+ */
 const ORDER_STATUS_MAP: Record<OrderStatus, { label: string; color: string }> = {
   pending: { label: '待支付', color: 'orange' },
   paid: { label: '已出票', color: 'green' },
@@ -39,6 +41,10 @@ interface OrderDetailModalProps {
   onClose: () => void;
 }
 
+/**
+ * 订单详情弹窗。展示完整订单信息（含座位明细、支付/取消/检票时间）。
+ * totalAmount 使用 `?? 0` 防御 null 导致 toFixed 崩溃。
+ */
 const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ open, order, loading, onClose }) => {
   return (
     <Modal
@@ -121,12 +127,18 @@ const OrderDetailContent: React.FC<{ order: OrderItem }> = ({ order }) => {
 };
 
 // ===================== 检票弹窗 =====================
+/** 检票弹窗 props。onSuccess 在检票成功并关闭弹窗后回调（触发表格刷新）。 */
 interface CheckTicketModalProps {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }
 
+/**
+ * 检票弹窗。输入 6 位取票码（字母+数字）后调后端 checkTicket 接口。
+ * 使用 App.useApp() 获取 message 实例（非静态导入），确保 ConfigProvider 上下文生效。
+ * 检票成功后展示订单详情，关闭弹窗时触发表格刷新。
+ */
 const CheckTicketModal: React.FC<CheckTicketModalProps> = ({ open, onClose, onSuccess }) => {
   const { message } = App.useApp();
   const { checkTicket } = useOrderStore();
@@ -212,7 +224,10 @@ const CheckTicketModal: React.FC<CheckTicketModalProps> = ({ open, onClose, onSu
   );
 };
 
-// ===================== 主页面 =====================
+/**
+ * 订单管理主页面。ProTable 展示所有用户订单，支持多维度筛选（订单号/影片名/影院名/状态/日期）。
+ * 操作：查看详情、检票。数据通过 Zustand store 管理，表格 request 回调从 store 读取。
+ */
 const OrderManage: React.FC = () => {
   const actionRef = useRef<ActionType>(null);
   const { fetchOrders, fetchOrderDetail } = useOrderStore();

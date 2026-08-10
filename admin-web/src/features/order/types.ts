@@ -1,4 +1,6 @@
 // ===================== 订单相关类型 =====================
+// 分两层：API 层（OrderRecord/OrderDetail，与后端 JSON 对齐）
+// 和 Store 层（OrderItem，页面展示用，经 mapOrderRecord 转换）。
 
 // ---------- API 层 ----------
 

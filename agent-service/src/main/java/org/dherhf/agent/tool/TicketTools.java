@@ -448,6 +448,11 @@ public class TicketTools {
 
     // ========== 行程规划工具 ==========
 
+    /**
+     * 路径规划工具。将出发地和目的地地理编码为坐标后，通过虚拟线程并行调用高德路径规划 API。
+     * mode=all 时同时查询驾车+公交+步行，聚合后推送 route_info 卡片。
+     * 虚拟线程 join 设 15s 超时防止上游 API 挂起。
+     */
     @Tool("路径规划。用户问怎么去影院/导航/路线时调用。同时查询驾车、公交地铁和步行方案，返回原始 JSON 数据。")
     public String planRoute(
             @ToolMemoryId String sessionId,
@@ -531,6 +536,10 @@ public class TicketTools {
         return combined;
     }
 
+    /**
+     * 周边搜索工具。将地名解析为坐标后调用高德周边 POI 搜索（半径 1000m），
+     * 推送 nearby_poi 卡片。
+     */
     @Tool("周边搜索。用户问影院附近有什么（餐饮/停车/地铁等）时调用。先通过地理编码将地名转为坐标，再调用高德周边搜索。返回原始 JSON 数据。")
     public String searchNearby(
             @ToolMemoryId String sessionId,
@@ -547,6 +556,10 @@ public class TicketTools {
         return result;
     }
 
+    /**
+     * 天气查询工具。city 为空时优先从 RequestContext 读取用户当前城市，再降级为"长沙"。
+     * 使用 extensions=all 获取多日预报，推送 weather_info 卡片。
+     */
     @Tool("天气查询。用户问观影当天天气时调用。返回原始 JSON 数据。")
     public String getWeather(
             @ToolMemoryId String sessionId,
