@@ -721,7 +721,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     /**
-     * 批量取消超时订单。
+     * 定时取消超时订单。
      * <p>
      * 查询所有 PENDING 且创建时间早于 deadline 的订单，逐个通过 self 代理调用 {@link #timeoutCancel}。
      */
