@@ -215,7 +215,7 @@ public class CinemaServiceImpl implements CinemaService {
     }
 
     private long calculateDistance(BigDecimal lat1, BigDecimal lng1, BigDecimal lat2, BigDecimal lng2) {
-        double R = 6371000; // Earth radius in meters
+        double R = 6371000; // 地球半径
         double dLat = Math.toRadians(lat2.doubleValue() - lat1.doubleValue());
         double dLng = Math.toRadians(lng2.doubleValue() - lng1.doubleValue());
         double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
