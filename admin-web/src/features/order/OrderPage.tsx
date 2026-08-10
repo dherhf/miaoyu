@@ -5,6 +5,7 @@ import {
   TicketCheck,
 } from 'lucide-react';
 import {
+  App,
   Modal,
   Input,
   Button,
@@ -13,7 +14,6 @@ import {
   Typography,
   Divider,
   Spin,
-  message,
 } from 'antd';
 import { ProTable } from '@ant-design/pro-components';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
@@ -60,7 +60,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ open, order, loadin
 };
 
 const OrderDetailContent: React.FC<{ order: OrderItem }> = ({ order }) => {
-  const statusCfg = ORDER_STATUS_MAP[order.status];
+  const statusCfg = ORDER_STATUS_MAP[order.status] ?? { label: order.status, color: 'default' };
 
   return (
     <>
@@ -84,7 +84,7 @@ const OrderDetailContent: React.FC<{ order: OrderItem }> = ({ order }) => {
         <Descriptions.Item label="座位信息" span={2}>{order.seatInfo || '--'}</Descriptions.Item>
         <Descriptions.Item label="订单金额">
           <Typography.Text strong className={styles.amountText}>
-            ¥{order.totalAmount.toFixed(2)}
+            ¥{(order.totalAmount ?? 0).toFixed(2)}
           </Typography.Text>
         </Descriptions.Item>
         <Descriptions.Item label="下单时间">{order.createdAt}</Descriptions.Item>
@@ -128,6 +128,7 @@ interface CheckTicketModalProps {
 }
 
 const CheckTicketModal: React.FC<CheckTicketModalProps> = ({ open, onClose, onSuccess }) => {
+  const { message } = App.useApp();
   const { checkTicket } = useOrderStore();
   const [code, setCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -314,7 +315,7 @@ const OrderManage: React.FC = () => {
       search: false,
       render: (_, record) => (
         <Typography.Text strong className={styles.amountCellText}>
-          ¥{record.totalAmount.toFixed(2)}
+          ¥{(record.totalAmount ?? 0).toFixed(2)}
         </Typography.Text>
       ),
     },
@@ -328,7 +329,7 @@ const OrderManage: React.FC = () => {
         Object.entries(ORDER_STATUS_MAP).map(([k, v]) => [k, { text: v.label }]),
       ),
       render: (_, record) => {
-        const cfg = ORDER_STATUS_MAP[record.status];
+        const cfg = ORDER_STATUS_MAP[record.status] ?? { label: record.status, color: 'default' };
         return <Tag color={cfg.color}>{cfg.label}</Tag>;
       },
     },

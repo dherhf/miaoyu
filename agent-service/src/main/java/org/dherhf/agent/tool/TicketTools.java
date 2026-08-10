@@ -28,6 +28,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
@@ -137,9 +138,21 @@ public class TicketTools {
     /**
      * 将 JSON 字符串解析为对象后推入卡片缓冲区。
      * 避免 emitCard 传入 String 导致前端收到转义字符串而非 JSON 对象。
+     * 仅在响应非错误时推送卡片。
      */
     private void emitParsedCard(String sessionId, String cardType, String json) {
+        if (json == null || json.isBlank()) {
+            log.warn("[emitParsedCard] 空响应，跳过卡片推送: cardType={}", cardType);
+            return;
+        }
         try {
+            var node = objectMapper.readTree(json);
+            // 错误响应（code != 200 且 code != 0）不推送卡片
+            int code = node.path("code").asInt(-999);
+            if (code != 200 && code != 0) {
+                log.warn("[emitParsedCard] 错误响应(code={})，跳过卡片推送: cardType={}", code, cardType);
+                return;
+            }
             Object parsed = objectMapper.readValue(json, Object.class);
             emitCard(sessionId, cardType, parsed);
         } catch (Exception e) {
@@ -435,14 +448,18 @@ public class TicketTools {
 
     // ========== 行程规划工具 ==========
 
-    @Tool("路径规划。用户问怎么去影院/导航/路线时调用。同时查询驾车和公交两种方案，返回原始 JSON 数据。")
+    @Tool("路径规划。用户问怎么去影院/导航/路线时调用。同时查询驾车、公交地铁和步行方案，返回原始 JSON 数据。")
     public String planRoute(
             @ToolMemoryId String sessionId,
             @P("出发地，可为地点名称、地址或坐标（经度,纬度），如'湖南大学'、'长沙南站'、'113.008977,28.233355'；当上下文存在【用户位置】时直接使用其坐标") String origin,
             @P("目的地名称或地址，如'长沙学院'或影院名称") String destination,
-            @P("出行方式：driving(驾车)/transit(公交)/walking(步行)；用户未指定时传空字符串，将同时查询驾车和公交") String mode
+            @P("出行方式：driving(驾车)/transit(公交地铁)/walking(步行)；用户未指定时传空字符串，将同时查询驾车、公交地铁和步行") String mode
     ) {
         String travelMode = (mode == null || mode.isBlank()) ? "all" : mode.trim().toLowerCase();
+        // 白名单校验：未知 mode 当作 all
+        if (!Set.of("driving", "transit", "walking", "all").contains(travelMode)) {
+            travelMode = "all";
+        }
         log.info("[Tool:路径规划] sessionId={}, origin={}, destination={}, mode={}", sessionId, origin, destination, travelMode);
 
         // 先将出发地和目的地地理编码为坐标
@@ -458,7 +475,7 @@ public class TicketTools {
         // 查询单一模式或全部模式
         List<String> modes;
         if ("all".equals(travelMode)) {
-            modes = List.of("driving", "transit");
+            modes = List.of("driving", "transit", "walking");
         } else {
             modes = List.of(travelMode);
         }
@@ -475,7 +492,15 @@ public class TicketTools {
             threads.add(t);
         }
         for (Thread t : threads) {
-            try { t.join(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+            try {
+                t.join(Duration.ofSeconds(15));
+                if (t.isAlive()) {
+                    log.warn("[Tool:planRoute] 虚拟线程超时未完成，中断: {}", t);
+                    t.interrupt();
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
 
         // 按固定顺序聚合（driving 优先于 transit）
@@ -527,11 +552,13 @@ public class TicketTools {
             @ToolMemoryId String sessionId,
             @P("城市名称，如'长沙'。用户未指定城市时，根据上下文影院所在城市推断；无上下文时默认'长沙'") String city
     ) {
-        if (city == null || city.isBlank()) {
-            city = "长沙";
+        String resolvedCity = city;
+        if (resolvedCity == null || resolvedCity.isBlank()) {
+            RequestContext ctx = contextService.getRequestContext(sessionId);
+            resolvedCity = (ctx != null && ctx.getCity() != null && !ctx.getCity().isBlank()) ? ctx.getCity() : "长沙";
         }
-        log.info("[Tool:天气查询] sessionId={}, city={}", sessionId, city);
-        String result = amapClient.getWeather(city);
+        log.info("[Tool:天气查询] sessionId={}, city={}", sessionId, resolvedCity);
+        String result = amapClient.getWeather(resolvedCity);
         emitParsedCard(sessionId, "weather_info", result);
         return result;
     }

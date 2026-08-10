@@ -209,7 +209,7 @@ class InternalOrderServiceTest {
         when(scheduleSeatMapper.updateById(any(ScheduleSeat.class))).thenReturn(1);
         when(orderMapper.updateToPaidIfPending(anyLong(), any(LocalDateTime.class))).thenReturn(1);
 
-        Schedule schedule = Schedule.builder().cinemaId(1L).build();
+        Schedule schedule = Schedule.builder().cinemaId(1L).status("onsale").build();
         when(scheduleMapper.selectById(1L)).thenReturn(schedule);
 
         Cinema cinema = Cinema.builder().address("北京市朝阳区").build();

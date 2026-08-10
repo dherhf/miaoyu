@@ -10,6 +10,7 @@ import org.dherhf.cinema.entity.Hall;
 import org.dherhf.cinema.entity.HallCell;
 import org.dherhf.common.exception.BusinessException;
 import org.dherhf.common.result.PageResult;
+import org.dherhf.common.util.PageUtil;
 import org.dherhf.cinema.mapper.CinemaMapper;
 import org.dherhf.cinema.mapper.HallCellMapper;
 import org.dherhf.cinema.mapper.HallMapper;
@@ -34,6 +35,7 @@ import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -91,6 +93,9 @@ public class OrderServiceImpl implements OrderService {
             return cached;
         }
 
+        if (dto.getSeatIds() == null || dto.getSeatIds().isEmpty() || dto.getTicketCount() == null) {
+            throw new BusinessException(400, "座位和票数不能为空");
+        }
         if (!dto.getTicketCount().equals(dto.getSeatIds().size())) {
             throw new BusinessException(400, "购票数量与座位数不一致");
         }
@@ -194,7 +199,6 @@ public class OrderServiceImpl implements OrderService {
 
         LocalDateTime now = LocalDateTime.now();
         Order order = Order.builder()
-                .orderNo(generateOrderNo())
                 .userId(userId)
                 .scheduleId(schedule.getId())
                 .movieName(movie != null ? movie.getName() : "")
@@ -208,7 +212,18 @@ public class OrderServiceImpl implements OrderService {
                 .status(OrderStatus.PENDING.getCode())
                 .createdAt(now)
                 .build();
-        orderMapper.insert(order);
+        // orderNo 唯一约束冲突时重试（时间戳+随机数高并发下可能碰撞）
+        for (int attempt = 0; attempt < 3; attempt++) {
+            order.setOrderNo(generateOrderNo());
+            try {
+                orderMapper.insert(order);
+                break;
+            } catch (DuplicateKeyException e) {
+                if (attempt == 2) {
+                    throw new BusinessException(500, "订单号生成失败，请重试");
+                }
+            }
+        }
 
         for (ScheduleSeat seat : seats) {
             seat.setStatus(ScheduleSeatStatus.LOCKED.getCode());
@@ -263,6 +278,12 @@ public class OrderServiceImpl implements OrderService {
                 throw new BusinessException(409, "订单已完成支付");
             }
 
+            // 校验场次仍可售
+            Schedule schedule = scheduleMapper.selectById(order.getScheduleId());
+            if (schedule == null || !ScheduleStatus.ON_SALE.getCode().equals(schedule.getStatus())) {
+                throw new BusinessException(409, "场次已结束或已取消，不可支付");
+            }
+
             // 条件 UPDATE (CAS)：仅当 status=PENDING 时更新为 PAID
             int affected = orderMapper.updateToPaidIfPending(orderId, LocalDateTime.now());
             if (affected == 0) {
@@ -286,12 +307,12 @@ public class OrderServiceImpl implements OrderService {
             orderTimeoutService.cancel(orderId);
 
             // SETBIT schedule:seat:sold:{scheduleId} {seat_index} 1
+            // setSold 内部已同时清除锁定位
             for (ScheduleSeat seat : seats) {
                 seatBitmapService.setSold(order.getScheduleId(), seat.getSeatIndex());
             }
 
-            Schedule schedule = scheduleMapper.selectById(order.getScheduleId());
-            Cinema cinema = cinemaMapper.selectById(schedule != null ? schedule.getCinemaId() : null);
+            Cinema cinema = cinemaMapper.selectById(schedule.getCinemaId());
 
             // 异步发送支付成功通知
             notificationService.sendNotification(
@@ -482,7 +503,9 @@ public class OrderServiceImpl implements OrderService {
     /** 用户端订单分页查询，按状态/日期/影片名筛选。 */
     @Override
     public PageResult<OrderListVO> listOrders(Long userId, String status, String dateFrom, String dateTo, String keyword, Integer page, Integer size) {
-        Page<Order> pageParam = new Page<>(page, size);
+        int normalizedPage = PageUtil.normalizePage(page);
+        int normalizedSize = PageUtil.normalizeSize(size);
+        Page<Order> pageParam = new Page<>(normalizedPage, normalizedSize);
         LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<Order>()
                 .eq(Order::getUserId, userId)
                 .eq(status != null && !status.isBlank(), Order::getStatus, status)
@@ -496,7 +519,7 @@ public class OrderServiceImpl implements OrderService {
                 .map(this::toListVO)
                 .collect(Collectors.toList());
 
-        return new PageResult<>(result.getTotal(), page, size, records);
+        return new PageResult<>(result.getTotal(), normalizedPage, normalizedSize, records);
     }
 
     /** 订单详情，仅已支付订单返回动态取票码。 */
@@ -637,7 +660,9 @@ public class OrderServiceImpl implements OrderService {
     /** Agent 服务内部订单分页查询，支持按影片名/影院名/订单号模糊搜索。 */
     @Override
     public PageResult<OrderListVO> internalListOrders(Long userId, String keyword, String status, String dateFrom, String dateTo, Integer page, Integer size) {
-        Page<Order> pageParam = new Page<>(page, size);
+        int normalizedPage = PageUtil.normalizePage(page);
+        int normalizedSize = PageUtil.normalizeSize(size);
+        Page<Order> pageParam = new Page<>(normalizedPage, normalizedSize);
         LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<Order>()
                 .eq(Order::getUserId, userId)
                 .eq(status != null && !status.isBlank(), Order::getStatus, status)
@@ -653,7 +678,7 @@ public class OrderServiceImpl implements OrderService {
                 .map(this::toListVO)
                 .collect(Collectors.toList());
 
-        return new PageResult<>(result.getTotal(), page, size, records);
+        return new PageResult<>(result.getTotal(), normalizedPage, normalizedSize, records);
     }
 
     /**
@@ -745,7 +770,7 @@ public class OrderServiceImpl implements OrderService {
     /** 生成订单号：时间戳(14位) + 随机数(6位)。 */
     private String generateOrderNo() {
         return LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
-                + String.format("%06d", (int) (Math.random() * 1000000));
+                + String.format("%06d", java.util.concurrent.ThreadLocalRandom.current().nextInt(1000000));
     }
 
     /** Order → OrderListVO 转换，待支付订单计算剩余支付倒计时。 */

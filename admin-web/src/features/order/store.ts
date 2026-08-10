@@ -24,6 +24,8 @@ export const useOrderStore = create<OrderState>((set) => ({
     try {
       const res = await orderApi.getOrderList(params);
       set({ orders: res.records.map(mapOrderRecord), total: res.total });
+    } catch {
+      set({ orders: [], total: 0 });
     } finally {
       set({ loading: false });
     }

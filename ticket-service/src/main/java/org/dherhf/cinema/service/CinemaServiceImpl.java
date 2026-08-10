@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dherhf.common.exception.BusinessException;
 import org.dherhf.common.result.PageResult;
+import org.dherhf.common.util.PageUtil;
 import org.dherhf.cinema.entity.Cinema;
 import org.dherhf.cinema.entity.Hall;
 import org.dherhf.cinema.enums.CinemaStatus;
@@ -117,7 +118,7 @@ public class CinemaServiceImpl implements CinemaService {
 
     @Override
     public PageResult<CinemaListVO> adminList(String keyword, Integer status, Integer page, Integer size) {
-        Page<Cinema> pageParam = new Page<>(page, size);
+        Page<Cinema> pageParam = new Page<>(PageUtil.normalizePage(page), PageUtil.normalizeSize(size));
         LambdaQueryWrapper<Cinema> wrapper = new LambdaQueryWrapper<Cinema>()
                 .and(keyword != null && !keyword.isBlank(), w -> w.like(Cinema::getName, keyword))
                 .eq(status != null, Cinema::getStatus, status)

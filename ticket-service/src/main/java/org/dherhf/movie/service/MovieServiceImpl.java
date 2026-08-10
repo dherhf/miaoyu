@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import org.dherhf.common.exception.BusinessException;
 import org.dherhf.common.result.PageResult;
+import org.dherhf.common.util.PageUtil;
 import org.dherhf.common.util.OssUtil;
 import org.dherhf.movie.entity.Movie;
 import org.dherhf.movie.enums.MovieStatus;
@@ -224,7 +225,7 @@ public class MovieServiceImpl implements MovieService {
             wrapper.orderByDesc(Movie::getReleaseDate);
         }
 
-        IPage<Movie> result = movieMapper.selectPage(new Page<>(page, size), wrapper);
+        IPage<Movie> result = movieMapper.selectPage(new Page<>(PageUtil.normalizePage(page), PageUtil.normalizeSize(size)), wrapper);
         List<MovieListVO> records = result.getRecords().stream()
                 .map(this::toListVO)
                 .collect(Collectors.toList());
