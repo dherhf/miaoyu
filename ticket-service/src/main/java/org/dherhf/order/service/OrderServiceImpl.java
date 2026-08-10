@@ -383,8 +383,6 @@ public class OrderServiceImpl implements OrderService {
                 seatBitmapService.clearLocked(order.getScheduleId(), seat.getSeatIndex());
             }
 
-       
-
             // 发送取消通知
             notificationService.sendNotification(
                     userId, "ORDER_CANCELLED", "订单已取消",
