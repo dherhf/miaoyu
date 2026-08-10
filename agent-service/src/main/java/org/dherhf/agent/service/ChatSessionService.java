@@ -2,7 +2,6 @@ package org.dherhf.agent.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -13,7 +12,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import org.bson.Document;
 import org.dherhf.agent.document.ChatMessage;
 import org.dherhf.agent.document.ChatSessionDocument;
 import org.dherhf.agent.enums.SessionStatusEnum;
@@ -132,16 +130,4 @@ public class ChatSessionService {
         );
     }
 
-    /**
-     * 加载用户最近未完成会话（用于退出后重新进入恢复状态）。
-     */
-    public Optional<ChatSessionDocument> loadRecentActiveSession(Long userId) {
-        Query query = Query.query(Criteria.where("userId").is(userId)
-                        .and("status").is(SessionStatusEnum.ACTIVE.getValue()))
-                .with(org.springframework.data.domain.Sort.by(
-                        org.springframework.data.domain.Sort.Direction.DESC, "lastMessageAt"))
-                .limit(1);
-        List<ChatSessionDocument> list = mongoTemplate.find(query, ChatSessionDocument.class);
-        return list.isEmpty() ? Optional.empty() : Optional.of(list.get(0));
-    }
 }
