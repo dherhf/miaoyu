@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { getGlobalMessage } from './globalMessage'
+import { message } from './globalMessage'
 import { useAuthStore } from '@/features/auth/store'
 import { router } from '@/router'
 
@@ -35,7 +35,7 @@ request.interceptors.response.use(
       response.data = result.data
       return response
     }
-    getGlobalMessage()?.error(result.message || '请求失败')
+    message.error(result.message || '请求失败')
     return Promise.reject({ __handled: true, ...result })
   },
   (error) => {
@@ -54,17 +54,17 @@ request.interceptors.response.use(
     }
 
     if (error.response?.status === 403) {
-      getGlobalMessage()?.error('无权限执行此操作')
+      message.error('无权限执行此操作')
       return Promise.reject(error)
     }
 
     const serverMsg = error.response?.data?.message
     if (serverMsg) {
-      getGlobalMessage()?.error(serverMsg)
+      message.error(serverMsg)
     } else if (error.code === 'ECONNABORTED') {
-      getGlobalMessage()?.error('请求超时，请稍后重试')
+      message.error('请求超时，请稍后重试')
     } else {
-      getGlobalMessage()?.error('网络异常，请稍后重试')
+      message.error('网络异常，请稍后重试')
     }
     return Promise.reject(error)
   },

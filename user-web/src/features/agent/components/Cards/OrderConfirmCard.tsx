@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Button, Tag, App } from 'antd'
+import { Button, Tag } from 'antd'
+import { message, modal } from '@/shared/globalMessage'
 import { payOrder, cancelOrder } from '@/features/order/api'
 import type { BaseCardProps, OrderConfirmCardData } from '../../types'
 
@@ -10,7 +11,6 @@ function fmtTime(totalSec: number) {
 }
 
 export default function OrderConfirmCard({ data }: BaseCardProps<OrderConfirmCardData>) {
-  const { modal, message } = App.useApp()
   const { id, status, movieName, cinemaName, hallName, showDate, startTime, seatInfo, ticketCount, totalAmount, orderNo, remainingTime, expireAt } = data || {}
   const calcInitial = () => {
     if (!expireAt) return remainingTime ?? 0

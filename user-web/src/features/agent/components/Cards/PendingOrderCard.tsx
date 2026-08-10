@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Button, App } from 'antd'
+import { Button } from 'antd'
+import { message, modal } from '@/shared/globalMessage'
 import { payOrder, cancelOrder } from '@/features/order/api'
 import type { BaseCardProps, PendingOrderCardData } from '../../types'
 
@@ -10,7 +11,6 @@ function fmtTime(totalSec: number) {
 }
 
 export default function PendingOrderCard({ data }: BaseCardProps<PendingOrderCardData>) {
-  const { message, modal } = App.useApp()
   const { id, movieName, cinemaName, seatInfo, totalAmount, remainingSeconds } = data || {}
   const [seconds, setSeconds] = useState(remainingSeconds ?? 0)
   const [paying, setPaying] = useState(false)

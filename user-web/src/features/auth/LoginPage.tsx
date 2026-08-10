@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { App, Button, Form, Input } from 'antd'
+import { Button, Form, Input } from 'antd'
+import { message } from "@/shared/globalMessage";
 import { useAuthStore } from './store'
 import { useHeaderBack } from '@/layouts/navBarStore'
 
 export default function LoginPage() {
   const navigate = useNavigate()
-  const { message } = App.useApp()
   const login = useAuthStore((s) => s.login)
   const [loading, setLoading] = useState(false)
 

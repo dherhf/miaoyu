@@ -1,10 +1,10 @@
-import { Button, App } from 'antd'
+import { Button} from 'antd'
+import { message } from "@/shared/globalMessage";
 import type { BaseCardProps, OrderSuccessCardData } from '../../types'
 
 const BAR_WIDTHS = [2, 4, 2, 6, 2, 8, 2, 4, 2, 6, 2, 4, 2, 8, 2, 4, 2, 6, 2, 4, 2, 8, 2, 4, 2, 6, 2, 4, 2, 8, 2, 4]
 
 export default function OrderSuccessCard({ data, onAction }: BaseCardProps<OrderSuccessCardData>) {
-  const { message } = App.useApp()
   const { pickupCode, movieName, cinemaName, cinemaAddress, hallName, showDate, startTime, seatInfo, totalAmount, orderNo } = data || {}
 
   const code = pickupCode || '888888'

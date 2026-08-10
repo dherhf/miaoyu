@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import type { ReactNode } from 'react'
-import { App, Button, Empty, Modal, Pagination, Popconfirm, Spin, Tag } from 'antd'
+import { Button, Empty, Modal, Pagination, Popconfirm, Spin, Tag } from 'antd'
+import { message } from "@/shared/globalMessage";
 import { getOrderDetail, listOrders, payOrder, cancelOrder, refundOrder, getPickupCode } from './api'
 import type { OrderDetailVO, OrderVO } from './types'
 import { useHeaderBack } from '@/layouts/navBarStore'
@@ -27,7 +28,6 @@ const STATUS_TAG: Record<string, { color: string; label: string }> = {
 }
 
 export default function OrderListPage() {
-  const { message } = App.useApp()
   const [orders, setOrders] = useState<OrderVO[]>([])
   const [total, setTotal] = useState(0)
   const [status, setStatus] = useState('')

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { App, Drawer, Popconfirm } from 'antd'
+import { Drawer, Popconfirm } from 'antd'
+import { message } from "@/shared/globalMessage";
 import { DeleteOutlined, MessageOutlined, PlusOutlined, SendOutlined, UnorderedListOutlined } from '@ant-design/icons'
 import { Streamdown } from 'streamdown'
 import { createSession, deleteSession, getSessionDetail, listSessions, sendMessage } from './api'
@@ -12,7 +13,6 @@ import { useGeoStore } from '@/shared/amap'
 export default function ChatPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { message } = App.useApp()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [activeId, setActiveId] = useState<string | undefined>(id)

@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { App, Button, Form, Input } from 'antd'
+import { Button, Form, Input } from 'antd'
+import { message } from "@/shared/globalMessage";
 import { useAuthStore } from './store'
 import * as authApi from './api'
 import { useHeaderBack } from '@/layouts/navBarStore'
 
 export default function RegisterPage() {
   const navigate = useNavigate()
-  const { message } = App.useApp()
   const register = useAuthStore((s) => s.register)
   const [loading, setLoading] = useState(false)
   const [captchaId, setCaptchaId] = useState('')
