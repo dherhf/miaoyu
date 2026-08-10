@@ -184,9 +184,9 @@ public class OrderServiceImpl implements OrderService {
             scheduleSeatMapper.updateById(seat);
         }
 
-        // SETBIT schedule:seat:occupied:{scheduleId} {seat_index} 1
+        // SETBIT schedule:seat:locked:{scheduleId} {seat_index} 1
         for (ScheduleSeat seat : seats) {
-            seatBitmapService.setOccupied(dto.getScheduleId(), seat.getSeatIndex());
+            seatBitmapService.setLocked(dto.getScheduleId(), seat.getSeatIndex());
         }
 
         LockSeatResultVO vo = new LockSeatResultVO();
@@ -312,9 +312,9 @@ public class OrderServiceImpl implements OrderService {
         // 清理取票码
         pickupCodeService.removeCode(orderId);
 
-        // SETBIT schedule:seat:occupied:{scheduleId} {seat_index} 0
+        // SETBIT schedule:seat:locked:{scheduleId} {seat_index} 0
         for (ScheduleSeat seat : seats) {
-            seatBitmapService.clearOccupiedIfNotSold(order.getScheduleId(), seat.getSeatIndex());
+            seatBitmapService.clearLocked(order.getScheduleId(), seat.getSeatIndex());
         }
 
         idempotentService.put(userId, requestId, "ok");
@@ -364,9 +364,9 @@ public class OrderServiceImpl implements OrderService {
         orderMapper.updateById(order);
 
         // SETBIT schedule:seat:sold:{scheduleId} {seat_index} 0
-        // SETBIT schedule:seat:occupied:{scheduleId} {seat_index} 0
+        // SETBIT schedule:seat:locked:{scheduleId} {seat_index} 0
         for (ScheduleSeat seat : seats) {
-            seatBitmapService.clearSoldAndOccupied(order.getScheduleId(), seat.getSeatIndex());
+            seatBitmapService.clearSoldAndLocked(order.getScheduleId(), seat.getSeatIndex());
         }
 
         // 异步发送退票成功通知
@@ -570,9 +570,9 @@ public class OrderServiceImpl implements OrderService {
         order.setCancelReason("超时取消");
         orderMapper.updateById(order);
 
-        // SETBIT schedule:seat:occupied:{scheduleId} {seat_index} 0
+        // SETBIT schedule:seat:locked:{scheduleId} {seat_index} 0
         for (ScheduleSeat seat : seats) {
-            seatBitmapService.clearOccupiedIfNotSold(order.getScheduleId(), seat.getSeatIndex());
+            seatBitmapService.clearLocked(order.getScheduleId(), seat.getSeatIndex());
         }
         notificationService.sendNotification(
                 order.getUserId(), "TIMEOUT_CANCEL", "订单超时取消",
