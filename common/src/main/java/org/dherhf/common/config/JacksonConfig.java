@@ -28,6 +28,18 @@ public class JacksonConfig {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
+    /**
+     * 注册 Jackson 自定义序列化器。
+     * <p>
+     * 创建 SimpleModule 并注册以下序列化器：
+     * <ul>
+     *   <li>Long / long → String（防止前端 JS 精度丢失）</li>
+     *   <li>LocalDateTime → "yyyy-MM-dd HH:mm:ss"</li>
+     *   <li>LocalDate → "yyyy-MM-dd"</li>
+     * </ul>
+     *
+     * @return JsonMapperBuilderCustomizer，由 Spring Boot 自动应用到 ObjectMapper
+     */
     @Bean
     public JsonMapperBuilderCustomizer jacksonCustomizer() {
         return builder -> {

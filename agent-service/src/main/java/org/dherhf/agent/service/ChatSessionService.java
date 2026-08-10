@@ -38,7 +38,7 @@ public class ChatSessionService {
      *
      * @param userId 用户 ID
      * @param title  会话标题（可空，默认"新对话"）
-     * @return 会话文档
+     * @return 已创建的会话文档
      */
     public ChatSessionDocument createSession(Long userId, String title) {
         ChatSessionDocument session = new ChatSessionDocument();
@@ -68,6 +68,11 @@ public class ChatSessionService {
 
     /**
      * 查询会话列表（分页，按 lastMessageAt 倒序）。
+     *
+     * @param userId 用户 ID
+     * @param page  页码（从 0 开始）
+     * @param size  每页条数
+     * @return 会话文档列表
      */
     public List<ChatSessionDocument> listSessions(Long userId, int page, int size) {
         Query query = Query.query(Criteria.where("userId").is(userId))
@@ -80,6 +85,9 @@ public class ChatSessionService {
 
     /**
      * 统计用户会话总数。
+     *
+     * @param userId 用户 ID
+     * @return 会话总数
      */
     public long countSessions(Long userId) {
         return mongoTemplate.count(
@@ -90,6 +98,10 @@ public class ChatSessionService {
 
     /**
      * 查询会话详情（不含消息列表，消息通过 getMessages 单独查询）。
+     *
+     * @param sessionId 会话 ID
+     * @param userId    用户 ID（校验归属）
+     * @return 会话文档 Optional；不存在或不归属当前用户时返回 empty
      */
     public Optional<ChatSessionDocument> getSession(String sessionId, Long userId) {
         return repository.findBySessionId(sessionId)
@@ -98,6 +110,9 @@ public class ChatSessionService {
 
     /**
      * 查询会话的全部消息（按 msgId 正序）。
+     *
+     * @param sessionId 会话 ID
+     * @return 消息列表
      */
     public List<ChatMessage> getMessages(String sessionId) {
         return chatMessageRepository.findBySessionIdOrderByMsgIdAsc(sessionId);
@@ -105,6 +120,10 @@ public class ChatSessionService {
 
     /**
      * 删除会话（含消息和 Redis 缓存清理）。
+     *
+     * @param sessionId 会话 ID
+     * @param userId    用户 ID（校验归属）
+     * @return true=删除成功，false=会话不存在或不归属当前用户
      */
     public boolean deleteSession(String sessionId, Long userId) {
         Optional<ChatSessionDocument> opt = getSession(sessionId, userId);
@@ -122,6 +141,8 @@ public class ChatSessionService {
 
     /**
      * 标记会话为已完成。
+     *
+     * @param sessionId 会话 ID
      */
     public void markCompleted(String sessionId) {
         mongoTemplate.updateFirst(
@@ -134,6 +155,9 @@ public class ChatSessionService {
 
     /**
      * 加载用户最近未完成会话（用于退出后重新进入恢复状态）。
+     *
+     * @param userId 用户 ID
+     * @return 最近活跃会话 Optional；不存在时返回 empty
      */
     public Optional<ChatSessionDocument> loadRecentActiveSession(Long userId) {
         Query query = Query.query(Criteria.where("userId").is(userId)

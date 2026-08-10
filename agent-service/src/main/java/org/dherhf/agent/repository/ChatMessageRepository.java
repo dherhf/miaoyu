@@ -12,16 +12,24 @@ public interface ChatMessageRepository extends MongoRepository<ChatMessage, Stri
 
     /**
      * 按会话 ID 查询全部消息，按 msgId 正序排列。
+     *
+     * @param sessionId 会话 ID
+     * @return 该会话下的全部消息列表（按 msgId 升序）
      */
     List<ChatMessage> findBySessionIdOrderByMsgIdAsc(String sessionId);
 
     /**
      * 统计会话消息总数。
+     *
+     * @param sessionId 会话 ID
+     * @return 该会话的消息总数
      */
     long countBySessionId(String sessionId);
 
     /**
      * 删除某会话的全部消息。
+     *
+     * @param sessionId 会话 ID
      */
     void deleteBySessionId(String sessionId);
 }

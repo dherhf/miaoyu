@@ -8,6 +8,12 @@ import org.dherhf.schedule.entity.ScheduleSeat;
 
 import java.util.List;
 
+/**
+ * 场次座位数据访问接口。
+ * <p>
+ * 继承 MyBatis-Plus BaseMapper，提供 schedule_seats 表的基本 CRUD 操作，
+ * 并提供锁座流程所需的排他锁查询方法。
+ */
 @Mapper
 public interface ScheduleSeatMapper extends BaseMapper<ScheduleSeat> {
 

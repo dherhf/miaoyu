@@ -15,6 +15,11 @@ public class InternalWebMvcConfig implements WebMvcConfigurer {
 
     private final InternalTokenInterceptor internalTokenInterceptor;
 
+    /**
+     * 注册拦截器，仅对内部接口路径 {@code /internal/**} 进行 Token 校验。
+     *
+     * @param registry 拦截器注册器
+     */
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(internalTokenInterceptor)

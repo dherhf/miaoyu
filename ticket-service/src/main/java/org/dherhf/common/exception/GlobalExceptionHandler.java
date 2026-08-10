@@ -9,6 +9,12 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+/**
+ * 全局异常处理器。
+ * <p>
+ * 统一处理 Controller 层抛出的异常，将异常转换为标准 API 响应格式。
+ * 处理业务异常、参数校验异常和未知异常三类情况。
+ */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {

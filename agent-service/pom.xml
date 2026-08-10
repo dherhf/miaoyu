@@ -81,6 +81,13 @@
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
 
+        <!-- SpringDoc OpenAPI 3 -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>3.0.3</version>
+        </dependency>
+
         <!-- OpenFeign（版本由根 POM spring-cloud-dependencies BOM 管理） -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>

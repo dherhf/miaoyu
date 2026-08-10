@@ -20,14 +20,30 @@ public enum CardTypeEnum {
 
     private final String value;
 
+    /**
+     * 枚举构造方法，绑定卡片类型的字符串值。
+     *
+     * @param value 卡片类型的字符串标识
+     */
     CardTypeEnum(String value) {
         this.value = value;
     }
 
+    /**
+     * 获取卡片类型的字符串标识。
+     *
+     * @return 卡片类型字符串值
+     */
     public String getValue() {
         return value;
     }
 
+    /**
+     * 根据字符串值查找对应的卡片类型枚举（不区分大小写）。
+     *
+     * @param value 卡片类型字符串值
+     * @return 匹配的枚举实例；未匹配时返回 null
+     */
     public static CardTypeEnum fromValue(String value) {
         for (CardTypeEnum type : values()) {
             if (type.value.equalsIgnoreCase(value)) {

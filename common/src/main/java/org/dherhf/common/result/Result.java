@@ -16,6 +16,9 @@ public class Result<T> {
     private String message;
     private T data;
 
+    /**
+     * 私有构造方法，仅允许通过静态工厂方法创建实例。
+     */
     private Result() {
     }
 

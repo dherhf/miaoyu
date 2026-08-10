@@ -29,6 +29,9 @@ public class PickupCodeService {
 
     /**
      * 获取或创建取票码。有有效码则返回,无则生成新码。
+     *
+     * @param orderId 订单 ID
+     * @return 当前有效的取票码字符串
      */
     public String getOrCreateCode(Long orderId) {
         String existing = redisTemplate.opsForValue().get("pickup:order:" + orderId);
@@ -40,6 +43,10 @@ public class PickupCodeService {
 
     /**
      * 生成新码。不删旧码,让旧码在 70s 缓冲期内自然过期。
+     *
+     * @param orderId 订单 ID
+     * @return 新生成的取票码字符串
+     * @throws BusinessException 连续 5 次碰撞均失败时抛出
      */
     public String generateCode(Long orderId) {
         for (int i = 0; i < 5; i++) {
@@ -57,6 +64,9 @@ public class PickupCodeService {
 
     /**
      * 验证取票码,返回 orderId。无效或过期返回 null。
+     *
+     * @param code 取票码字符串
+     * @return 对应的订单 ID，无效或过期返回 null
      */
     public Long verifyCode(String code) {
         if (code == null || code.length() != CODE_LENGTH) {
@@ -68,6 +78,8 @@ public class PickupCodeService {
 
     /**
      * 清理取票码（检票后/取消/退款时调用）。
+     *
+     * @param orderId 订单 ID
      */
     public void removeCode(Long orderId) {
         String code = redisTemplate.opsForValue().get("pickup:order:" + orderId);
@@ -79,12 +91,20 @@ public class PickupCodeService {
 
     /**
      * 获取取票码实际剩余 TTL（秒）。
+     *
+     * @param orderId 订单 ID
+     * @return 剩余有效时长（秒），Key 不存在时返回默认值 60
      */
     public int getRemainingTtl(Long orderId) {
         Long ttl = redisTemplate.getExpire("pickup:order:" + orderId, TimeUnit.SECONDS);
         return (ttl != null && ttl > 0) ? ttl.intValue() : CODE_TTL;
     }
 
+    /**
+     * 使用安全随机数生成指定位数的取票码（排除易混淆字符 I,L,O,0,1）。
+     *
+     * @return 6 位随机取票码字符串
+     */
     private String randomCode() {
         StringBuilder sb = new StringBuilder(CODE_LENGTH);
         for (int i = 0; i < CODE_LENGTH; i++) {

@@ -76,6 +76,8 @@ public class CaptchaService {
 
     /**
      * 生成指定长度的随机验证码,排除易混淆字符（0/O/1/I/l）。
+     *
+     * @return 随机生成的验证码字符串
      */
     private String generateCode() {
         Random random = new Random();
@@ -88,6 +90,9 @@ public class CaptchaService {
 
     /**
      * 使用 AWT 绘制验证码图片（160×50 px）,包含随机颜色字符、干扰线和噪点。
+     *
+     * @param code 验证码文本
+     * @return 绘制完成的验证码图片
      */
     private BufferedImage drawImage(String code) {
         int width = 160;
@@ -130,6 +135,10 @@ public class CaptchaService {
 
     /**
      * 将 BufferedImage 转为 Base64 字符串。
+     *
+     * @param image 待转换的验证码图片
+     * @return Base64 编码的图片字符串
+     * @throws RuntimeException 图片转换失败时抛出
      */
     private String toBase64(BufferedImage image) {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {

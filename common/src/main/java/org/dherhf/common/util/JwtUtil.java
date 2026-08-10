@@ -53,6 +53,12 @@ public class JwtUtil {
     private SecretKey currentKey;
     private SecretKey oldKey;
 
+    /**
+     * Bean 初始化后预计算当前密钥和旧密钥的 SecretKey 对象。
+     * <p>
+     * 将配置中的字符串密钥转换为 HMAC-SHA 密钥，避免每次解析 Token 时重复计算。
+     * 若旧密钥为空则 oldKey 置为 null，表示不启用密钥轮换。
+     */
     @PostConstruct
     public void init() {
         currentKey = Keys.hmacShaKeyFor(currentSecret.getBytes(StandardCharsets.UTF_8));

@@ -20,9 +20,20 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class InternalTokenInterceptor implements HandlerInterceptor {
 
+    /** 期望的内部 Token，从配置文件读取，默认值为 miaoyu-internal-token-2026 */
     @Value("${internal.token:miaoyu-internal-token-2026}")
     private String expectedToken;
 
+    /**
+     * 请求预处理：校验请求头中的 X-Internal-Token 是否匹配，
+     * 不匹配则返回 403 禁止访问。
+     *
+     * @param request  HTTP 请求
+     * @param response HTTP 响应
+     * @param handler  处理器
+     * @return true 表示放行，false 表示拦截
+     * @throws Exception 写入响应时的 IO 异常
+     */
     @Override
     public boolean preHandle(HttpServletRequest request,
                              @NonNull HttpServletResponse response,
@@ -35,6 +46,12 @@ public class InternalTokenInterceptor implements HandlerInterceptor {
         return true;
     }
 
+    /**
+     * 向响应写入 403 禁止访问的 JSON 错误信息。
+     *
+     * @param response HTTP 响应
+     * @throws IOException 写入响应时的 IO 异常
+     */
     private void writeForbidden(HttpServletResponse response) throws IOException {
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
         response.setContentType("application/json;charset=UTF-8");

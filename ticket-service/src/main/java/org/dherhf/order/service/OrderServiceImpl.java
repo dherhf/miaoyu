@@ -742,13 +742,22 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
-    /** 生成订单号：时间戳(14位) + 随机数(6位)。 */
+    /**
+     * 生成订单号：时间戳(14位) + 随机数(6位)。
+     *
+     * @return 20 位订单号字符串
+     */
     private String generateOrderNo() {
         return LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
                 + String.format("%06d", (int) (Math.random() * 1000000));
     }
 
-    /** Order → OrderListVO 转换，待支付订单计算剩余支付倒计时。 */
+    /**
+     * 将订单实体转换为列表视图对象，待支付订单额外计算剩余支付倒计时。
+     *
+     * @param order 订单实体
+     * @return 订单列表 VO
+     */
     private OrderListVO toListVO(Order order) {
         OrderListVO vo = new OrderListVO();
         BeanUtils.copyProperties(order, vo);

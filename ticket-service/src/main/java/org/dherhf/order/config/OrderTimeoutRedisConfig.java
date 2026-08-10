@@ -29,6 +29,16 @@ public class OrderTimeoutRedisConfig {
 
     private final StringRedisTemplate redisTemplate;
 
+    /**
+     * 注册 Redis keyspace 监听容器，监听 order:timeout:* 键的过期事件。
+     * <p>
+     * 当 TTL 键过期时回调 OrderService#timeoutCancel 执行超时取消，
+     * 形成精确延迟取消链路；定时扫描 scanTimeoutOrders 作为兜底。
+     *
+     * @param connectionFactory Redis 连接工厂
+     * @param orderService      订单服务，用于执行超时取消
+     * @return 配置好的 Redis 消息监听容器
+     */
     @Bean
     public RedisMessageListenerContainer orderTimeoutListenerContainer(
             RedisConnectionFactory connectionFactory,

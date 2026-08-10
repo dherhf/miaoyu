@@ -142,6 +142,9 @@ public class ContextService {
 
     /**
      * 仅更新槽位状态（不追加消息）。
+     *
+     * @param sessionId 会话 ID
+     * @param slotState 新的槽位状态
      */
     public void updateSlotState(String sessionId, SlotState slotState) {
         saveToRedis(sessionId, slotState);
@@ -153,6 +156,8 @@ public class ContextService {
 
     /**
      * 清除 Redis 上下文缓存（会话删除/结束时调用）。
+     *
+     * @param sessionId 会话 ID
      */
     public void clearContext(String sessionId) {
         redisTemplate.delete(CONTEXT_KEY_PREFIX + sessionId);
@@ -164,6 +169,10 @@ public class ContextService {
      * 已填槽位可被新输入覆写，incoming 中非 null 字段直接覆盖 existing 对应字段。
      * 对于 negateSlot，合并时先清除对应槽位旧值再将 negateCount +1。
      * </p>
+     *
+     * @param existing 已有槽位状态
+     * @param incoming 本轮新输入的槽位状态
+     * @return 合并后的槽位状态
      */
     public SlotState mergeSlots(SlotState existing, SlotState incoming) {
         SlotState merged = new SlotState();
@@ -195,6 +204,12 @@ public class ContextService {
         return (int) chatMessageRepository.countBySessionId(sessionId);
     }
 
+    /**
+     * 将槽位状态序列化后存入 Redis，设置 TTL。
+     *
+     * @param sessionId 会话 ID
+     * @param slotState 槽位状态
+     */
     private void saveToRedis(String sessionId, SlotState slotState) {
         try {
             String json = objectMapper.writeValueAsString(slotState);
@@ -213,6 +228,9 @@ public class ContextService {
     /**
      * 存入单次请求上下文（userId / scheduleId / seatIds / ticketCount / requestId）。
      * 在 LLM 调用前写入，TicketTools 通过 sessionId 查询。
+     *
+     * @param sessionId 会话 ID
+     * @param ctx      请求上下文对象
      */
     public void storeRequestContext(String sessionId, RequestContext ctx) {
         try {
@@ -225,6 +243,9 @@ public class ContextService {
 
     /**
      * 读取请求上下文。
+     *
+     * @param sessionId 会话 ID
+     * @return 请求上下文对象；不存在或反序列化失败时返回 null
      */
     public RequestContext getRequestContext(String sessionId) {
         String json = redisTemplate.opsForValue().get(REQUEST_CTX_PREFIX + sessionId);
@@ -240,6 +261,8 @@ public class ContextService {
 
     /**
      * 清除请求上下文（LLM 调用结束后调用）。
+     *
+     * @param sessionId 会话 ID
      */
     public void clearRequestContext(String sessionId) {
         redisTemplate.delete(REQUEST_CTX_PREFIX + sessionId);
@@ -249,6 +272,9 @@ public class ContextService {
 
     /**
      * 将 source 中非 null 的字段复制到 target（覆盖 target 已有值）。
+     *
+     * @param target 目标槽位状态
+     * @param source 源槽位状态
      */
     private static void copyNonNull(SlotState target, SlotState source) {
         if (source == null) return;
@@ -270,6 +296,9 @@ public class ContextService {
 
     /**
      * 按槽位名清除对应字段（用于否定场景）。
+     *
+     * @param state    槽位状态对象
+     * @param slotName 槽位字段名
      */
     private static void clearSlotByName(SlotState state, String slotName) {
         switch (slotName) {

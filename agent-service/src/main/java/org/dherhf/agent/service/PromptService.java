@@ -17,6 +17,15 @@ import org.dherhf.agent.enums.SlotEnum;
 @Service
 public class PromptService {
 
+    /**
+     * 获取完整的 System Prompt（系统提示词）。
+     * <p>
+     * 每次调用动态生成，包含当日日期、槽位定义、工具使用规则、输出格式约束及个性化推荐规则，
+     * 由 ChatService 在每次对话时调用并由 ChatAssistant 透传给 LLM。
+     * </p>
+     *
+     * @return 系统提示词文本
+     */
     public String getSystemPrompt() {
         String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd", java.util.Locale.ROOT));
         return """

@@ -36,10 +36,22 @@ public class SeatBitmapService {
     private final StringRedisTemplate redisTemplate;
     private final ConcurrentHashMap<Long, Object> rebuildLocks = new ConcurrentHashMap<>();
 
+    /**
+     * 构建锁定座位 Bitmap 的 Redis Key。
+     *
+     * @param scheduleId 场次 ID
+     * @return Redis Key 字符串
+     */
     private String lockedKey(Long scheduleId) {
         return LOCKED_PREFIX + scheduleId;
     }
 
+    /**
+     * 构建已售座位 Bitmap 的 Redis Key。
+     *
+     * @param scheduleId 场次 ID
+     * @return Redis Key 字符串
+     */
     private String soldKey(Long scheduleId) {
         return SOLD_PREFIX + scheduleId;
     }
@@ -221,6 +233,13 @@ public class SeatBitmapService {
         }
     }
 
+    /**
+     * 从字节数组中读取指定位的布尔值。
+     *
+     * @param bytes    Bitmap 原始字节数组
+     * @param bitIndex 位索引（从 0 开始）
+     * @return 该位的值，数组为空或越界时返回 false
+     */
     private boolean getBit(byte[] bytes, long bitIndex) {
         if (bytes == null) return false;
         long byteIndex = bitIndex / 8;

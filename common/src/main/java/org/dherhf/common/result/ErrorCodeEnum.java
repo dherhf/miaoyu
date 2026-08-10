@@ -30,6 +30,12 @@ public enum ErrorCodeEnum {
     private final int code;
     private final String message;
 
+    /**
+     * 构造错误码枚举项。
+     *
+     * @param code    数字错误码，与 HTTP 状态码或自定义业务码对应
+     * @param message 错误消息描述，面向用户展示
+     */
     ErrorCodeEnum(int code, String message) {
         this.code = code;
         this.message = message;

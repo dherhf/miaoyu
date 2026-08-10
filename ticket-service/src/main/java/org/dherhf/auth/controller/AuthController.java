@@ -16,6 +16,7 @@ import org.dherhf.common.exception.BusinessException;
 import org.dherhf.common.result.Result;
 import org.dherhf.common.util.JwtUtil;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
@@ -118,7 +119,7 @@ public class AuthController {
      */
     @Operation(summary = "用户登出")
     @PostMapping("/logout")
-    public Result<Void> logout(@RequestHeader("Authorization") String authHeader) {
+    public Result<Void> logout(@Parameter(hidden = true) @RequestHeader("Authorization") String authHeader) {
         String token = authHeader.substring(7);
         jwtUtil.blacklistToken(token);
         return Result.success();
@@ -132,7 +133,7 @@ public class AuthController {
      */
     @Operation(summary = "获取当前用户信息")
     @GetMapping("/me")
-    public Result<UserInfoVO> me(@RequestHeader("X-User-Id") Long userId) {
+    public Result<UserInfoVO> me(@Parameter(hidden = true) @RequestHeader("X-User-Id") Long userId) {
         return Result.success(userAuthService.getCurrentUser(userId));
     }
 }

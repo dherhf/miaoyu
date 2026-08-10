@@ -73,6 +73,8 @@ public class TicketTools {
     /**
      * 重置指定会话的工具状态（每轮对话开始前调用）。
      * 清除上一轮残留的卡片缓冲和抑制标记，确保每轮独立。
+     *
+     * @param sessionId 会话 ID
      */
     public void resetSessionState(String sessionId) {
         cardBuffers.remove(sessionId);
@@ -81,6 +83,9 @@ public class TicketTools {
 
     /**
      * 取出并清空指定会话的卡片缓冲（LLM 回复后由 ChatService 调用）。
+     *
+     * @param sessionId 会话 ID
+     * @return 卡片列表（可能为空列表，不会为 null）
      */
     public List<CardPayload> drainCards(String sessionId) {
         List<CardPayload> buffer = cardBuffers.remove(sessionId);
@@ -89,6 +94,8 @@ public class TicketTools {
 
     /**
      * 清理会话级状态（会话结束/过期时调用，防止内存泄漏）。
+     *
+     * @param sessionId 会话 ID
      */
     public void clearSessionState(String sessionId) {
         cardBuffers.remove(sessionId);
@@ -97,11 +104,24 @@ public class TicketTools {
 
     // ========== 会话级内部工具方法 ==========
 
-    /** 获取（或初始化）当前会话的卡片缓冲列表 */
+    /**
+     * 获取（或初始化）当前会话的卡片缓冲列表。
+     *
+     * @param sessionId 会话 ID
+     * @return 线程安全的卡片列表
+     */
     private List<CardPayload> cardBufferOf(String sessionId) {
         return cardBuffers.computeIfAbsent(sessionId, k -> Collections.synchronizedList(new ArrayList<>()));
     }
 
+    /**
+     * 向当前会话的卡片缓冲区追加一张卡片。
+     * 若当前会话处于卡片抑制状态（退票后），则跳过。
+     *
+     * @param sessionId 会话 ID
+     * @param cardType 卡片类型（如 movie_list、cinema_list 等）
+     * @param cardData 卡片数据对象
+     */
     private void emitCard(String sessionId, String cardType, Object cardData) {
         if (Boolean.TRUE.equals(cardSuppressedFlags.get(sessionId))) return;
         cardBufferOf(sessionId).add(CardPayload.builder()
@@ -110,6 +130,20 @@ public class TicketTools {
                 .build());
     }
 
+    /**
+     * 从请求上下文中获取用户 ID，上下文未初始化时抛出异常。
+     *
+     * @param sessionId 会话 ID
+     * @return 用户 ID
+     * @throws IllegalStateException 请求上下文未初始化时抛出
+     */
+    /**
+     * 从请求上下文中获取当前用户 ID，未初始化时抛出异常。
+     *
+     * @param sessionId 会话 ID
+     * @return 用户 ID
+     * @throws IllegalStateException 请求上下文未初始化时抛出
+     */
     private Long requireUserId(String sessionId) {
         RequestContext ctx = contextService.getRequestContext(sessionId);
         if (ctx == null || ctx.getUserId() == null) {
@@ -118,12 +152,24 @@ public class TicketTools {
         return ctx.getUserId();
     }
 
+    /**
+     * 获取当前请求的幂等 ID，优先从请求上下文读取，缺失时生成 UUID 兜底。
+     *
+     * @param sessionId 会话 ID
+     * @return 幂等请求 ID
+     */
     private String getRequestId(String sessionId) {
         RequestContext ctx = contextService.getRequestContext(sessionId);
         String rid = ctx != null ? ctx.getRequestId() : null;
         return rid != null && !rid.isBlank() ? rid : UUID.randomUUID().toString();
     }
 
+    /**
+     * 将对象序列化为 JSON 字符串，序列化失败时返回兜底错误 JSON。
+     *
+     * @param obj 待序列化对象
+     * @return JSON 字符串
+     */
     private String toJson(Object obj) {
         try {
             return objectMapper.writeValueAsString(obj);
@@ -137,6 +183,10 @@ public class TicketTools {
     /**
      * 将 JSON 字符串解析为对象后推入卡片缓冲区。
      * 避免 emitCard 传入 String 导致前端收到转义字符串而非 JSON 对象。
+     *
+     * @param sessionId 会话 ID
+     * @param cardType 卡片类型
+     * @param json     JSON 字符串
      */
     private void emitParsedCard(String sessionId, String cardType, String json) {
         try {
@@ -148,16 +198,34 @@ public class TicketTools {
         }
     }
 
+    /**
+     * 安全解析字符串为 Long，空白或格式不合法时返回 null。
+     *
+     * @param s 数字字符串
+     * @return Long 值，解析失败返回 null
+     */
     private static Long parseLong(String s) {
         if (s == null || s.isBlank()) return null;
         try { return Long.parseLong(s.trim()); } catch (NumberFormatException e) { return null; }
     }
 
+    /**
+     * 安全解析字符串为 Integer，空白或格式不合法时返回 null。
+     *
+     * @param s 数字字符串
+     * @return Integer 值，解析失败返回 null
+     */
     private static Integer parseInt(String s) {
         if (s == null || s.isBlank()) return null;
         try { return Integer.parseInt(s.trim()); } catch (NumberFormatException e) { return null; }
     }
 
+    /**
+     * 将逗号分隔的字符串解析为 Long 列表，忽略空白项和无效数字。
+     *
+     * @param s 逗号分隔的数字字符串，如"1,2,3"
+     * @return Long 列表，输入为空时返回空列表
+     */
     private static List<Long> parseLongList(String s) {
         if (s == null || s.isBlank()) return List.of();
         return Arrays.stream(s.split(","))
@@ -172,6 +240,17 @@ public class TicketTools {
 
     // ========== 业务工具（@ToolMemoryId sessionId 对 LLM 不可见） ==========
 
+    /**
+     * 根据影片名称或类型查询影片列表，支持按影院筛选。
+     * <p>当用户表达模糊意图（如"想看个喜剧"）或指定片名时调用。
+     * 成功时推送 movie_list 卡片。</p>
+     *
+     * @param sessionId 会话 ID（由 {@code @ToolMemoryId} 自动注入，对 LLM 不可见）
+     * @param keyword   影片名称关键词，如"流浪地球3"；用户未指定时传空字符串
+     * @param type      影片类型标签，中文枚举值：科幻/动作/喜剧/爱情/悬疑/动画/纪录片/其他；无约束时传空字符串
+     * @param cinemaId  影院 ID，按影院查影片时传入；无约束时传空字符串
+     * @return 后端返回的影片列表 JSON 字符串
+     */
     @Tool("根据影片名称或类型查询影片列表。当用户表达模糊意图（如'想看个喜剧'）或指定片名时调用。也可按影院查影片（如'长沙学院有什么电影'）。返回后端原始 JSON 数据。")
     public String searchMovies(
             @ToolMemoryId String sessionId,
@@ -188,6 +267,16 @@ public class TicketTools {
         return toJson(result);
     }
 
+    /**
+     * 根据影片 ID、名称或设施要求查询影院列表。
+     * <p>用户选定影片或主动询问影院时调用。成功时推送 cinema_list 卡片。</p>
+     *
+     * @param sessionId  会话 ID（由 {@code @ToolMemoryId} 自动注入，对 LLM 不可见）
+     * @param movieId    影片 ID；无影片约束时传空字符串
+     * @param keyword    影院名称关键词，如"万达影城"；无约束时传空字符串
+     * @param facilities 设施要求，如"IMAX"；无要求时传空字符串
+     * @return 后端返回的影院列表 JSON 字符串
+     */
     @Tool("根据影片id,名称或设施查询影院列表。用户选定影片或主动询问影院时调用。返回后端原始 JSON 数据。")
     public String searchCinemas(
             @ToolMemoryId String sessionId,
@@ -204,6 +293,18 @@ public class TicketTools {
         return toJson(result);
     }
 
+    /**
+     * 查询指定影片和影院的可售场次列表。
+     * <p>movieId 和 cinemaId 均为必填，缺失时返回 400 引导 LLM 先查询。
+     * date 为可选参数，用户未指定日期时传空字符串查询全部场次。
+     * 成功时推送 session_list 卡片。</p>
+     *
+     * @param sessionId 会话 ID（由 {@code @ToolMemoryId} 自动注入，对 LLM 不可见）
+     * @param movieId   影片 ID，必填（由 searchMovies 返回）
+     * @param cinemaId  影院 ID，必填（由 searchCinemas 返回）
+     * @param date      放映日期（yyyy-MM-dd），可选；用户未指定时传空字符串
+     * @return 后端返回的场次列表 JSON 字符串
+     */
     @Tool("查询场次列表。用户选定影片和影院后调用，根据 movieId+cinemaId 获取可售场次。movieId 和 cinemaId 均为必填，缺失时须先调用 searchMovies/searchCinemas 获取。date 为可选参数，用户未指定日期时不要追问，直接传空字符串查询全部场次。返回后端原始 JSON 数据。")
     public String querySessions(
             @ToolMemoryId String sessionId,
@@ -227,6 +328,14 @@ public class TicketTools {
         return toJson(result);
     }
 
+    /**
+     * 获取指定场次的座位图，返回全部座位状态（available/locked/sold）。
+     * <p>用户选定场次后调用。成功时推送 seat_map 卡片。</p>
+     *
+     * @param sessionId  会话 ID（由 {@code @ToolMemoryId} 自动注入，对 LLM 不可见）
+     * @param scheduleId 场次 ID（由 querySessions 返回）
+     * @return 后端返回的座位图 JSON 字符串
+     */
     @Tool("获取座位图。用户选定场次后调用，返回全部座位状态（available/locked/sold）。返回后端原始 JSON 数据。")
     public String getSeatMap(
             @ToolMemoryId String sessionId,
@@ -241,6 +350,16 @@ public class TicketTools {
         return toJson(result);
     }
 
+    /**
+     * 查询当前用户的订单列表，支持分页和状态过滤。
+     * <p>用户表达"查订单""我的订单"等查看全部订单意图时调用。
+     * 已知订单 ID 查单条请用 queryOrderDetail。成功时推送 order_list 卡片。</p>
+     *
+     * @param sessionId 会话 ID（由 {@code @ToolMemoryId} 自动注入，对 LLM 不可见）
+     * @param status    订单状态过滤，如"pending"/"paid"/"refunded"；查全部传空字符串
+     * @param page      页码（从 1 开始），用户未指定时默认第 1 页，每页固定 5 条
+     * @return 后端返回的订单列表 JSON 字符串
+     */
     @Tool("查询当前用户的订单列表，支持分页。用户表达'查订单''我的订单'等查看全部订单意图时调用。已知订单ID查询单个订单请用 queryOrderDetail。返回后端原始 JSON 数据。")
     public String queryOrders(
             @ToolMemoryId String sessionId,
@@ -258,6 +377,18 @@ public class TicketTools {
         return toJson(result);
     }
 
+    /**
+     * 锁座并创建订单。
+     * <p>前端选座后由 Agent 调用，传入 scheduleId + seatIds + ticketCount。
+     * 支持幂等：相同 requestId 命中缓存直接返回。
+     * 成功时推送 order_confirm 卡片。</p>
+     *
+     * @param sessionId   会话 ID（由 {@code @ToolMemoryId} 自动注入，对 LLM 不可见）
+     * @param scheduleId  场次 ID（前端选场次后直接提供）
+     * @param seatIds     座位 ID 列表，逗号分隔（前端选座后直接提供）
+     * @param ticketCount 购票数量（=座位数）
+     * @return 后端返回的下单结果 JSON 字符串
+     */
     @Tool("锁座并创建订单。前端选座后由 Agent 调用，传入 scheduleId+seatIds+ticketCount。返回后端原始 JSON 数据。")
     public String lockAndCreateOrder(
             @ToolMemoryId String sessionId,
@@ -309,6 +440,15 @@ public class TicketTools {
         return json;
     }
 
+    /**
+     * 查询单个订单详情，含状态、取票码等信息。
+     * <p>用户已知订单 ID 时调用。待支付订单会补充计算剩余支付时间和过期时间。
+     * 成功时推送 order_confirm 卡片。</p>
+     *
+     * @param sessionId 会话 ID（由 {@code @ToolMemoryId} 自动注入，对 LLM 不可见）
+     * @param orderId   订单 ID（由 queryOrders 返回或用户直接提供）
+     * @return 后端返回的订单详情 JSON 字符串
+     */
     @Tool("查询单个订单详情。用户询问特定订单（已知订单ID）的状态、取票码等信息时调用。返回后端原始 JSON 数据。")
     public String queryOrderDetail(
             @ToolMemoryId String sessionId,
@@ -353,6 +493,15 @@ public class TicketTools {
     }
 
 
+    /**
+     * 退票——释放已售座位并退款。
+     * <p>仅已出票且未放映的订单可退。支持幂等：相同 requestId 命中缓存直接返回。
+     * 退票成功后清空卡片缓冲并抑制本轮后续卡片推送。</p>
+     *
+     * @param sessionId 会话 ID（由 {@code @ToolMemoryId} 自动注入，对 LLM 不可见）
+     * @param orderId   订单 ID（由 queryOrders 返回）
+     * @return 后端返回的退票结果 JSON 字符串
+     */
     @Tool("退票。用户要求退已支付订单时调用，释放已售座位并退款。仅已出票且未放映的订单可退。返回后端原始 JSON 数据。")
     public String refundOrder(
             @ToolMemoryId String sessionId,
@@ -385,6 +534,13 @@ public class TicketTools {
 
     // ========== 用户偏好工具 ==========
 
+    /**
+     * 获取当前用户的偏好设置。
+     * <p>包括影厅类型、价格范围、座位区域、影片类型等偏好信息。</p>
+     *
+     * @param sessionId 会话 ID（由 {@code @ToolMemoryId} 自动注入，对 LLM 不可见）
+     * @return 用户偏好 JSON 字符串
+     */
     @Tool("获取当前用户的偏好设置，包括影厅类型、价格范围、座位区域、影片类型。返回 JSON 数据。")
     public String getUserPreference(
             @ToolMemoryId String sessionId
@@ -395,6 +551,19 @@ public class TicketTools {
         return toJson(doc);
     }
 
+    /**
+     * 更新用户的偏好设置。
+     * <p>当用户在对话中表达偏好时调用（如"我喜欢看喜剧"、"预算50以内"）。
+     * 仅传入用户明确表达的字段，未提及的字段传空字符串/null。</p>
+     *
+     * @param sessionId            会话 ID（由 {@code @ToolMemoryId} 自动注入，对 LLM 不可见）
+     * @param preferredHallType    偏好的影厅类型，如"IMAX"、"杜比"；未提及传空字符串
+     * @param priceMin             偏好价格下限（元），如"30"；未提及传空字符串
+     * @param priceMax             偏好价格上限（元），如"80"；未提及传空字符串
+     * @param preferredSeatArea    偏好的座位区域，如"5-8排中间"；未提及传空字符串
+     * @param preferredMovieTypes  偏好的影片类型，多个用逗号分隔，如"科幻,喜剧"；未提及传空字符串
+     * @return 更新结果 JSON 字符串
+     */
     @Tool("更新用户的偏好设置。当用户在对话中表达偏好时调用（如'我喜欢看喜剧'、'预算50以内'、'想坐中间排'）。仅传入用户明确表达的字段，未提及的字段传空字符串/null。")
     public String updateUserPreference(
             @ToolMemoryId String sessionId,
@@ -434,6 +603,18 @@ public class TicketTools {
 
     // ========== 行程规划工具 ==========
 
+    /**
+     * 路径规划——支持驾车、公交、步行多种出行方式。
+     * <p>用户问怎么去影院/导航/路线时调用。未指定出行方式时同时查询驾车和公交两种方案。
+     * 先将出发地和目的地地理编码为坐标，再并行调用高德路径规划 API。
+     * 成功时推送 route_info 卡片。</p>
+     *
+     * @param sessionId    会话 ID（由 {@code @ToolMemoryId} 自动注入，对 LLM 不可见）
+     * @param origin       出发地，可为地点名称、地址或坐标（经度,纬度）
+     * @param destination  目的地名称或地址，如"长沙学院"或影院名称
+     * @param mode         出行方式：driving/transit/walking；未指定时传空字符串同时查询驾车和公交
+     * @return 路径规划结果 JSON 字符串
+     */
     @Tool("路径规划。用户问怎么去影院/导航/路线时调用。同时查询驾车和公交两种方案，返回原始 JSON 数据。")
     public String planRoute(
             @ToolMemoryId String sessionId,
@@ -505,6 +686,16 @@ public class TicketTools {
         return combined;
     }
 
+    /**
+     * 周边搜索——查询指定地点附近的 POI（餐饮/停车/地铁等）。
+     * <p>先通过地理编码将地名转为坐标，再调用高德周边搜索 API。
+     * 成功时推送 nearby_poi 卡片。</p>
+     *
+     * @param sessionId 会话 ID（由 {@code @ToolMemoryId} 自动注入，对 LLM 不可见）
+     * @param location  中心地点，可为名称、地址或坐标（经度,纬度）
+     * @param keywords   搜索关键词，如"餐厅"、"停车场"、"地铁站"；无特定要求时传空字符串
+     * @return 周边搜索结果 JSON 字符串
+     */
     @Tool("周边搜索。用户问影院附近有什么（餐饮/停车/地铁等）时调用。先通过地理编码将地名转为坐标，再调用高德周边搜索。返回原始 JSON 数据。")
     public String searchNearby(
             @ToolMemoryId String sessionId,
@@ -521,6 +712,15 @@ public class TicketTools {
         return result;
     }
 
+    /**
+     * 查询指定城市的天气信息。
+     * <p>用户问观影当天天气时调用。城市未指定时根据上下文推断，无上下文时默认"长沙"。
+     * 成功时推送 weather_info 卡片。</p>
+     *
+     * @param sessionId 会话 ID（由 {@code @ToolMemoryId} 自动注入，对 LLM 不可见）
+     * @param city      城市名称，如"长沙"；用户未指定时默认"长沙"
+     * @return 天气查询结果 JSON 字符串
+     */
     @Tool("天气查询。用户问观影当天天气时调用。返回原始 JSON 数据。")
     public String getWeather(
             @ToolMemoryId String sessionId,
@@ -535,13 +735,18 @@ public class TicketTools {
         return result;
     }
 
-    /**
-     * 将地名/地址解析为坐标（经度,纬度）。
-     * 先查影院表（有预存坐标），未命中再调高德地理编码。
-     */
+    /** 坐标格式正则，匹配"经度,纬度"（如 113.008977,28.233355） */
     private static final Pattern COORD_PATTERN =
             Pattern.compile("^-?\\d+\\.\\d+,-?\\d+\\.\\d+$");
 
+    /**
+     * 将地名/地址解析为坐标（经度,纬度）。
+     * <p>解析顺序：1) 已是坐标格式则直接返回；2) 查影院表（有预存坐标）；
+     * 3) 调高德地理编码 API。三步均失败时返回 null。</p>
+     *
+     * @param placeName 地名、地址或坐标字符串
+     * @return "经度,纬度" 格式坐标字符串，解析失败返回 null
+     */
     private String resolveCoordinates(String placeName) {
         if (placeName == null || placeName.isBlank()) return null;
         // 已是坐标格式则直接返回

@@ -19,10 +19,20 @@ public enum SseEventTypeEnum {
 
     private final String value;
 
+    /**
+     * 枚举构造方法，绑定 SSE 事件类型的字符串值。
+     *
+     * @param value SSE 事件类型的字符串标识
+     */
     SseEventTypeEnum(String value) {
         this.value = value;
     }
 
+    /**
+     * 获取 SSE 事件类型的字符串标识。
+     *
+     * @return SSE 事件类型字符串值
+     */
     public String getValue() {
         return value;
     }

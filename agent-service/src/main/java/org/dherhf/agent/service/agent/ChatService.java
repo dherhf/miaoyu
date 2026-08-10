@@ -149,6 +149,16 @@ public class ChatService {
      * LLM 按提示词约定先输出 markdown 内容，再以 &lt;&lt;&lt;META&gt;&gt;&gt; 分隔输出 JSON 元数据。
      * 流式阶段仅推送分隔符之前的 token；完成后解析 JSON 提取 intent/slots。
      * </p>
+     *
+     * @param sink           FluxSink，用于推送 SSE 事件
+     * @param sessionId      会话 ID
+     * @param userId         用户 ID
+     * @param content        用户输入文本
+     * @param slotState      当前槽位状态
+     * @param longitude      用户当前经度（GCJ-02，可 null）
+     * @param latitude       用户当前纬度（GCJ-02，可 null）
+     * @param city           用户当前城市（可 null）
+     * @param needTitle      是否需要生成会话标题（首条消息时为 true）
      */
     private void processDialogue(
             FluxSink<String> sink,
@@ -352,6 +362,22 @@ public class ChatService {
         }
     }
 
+    /**
+     * 构造本轮对话的上下文提示词，注入 LLM 作为 UserMessage。
+     * <p>
+     * 包含识别意图、用户偏好、当前槽位状态、用户位置和原始输入，
+     * 历史消息由 ChatMemoryProvider 自动管理，此处不拼历史。
+     * </p>
+     *
+     * @param userId          用户 ID
+     * @param content         用户输入文本
+     * @param slotState       当前槽位状态
+     * @param longitude       用户当前经度（GCJ-02，可 null）
+     * @param latitude        用户当前纬度（GCJ-02，可 null）
+     * @param city            用户当前城市（可 null）
+     * @param recognizedIntent 意图识别结果（意图枚举名）
+     * @return 拼接完成的上下文提示词字符串
+     */
     private String buildContextPrompt(
             Long userId,
             String content,
@@ -392,6 +418,12 @@ public class ChatService {
         return sb.toString();
     }
 
+    /**
+     * 判断槽位状态对象是否包含有效数据（至少一个字段非 null）。
+     *
+     * @param slotState 槽位状态对象
+     * @return true=有数据，false=全部为 null
+     */
     private static boolean hasSlotData(SlotState slotState) {
         if (slotState == null) return false;
         return slotState.getMovieId() != null
@@ -409,6 +441,12 @@ public class ChatService {
                 || slotState.getNegateCount() != null;
     }
 
+    /**
+     * 判断用户偏好文档是否包含有效数据（至少一个字段非空）。
+     *
+     * @param pref 用户偏好文档
+     * @return true=有偏好数据，false=无偏好
+     */
     private static boolean hasPreferenceData(UserPreferenceDocument pref) {
         if (pref == null) return false;
         return (pref.getPreferredHallType() != null && !pref.getPreferredHallType().isBlank())
@@ -421,6 +459,9 @@ public class ChatService {
     /**
      * 将用户偏好转换为结构化自然语言文本，注入 LLM 上下文。
      * 相比 JSON 序列化更省 Token 且 LLM 理解更优。
+     *
+     * @param pref 用户偏好文档
+     * @return 自然语言格式的偏好文本
      */
     private static String buildPreferenceText(UserPreferenceDocument pref) {
         StringBuilder sb = new StringBuilder("【用户偏好】\n");
@@ -447,10 +488,22 @@ public class ChatService {
         return sb.toString();
     }
 
+    /**
+     * 向 FluxSink 推送一条 SSE 事件（序列化为 JSON 字符串）。
+     *
+     * @param sink  FluxSink 推送目标
+     * @param event SSE 事件对象
+     */
     private void sendSseEvent(FluxSink<String> sink, SseEvent event) {
         sink.next(toJson(event));
     }
 
+    /**
+     * 将 SSE 事件对象序列化为 JSON 字符串，序列化失败时返回兜底错误 JSON。
+     *
+     * @param event SSE 事件对象
+     * @return JSON 字符串
+     */
     private String toJson(SseEvent event) {
         try {
             return objectMapper.writeValueAsString(event);
@@ -467,6 +520,9 @@ public class ChatService {
      * 此方法对 order_confirm / order_success / order_list 类卡片调 ticket-service
      * 获取最新订单状态，仅刷新内存中的响应数据，不修改 MongoDB 快照。
      * </p>
+     *
+     * @param messages 会话消息列表
+     * @param userId   用户 ID
      */
     public void enrichOrderCards(List<ChatMessage> messages, Long userId) {
         for (ChatMessage msg : messages) {
@@ -494,6 +550,13 @@ public class ChatService {
         }
     }
 
+    /**
+     * 刷新单订单卡片的订单状态。
+     * 从 cardData 中提取 orderId，调用 ticket-service 获取最新状态后更新到 cardData。
+     *
+     * @param cardData 卡片数据 Map
+     * @param userId   用户 ID
+     */
     private void enrichSingleOrderCard(Map<String, Object> cardData, Long userId) {
         Object idObj = cardData.get("id");
         if (idObj == null) return;
@@ -502,6 +565,13 @@ public class ChatService {
         applyOrderDetail(ticketClient.queryOrderDetail(orderId, userId), cardData);
     }
 
+    /**
+     * 刷新订单列表卡片中每条订单的状态。
+     * 遍历 records 数组，对每个订单调用 ticket-service 获取最新状态并更新。
+     *
+     * @param cardData 卡片数据 Map（含 records 数组）
+     * @param userId   用户 ID
+     */
     // 从 Map<?, ?> pattern match 强转为 Map<String, Object>，MongoDB 数据结构确定，转换安全
     @SuppressWarnings("unchecked")
     private void enrichOrderListCard(Map<String, Object> cardData, Long userId) {
@@ -518,6 +588,12 @@ public class ChatService {
         }
     }
 
+    /**
+     * 将 ticket-service 返回的订单详情中的 status 和 pickupCode 字段写入目标 Map。
+     *
+     * @param result ticket-service 返回的订单详情结果
+     * @param target 待更新的目标 Map（cardData 或 order 记录）
+     */
     private void applyOrderDetail(Result<Object> result, Map<String, Object> target) {
         if (result.getCode() == 0 && result.getData() != null) {
             Map<String, Object> detail = objectMapper.convertValue(
@@ -530,6 +606,13 @@ public class ChatService {
         }
     }
 
+    /**
+     * 将订单 ID 对象安全转换为 Long。
+     * 支持 Number 类型直接转换，其他类型通过字符串解析。
+     *
+     * @param idObj 订单 ID 对象（可能为 Number、String 等）
+     * @return Long 类型的订单 ID，转换失败时返回 null
+     */
     private static Long parseOrderId(Object idObj) {
         if (idObj instanceof Number n) return n.longValue();
         try {

@@ -32,6 +32,12 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+/**
+ * 订单管理端服务实现。
+ * <p>
+ * 实现管理端订单分页查询、详情查看与核销检票。
+ * 检票操作使用 Redisson 订单级锁 + CAS 条件更新保证并发安全。
+ */
 @Service
 @RequiredArgsConstructor
 public class AdminOrderServiceImpl implements AdminOrderService {
@@ -46,6 +52,11 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     private static final long LOCK_WAIT_SECONDS = 3;
     private static final long LOCK_LEASE_SECONDS = 10;
 
+    /**
+     * {@inheritDoc}
+     * <p>
+     * 按订单号/影片名/影院名/状态/日期区间组合条件分页查询，结果按创建时间倒序。
+     */
     @Override
     public PageResult<AdminOrderListVO> list(String orderNo, String movieName, String cinemaName, String status, String dateFrom, String dateTo, Integer page, Integer size) {
         Page<Order> pageParam = new Page<>(page, size);
@@ -66,6 +77,11 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         return new PageResult<>(result.getTotal(), page, size, records);
     }
 
+    /**
+     * {@inheritDoc}
+     * <p>
+     * 查询订单基础信息后补充用户脱敏手机号与座位分布详情。
+     */
     @Override
     public AdminOrderDetailVO detail(Long id) {
         Order order = orderMapper.selectById(id);
@@ -99,6 +115,12 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         return vo;
     }
 
+    /**
+     * {@inheritDoc}
+     * <p>
+     * 核销流程：校验取票码有效性 → 获取订单级分布式锁 → 校验状态（须为已出票）→
+     * CAS 条件更新为已检票 → 清理取票码缓存 → 返回订单详情。
+     */
     @Override
     @Transactional
     public AdminOrderDetailVO checkTicket(String pickupCode) {
@@ -143,6 +165,12 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         }
     }
 
+    /**
+     * 将订单实体转换为管理端列表视图对象，并补充脱敏手机号。
+     *
+     * @param order 订单实体
+     * @return 管理端订单列表 VO
+     */
     private AdminOrderListVO toListVO(Order order) {
         AdminOrderListVO vo = new AdminOrderListVO();
         BeanUtils.copyProperties(order, vo);
@@ -150,6 +178,12 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         return vo;
     }
 
+    /**
+     * 查询用户手机号并脱敏（中间四位替换为 ****），解密失败则返回原始值。
+     *
+     * @param userId 用户 ID
+     * @return 脱敏后的手机号字符串，用户不存在时返回 null
+     */
     private String getMaskedPhone(Long userId) {
         User user = userMapper.selectById(userId);
         if (user == null || user.getPhone() == null) {
@@ -167,6 +201,18 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
     }
 
+    /**
+     * 将日期字符串（yyyy-MM-dd）解析为当天 00:00:00 的 LocalDateTime。
+     *
+     * @param dateStr 日期字符串
+     * @return 对应 LocalDateTime，空或空白时返回 null
+     */
+    /**
+     * 将日期字符串（yyyy-MM-dd）解析为 LocalDateTime（当天 00:00:00）。
+     *
+     * @param dateStr 日期字符串
+     * @return 解析后的 LocalDateTime，输入为空时返回 null
+     */
     private LocalDateTime parseDateTime(String dateStr) {
         if (dateStr == null || dateStr.isBlank()) {
             return null;

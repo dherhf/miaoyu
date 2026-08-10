@@ -47,6 +47,23 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
 
     private final JwtUtil jwtUtil;
 
+    /**
+     * 核心过滤逻辑：对每个请求依次执行以下步骤。
+     * <ol>
+     *   <li>OPTIONS 预检请求直接放行</li>
+     *   <li>公开路径（注册/登录/验证码等）直接放行，不注入 Header</li>
+     *   <li>提取 Authorization Header 中的 Bearer Token</li>
+     *   <li>解析并校验 Token 签名（支持双密钥轮换）</li>
+     *   <li>检查 Token 是否在 Redis 黑名单中（已退出登录）</li>
+     *   <li>校验路径与 Token 类型是否匹配（admin 路径仅允许 admin Token）</li>
+     *   <li>剥离客户端伪造的 X-User-Id / X-User-Type，注入可信值后放行</li>
+     * </ol>
+     * 校验失败时统一返回 401 JSON 响应。
+     *
+     * @param exchange 当前请求/响应上下文
+     * @param chain    网关过滤器链，用于传递给下一个过滤器
+     * @return Mono&lt;Void&gt;，表示异步处理完成
+     */
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, @NonNull GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
@@ -110,13 +127,26 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         return chain.filter(exchange.mutate().request(mutated).build());
     }
 
+    /**
+     * 设置过滤器执行优先级。
+     * <p>
+     * 返回 -100，确保认证过滤器在大多数其他过滤器之前执行。
+     *
+     * @return 过滤器顺序值，越小越先执行
+     */
     @Override
     public int getOrder() {
         return -100;
     }
 
     /**
-     * 返回 401 JSON 响应，格式与下游服务 Result 一致。
+     * 向客户端返回 401 未授权 JSON 响应。
+     * <p>
+     * 响应体格式与下游服务 {@code Result} 一致：{@code {"code":401,"message":"...","data":null}}。
+     *
+     * @param exchange 当前请求/响应上下文
+     * @param message  错误提示消息，写入响应体
+     * @return Mono&lt;Void&gt;，表示响应写入完成
      */
     private Mono<Void> writeUnauthorized(ServerWebExchange exchange, String message) {
         ServerHttpResponse response = exchange.getResponse();

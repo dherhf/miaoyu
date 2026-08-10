@@ -15,6 +15,12 @@ import dev.langchain4j.service.spring.AiServiceWiringMode;
 @AiService(wiringMode = AiServiceWiringMode.EXPLICIT, chatModel = "openAiChatModel")
 public interface TitleAssistant {
 
+    /**
+     * 根据用户首条消息生成对话标题（非流式单次调用）。
+     *
+     * @param userMessage 用户首条消息
+     * @return 不超过 20 字的中文标题
+     */
     @SystemMessage("""
             你是妙语购票的对话标题助手。根据用户的第一条消息，生成一个不超过 20 字的中文标题，概括其核心需求。
             只输出标题本身，不要任何解释、引号或标点符号。

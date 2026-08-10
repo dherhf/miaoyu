@@ -59,6 +59,14 @@ public enum SlotEnum {
     private final boolean required;
     private final boolean systemMaintained;
 
+    /**
+     * 枚举构造方法，初始化槽位的各项属性。
+     *
+     * @param key              槽位键名（JSON 中的 key）
+     * @param descriptionZh    中文描述
+     * @param required         是否为必填槽位
+     * @param systemMaintained 是否由系统自动维护
+     */
     SlotEnum(String key, String descriptionZh, boolean required, boolean systemMaintained) {
         this.key = key;
         this.descriptionZh = descriptionZh;
@@ -68,6 +76,8 @@ public enum SlotEnum {
 
     /**
      * 槽位键名（JSON 中的 key，如 "movieId"、"priceMax"）。
+     *
+     * @return 槽位键名字符串
      */
     public String getKey() {
         return key;
@@ -75,6 +85,8 @@ public enum SlotEnum {
 
     /**
      * 中文描述（用于提示词生成）。
+     *
+     * @return 槽位的中文描述
      */
     public String getDescriptionZh() {
         return descriptionZh;
@@ -82,6 +94,8 @@ public enum SlotEnum {
 
     /**
      * 是否为必填槽位。
+     *
+     * @return true 表示必填，false 表示非必填
      */
     public boolean isRequired() {
         return required;
@@ -89,6 +103,8 @@ public enum SlotEnum {
 
     /**
      * 是否由系统自动维护（LLM 不应设置）。
+     *
+     * @return true 表示由系统维护，false 表示 LLM 可设置
      */
     public boolean isSystemMaintained() {
         return systemMaintained;
@@ -96,6 +112,8 @@ public enum SlotEnum {
 
     /**
      * 生成提示词中的槽位定义列表（格式：- key：中文描述）。
+     *
+     * @return 拼接好的槽位定义提示词文本
      */
     public static String toPromptList() {
         return Arrays.stream(values())
@@ -105,6 +123,8 @@ public enum SlotEnum {
 
     /**
      * 获取所有槽位键名（用于校验、过滤等）。
+     *
+     * @return 所有槽位键名字符串数组
      */
     public static String[] getAllKeys() {
         return Arrays.stream(values())
@@ -114,6 +134,8 @@ public enum SlotEnum {
 
     /**
      * 获取所有非系统维护的槽位键名（LLM 可设置的槽位）。
+     *
+     * @return LLM 可设置的槽位键名字符串数组
      */
     public static String[] getLlmSettableKeys() {
         return Arrays.stream(values())
@@ -124,6 +146,9 @@ public enum SlotEnum {
 
     /**
      * 根据 key 查找枚举（不区分大小写）。
+     *
+     * @param key 槽位键名
+     * @return 匹配的枚举实例；未匹配时返回 null
      */
     public static SlotEnum findByKey(String key) {
         if (key == null) {
@@ -139,6 +164,9 @@ public enum SlotEnum {
 
     /**
      * 判断 key 是否为有效槽位。
+     *
+     * @param key 槽位键名
+     * @return true 表示有效槽位，false 表示无效
      */
     public static boolean isValidKey(String key) {
         return findByKey(key) != null;

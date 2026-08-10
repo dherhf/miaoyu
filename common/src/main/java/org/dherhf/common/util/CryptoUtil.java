@@ -25,6 +25,11 @@ public class CryptoUtil {
 
     private static String defaultAesBase64Key;
 
+    /**
+     * 由 Spring 注入配置文件中的默认 AES 密钥，存入静态字段供全局使用。
+     *
+     * @param key Base64 编码的 32 字节 AES 密钥，来源于配置项 {@code crypto.aes-base64-key}
+     */
     @Value("${crypto.aes-base64-key}")
     public void setDefaultAesBase64Key(String key) {
         CryptoUtil.defaultAesBase64Key = key;

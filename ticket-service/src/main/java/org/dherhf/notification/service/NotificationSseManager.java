@@ -21,10 +21,14 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Component
 public class NotificationSseManager {
 
+    /** 按 userId 分组的 SSE 连接列表，支持同一用户多设备同时在线 */
     private final ConcurrentHashMap<Long, CopyOnWriteArrayList<SseEmitter>> emitters = new ConcurrentHashMap<>();
 
     /**
      * 注册一个用户的 SSE 连接，并在完成/超时/异常时自动移除。
+     *
+     * @param userId  用户 ID
+     * @param emitter SSE 连接对象
      */
     public void register(Long userId, SseEmitter emitter) {
         emitters.computeIfAbsent(userId, k -> new CopyOnWriteArrayList<>()).add(emitter);
@@ -39,6 +43,11 @@ public class NotificationSseManager {
 
     /**
      * 向指定用户的所有在线连接推送通知。
+     * <p>
+     * 遍历该用户的所有 SSE 连接逐个推送，发送失败的连接会被自动移除。
+     *
+     * @param userId 用户 ID
+     * @param vo     通知 VO
      */
     public void send(Long userId, NotificationVO vo) {
         CopyOnWriteArrayList<SseEmitter> list = emitters.get(userId);
@@ -73,6 +82,12 @@ public class NotificationSseManager {
         });
     }
 
+    /**
+     * 从用户连接列表中移除指定的 SSE 连接，若列表为空则清除该用户的条目。
+     *
+     * @param userId  用户 ID
+     * @param emitter 待移除的 SSE 连接对象
+     */
     private void remove(Long userId, SseEmitter emitter) {
         CopyOnWriteArrayList<SseEmitter> list = emitters.get(userId);
         if (list != null) {
@@ -83,6 +98,12 @@ public class NotificationSseManager {
         }
     }
 
+    /**
+     * 获取指定用户的当前在线 SSE 连接数。
+     *
+     * @param userId 用户 ID
+     * @return 在线连接数
+     */
     private int count(Long userId) {
         CopyOnWriteArrayList<SseEmitter> list = emitters.get(userId);
         return list == null ? 0 : list.size();

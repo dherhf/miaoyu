@@ -22,6 +22,13 @@ import dev.langchain4j.service.spring.AiServiceWiringMode;
 @AiService(wiringMode = AiServiceWiringMode.EXPLICIT, chatModel = "openAiChatModel")
 public interface IntentAssistant {
 
+    /**
+     * 识别用户意图（非流式单次调用）。
+     *
+     * @param userMessage  用户当前消息
+     * @param systemPrompt 意图识别系统提示词（含意图枚举列表，运行时拼接）
+     * @return 意图枚举名（如 "BUY_TICKET"）
+     */
     @SystemMessage("{{systemPrompt}}")
     String recognizeIntent(
             @UserMessage String userMessage,

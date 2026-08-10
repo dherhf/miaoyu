@@ -1,5 +1,6 @@
 package org.dherhf.agent.model.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Size;
@@ -15,22 +16,28 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Schema(description = "用户偏好更新请求")
 public class PreferenceUpdateDTO {
 
+    @Schema(description = "偏好影厅类型")
     @Size(max = 50, message = "影厅类型过长")
     private String preferredHallType;
 
+    @Schema(description = "价格下限")
     @DecimalMin(value = "0.0", message = "价格下限不能为负")
     @DecimalMax(value = "9999.99", message = "价格下限超出合理范围")
     private BigDecimal priceMin;
 
+    @Schema(description = "价格上限")
     @DecimalMin(value = "0.0", message = "价格上限不能为负")
     @DecimalMax(value = "9999.99", message = "价格上限超出合理范围")
     private BigDecimal priceMax;
 
+    @Schema(description = "偏好座位区域")
     @Size(max = 50, message = "座位区域描述过长")
     private String preferredSeatArea;
 
+    @Schema(description = "偏好影片类型列表")
     @Size(max = 5, message = "影片类型最多5个")
     private List<@Size(max = 20, message = "单个影片类型过长") String> preferredMovieTypes;
 }

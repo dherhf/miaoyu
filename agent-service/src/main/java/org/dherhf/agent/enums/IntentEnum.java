@@ -32,12 +32,19 @@ public enum IntentEnum {
 
     private final String descriptionZh;
 
+    /**
+     * 枚举构造方法，绑定意图的中文描述。
+     *
+     * @param descriptionZh 意图的中文描述
+     */
     IntentEnum(String descriptionZh) {
         this.descriptionZh = descriptionZh;
     }
 
     /**
      * 生成提示词中的意图分类列表（格式：- INTENT_NAME：中文描述）。
+     *
+     * @return 拼接好的意图分类提示词文本
      */
     public static String toPromptList() {
         return Arrays.stream(values())

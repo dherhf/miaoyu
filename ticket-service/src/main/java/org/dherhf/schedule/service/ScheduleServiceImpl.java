@@ -42,6 +42,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * 场次服务实现。
+ * <p>
+ * 管理场次的创建、编辑、取消/恢复/结束/删除，以及用户端列表/详情/座位图查询。
+ * 座位状态使用 Redis Bitmap 加速读取，MySQL 为权威数据源。
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -57,6 +63,16 @@ public class ScheduleServiceImpl implements ScheduleService {
     private final org.dherhf.order.mapper.OrderMapper orderMapper;
     private final SeatBitmapService seatBitmapService;
 
+    /**
+     * 新增场次（排片）。
+     * <p>
+     * 校验影片是否上架、影院是否营业、影厅是否启用且归属正确，
+     * 校验放映日期不早于当天，检查影厅时段排片冲突，
+     * 然后创建场次记录、批量生成座位、初始化 Redis Bitmap。
+     *
+     * @param dto 场次创建参数
+     * @return 新建场次信息
+     */
     @Override
     @Transactional
     public ScheduleVO createSchedule(ScheduleCreateDTO dto) {
@@ -122,6 +138,16 @@ public class ScheduleServiceImpl implements ScheduleService {
         return vo;
     }
 
+    /**
+     * 编辑场次信息。
+     * <p>
+     * 仅可售场次可修改；若已有售票则不可修改影厅/日期/时间等核心字段。
+     * 更换影厅时重新生成座位并重建 Redis Bitmap；修改核心字段时重新检查排片冲突。
+     *
+     * @param id  场次ID
+     * @param dto 场次更新参数
+     * @return 更新后的场次信息
+     */
     @Override
     @Transactional
     public ScheduleVO updateSchedule(Long id, ScheduleUpdateDTO dto) {
@@ -204,6 +230,14 @@ public class ScheduleServiceImpl implements ScheduleService {
         return vo;
     }
 
+    /**
+     * 取消场次。
+     * <p>
+     * 仅可取消在售场次，已有售票的场次不可取消。取消后释放所有锁定座位，
+     * 关联的未支付订单自动取消并发送通知，清理 Redis Bitmap 缓存。
+     *
+     * @param id 场次ID
+     */
     @Override
     @Transactional
     public void cancelSchedule(Long id) {
@@ -249,6 +283,14 @@ public class ScheduleServiceImpl implements ScheduleService {
         seatBitmapService.deleteBitmap(id);
     }
 
+    /**
+     * 恢复已取消的场次。
+     * <p>
+     * 仅已取消场次可恢复，放映日期不可过期，恢复前检查影厅时段排片冲突，
+     * 恢复后重建 Redis Bitmap 座位状态缓存。
+     *
+     * @param id 场次ID
+     */
     @Override
     @Transactional
     public void restoreSchedule(Long id) {
@@ -277,6 +319,14 @@ public class ScheduleServiceImpl implements ScheduleService {
         seatBitmapService.rebuildBitmap(id, seats);
     }
 
+    /**
+     * 结束场次。
+     * <p>
+     * 将在售场次置为已结束状态，释放所有锁定座位，
+     * 已出票订单置为已过期（不可再检票），清理 Redis Bitmap 缓存。
+     *
+     * @param id 场次ID
+     */
     @Override
     @Transactional
     public void endSchedule(Long id) {
@@ -304,6 +354,14 @@ public class ScheduleServiceImpl implements ScheduleService {
         seatBitmapService.deleteBitmap(id);
     }
 
+    /**
+     * 删除场次。
+     * <p>
+     * 在售场次不可删除（需先取消），存在已售座的场次无法删除。
+     * 删除后同步清理座位数据和 Redis Bitmap 缓存。
+     *
+     * @param id 场次ID
+     */
     @Override
     @Transactional
     public void deleteSchedule(Long id) {
@@ -329,6 +387,21 @@ public class ScheduleServiceImpl implements ScheduleService {
         seatBitmapService.deleteBitmap(id);
     }
 
+    /**
+     * 查询管理端场次列表（分页）。
+     * <p>
+     * 支持按影片、影院、影厅、放映日期、场次状态过滤，按创建时间倒序排列。
+     * 返回结果包含影片名、影院名、影厅名及座位售卖统计（锁定/已售/可选/上座率）。
+     *
+     * @param movieId  影片ID，可选过滤条件
+     * @param cinemaId 影院ID，可选过滤条件
+     * @param hallId   影厅ID，可选过滤条件
+     * @param showDate 放映日期字符串，可选过滤条件
+     * @param status   场次状态，可选过滤条件
+     * @param page     页码，从1开始
+     * @param size     每页条数
+     * @return 分页场次列表结果
+     */
     @Override
     public PageResult<ScheduleListVO> adminList(Long movieId, Long cinemaId, Long hallId, String showDate, String status, Integer page, Integer size) {
         Page<Schedule> pageParam = new Page<>(page, size);
@@ -348,6 +421,15 @@ public class ScheduleServiceImpl implements ScheduleService {
         return new PageResult<>(result.getTotal(), page, size, records);
     }
 
+    /**
+     * 查询管理端场次详情。
+     * <p>
+     * 返回场次完整信息，包括影片名称/海报/时长、影院名称/地址、影厅名称/屏幕类型，
+     * 以及座位统计（锁定/已售/可选/上座率）。
+     *
+     * @param id 场次ID
+     * @return 场次详情
+     */
     @Override
     public ScheduleDetailVO adminDetail(Long id) {
         Schedule schedule = scheduleMapper.selectById(id);
@@ -357,6 +439,20 @@ public class ScheduleServiceImpl implements ScheduleService {
         return toDetailVO(schedule);
     }
 
+    /**
+     * 查询用户端场次列表（分页）。
+     * <p>
+     * 仅返回可售状态且放映日期不早于当天的场次，按放映日期和开始时间升序排列。
+     * 支持按影片ID、影片名称（模糊）、影院ID、放映日期过滤。
+     *
+     * @param movieId   影片ID，可选过滤条件
+     * @param movieName 影片名称（模糊匹配），可选过滤条件
+     * @param cinemaId  影院ID，可选过滤条件
+     * @param showDate  放映日期字符串，可选过滤条件
+     * @param page      页码，从1开始
+     * @param size      每页条数
+     * @return 分页场次列表结果
+     */
     @Override
     public PageResult<ScheduleListVO> userList(Long movieId, String movieName, Long cinemaId, String showDate, Integer page, Integer size) {
         Page<Schedule> pageParam = new Page<>(page, size);
@@ -386,6 +482,14 @@ public class ScheduleServiceImpl implements ScheduleService {
         return new PageResult<>(result.getTotal(), page, size, records);
     }
 
+    /**
+     * 查询用户端场次详情。
+     * <p>
+     * 仅返回可售状态的场次详情，包含影片/影院/影厅信息及座位统计。
+     *
+     * @param id 场次ID
+     * @return 场次详情
+     */
     @Override
     public ScheduleDetailVO userDetail(Long id) {
         Schedule schedule = scheduleMapper.selectById(id);
@@ -395,6 +499,16 @@ public class ScheduleServiceImpl implements ScheduleService {
         return toDetailVO(schedule);
     }
 
+    /**
+     * 查询场次座位图。
+     * <p>
+     * 返回场次所有座位的排布及状态信息。优先从 Redis Bitmap 读取座位状态，
+     * 缓存未命中时从 MySQL 重建并回写，确保返回最新状态。
+     * 同时统计可选座位数。
+     *
+     * @param id 场次ID
+     * @return 座位图信息
+     */
     @Override
     public SeatMapVO getSeatMap(Long id) {
         Schedule schedule = scheduleMapper.selectById(id);
@@ -483,6 +597,14 @@ public class ScheduleServiceImpl implements ScheduleService {
                 .build();
     }
 
+    /**
+     * 定时自动结束过期场次。
+     * <p>
+     * 每10分钟执行一次，查询放映日期已过或当天放映结束时间已到的在售场次，
+     * 逐个置为已结束状态：释放锁定座位、取消关联未支付订单并通知用户、
+     * 将已出票订单置为已过期、清理 Redis Bitmap 缓存。
+     * 单条场次处理异常不影响其他场次。
+     */
     @Scheduled(fixedRate = 600000)
     @Override
     @Transactional
@@ -565,7 +687,10 @@ public class ScheduleServiceImpl implements ScheduleService {
 
     /**
      * 将指定场次下已出票(paid)订单置为已过期(expired)。
+     * <p>
      * 场次结束后票据失效,不可再检票/退票。座位不释放(场次已结束,无需回收)。
+     *
+     * @param scheduleId 场次ID
      */
     private void expirePaidOrders(Long scheduleId) {
         List<org.dherhf.order.entity.Order> paidOrders = orderMapper.selectList(
@@ -585,6 +710,18 @@ public class ScheduleServiceImpl implements ScheduleService {
         }
     }
 
+    /**
+     * 检查指定影厅在给定日期和时段是否存在排片冲突。
+     * <p>
+     * 查询同影厅、同日期、可售状态、时间段重叠的场次（排除指定ID），
+     * 若存在冲突则抛出 BusinessException。
+     *
+     * @param hallId     影厅ID
+     * @param showDate   放映日期
+     * @param startTime  放映开始时间
+     * @param endTime    放映结束时间
+     * @param excludeId  排除的场次ID（编辑时传入当前场次ID，新增时传null）
+     */
     private void checkConflict(Long hallId, LocalDate showDate, LocalTime startTime, LocalTime endTime, Long excludeId) {
         List<Schedule> conflicts = scheduleMapper.selectList(
                 new LambdaQueryWrapper<Schedule>()
@@ -610,6 +747,7 @@ public class ScheduleServiceImpl implements ScheduleService {
      * 优先从 Redis Bitmap BITCOUNT 获取座位计数，缓存未命中时降级查 MySQL。
      *
      * @param scheduleId 场次ID（非座位ID）
+     * @return 座位计数，包含锁定数和已售数
      */
     private SeatCounts getSeatCounts(Long scheduleId) {
         long lockedCount = seatBitmapService.getLockedCount(scheduleId);
@@ -628,6 +766,13 @@ public class ScheduleServiceImpl implements ScheduleService {
         return new SeatCounts(lockedCount, soldCount);
     }
 
+    /**
+     * 判断更新参数是否修改了影厅、日期、开始时间、结束时间等核心字段。
+     *
+     * @param schedule 原始场次
+     * @param dto      更新参数
+     * @return true 表示核心字段有变更
+     */
     private boolean isCoreFieldChanged(Schedule schedule, ScheduleUpdateDTO dto) {
         return (dto.getHallId() != null && !dto.getHallId().equals(schedule.getHallId())) ||
                 (dto.getShowDate() != null && !dto.getShowDate().equals(schedule.getShowDate())) ||
@@ -635,6 +780,15 @@ public class ScheduleServiceImpl implements ScheduleService {
                 (dto.getEndTime() != null && !dto.getEndTime().equals(schedule.getEndTime()));
     }
 
+    /**
+     * 将场次实体转换为列表展示对象。
+     * <p>
+     * 填充影片名、影院名、影厅名，并通过 Redis Bitmap 或 MySQL 获取座位统计
+     * （锁定数、已售数、可选数、上座率）。
+     *
+     * @param schedule 场次实体
+     * @return 场次列表展示对象
+     */
     private ScheduleListVO toListVO(Schedule schedule) {
         ScheduleListVO vo = new ScheduleListVO();
         BeanUtils.copyProperties(schedule, vo);
@@ -660,6 +814,15 @@ public class ScheduleServiceImpl implements ScheduleService {
         return vo;
     }
 
+    /**
+     * 将场次实体转换为详情展示对象。
+     * <p>
+     * 填充影片名称/海报/时长、影院名称/地址、影厅名称/屏幕类型，
+     * 并通过 Redis Bitmap 或 MySQL 获取座位统计（锁定数、已售数、可选数、上座率）。
+     *
+     * @param schedule 场次实体
+     * @return 场次详情展示对象
+     */
     private ScheduleDetailVO toDetailVO(Schedule schedule) {
         ScheduleDetailVO vo = new ScheduleDetailVO();
         BeanUtils.copyProperties(schedule, vo);

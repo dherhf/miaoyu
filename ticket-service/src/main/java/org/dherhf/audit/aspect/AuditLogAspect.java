@@ -27,6 +27,18 @@ public class AuditLogAspect {
 
     private final AuditLogService auditLogService;
 
+    /**
+     * 环绕通知：先执行原方法，成功后异步记录审计日志。
+     * <p>
+     * 从方法参数中推断目标 ID（第一个 Long 类型参数），
+     * 从请求 Header 获取操作人 ID 和类型，调用审计服务记录操作日志。
+     * 审计记录失败不影响原方法返回值。
+     *
+     * @param joinPoint          AOP 连接点，包含方法执行信息
+     * @param auditLogAnnotation 方法上标注的 @AuditLog 注解实例
+     * @return 原方法的返回值
+     * @throws Throwable 原方法抛出的异常，透传给调用方
+     */
     @Around("@annotation(auditLogAnnotation)")
     public Object around(ProceedingJoinPoint joinPoint, AuditLog auditLogAnnotation) throws Throwable {
         Object result = joinPoint.proceed();

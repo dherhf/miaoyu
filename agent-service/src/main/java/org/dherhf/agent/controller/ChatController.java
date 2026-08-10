@@ -14,6 +14,9 @@ import org.dherhf.agent.document.ChatMessage;
 import org.dherhf.agent.document.ChatSessionDocument;
 import org.dherhf.agent.service.ChatSessionService;
 import org.dherhf.agent.service.agent.ChatService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -38,6 +41,7 @@ import static org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE;
  * </p>
  */
 @Slf4j
+@Tag(name = "AI 对话", description = "对话会话管理、SSE 流式消息发送、历史查询")
 @RestController
 @RequestMapping("/api/v1/chat")
 @RequiredArgsConstructor
@@ -49,11 +53,16 @@ public class ChatController {
     /**
      * 创建对话会话
      * POST /api/v1/chat/sessions
+     *
+     * @param request 创建会话请求体（可选，可指定初始标题）
+     * @param userId  用户 ID（由 Gateway 注入）
+     * @return 包含会话 ID、标题、状态等信息的创建结果
      */
+    @Operation(summary = "创建对话会话", description = "创建一个新的对话会话，可指定初始标题")
     @PostMapping("/sessions")
     public Result<CreateSessionResponse> createSession(
             @Valid @RequestBody(required = false) CreateSessionRequest request,
-            @RequestHeader("X-User-Id") Long userId
+            @Parameter(hidden = true) @RequestHeader("X-User-Id") Long userId
     ) {
         String title = request == null ? null : request.getTitle();
         ChatSessionDocument session = chatSessionService.createSession(userId, title);
@@ -71,12 +80,18 @@ public class ChatController {
     /**
      * 发送对话消息
      * POST /api/v1/chat/sessions/{id}/messages
+     *
+     * @param id      会话 ID
+     * @param request 发送消息请求体（包含消息内容、经纬度、城市等）
+     * @param userId  用户 ID（由 Gateway 注入）
+     * @return SSE 流式响应（AI 回复文本片段和卡片数据）
      */
+    @Operation(summary = "发送对话消息（SSE 流式）", description = "向指定会话发送消息，返回 SSE 流式响应。支持传递经纬度和城市信息用于行程规划。")
     @PostMapping(value = "/sessions/{id}/messages", produces = TEXT_EVENT_STREAM_VALUE)
     public Flux<String> sendMessage(
-            @PathVariable String id,
+            @Parameter(description = "会话 ID") @PathVariable String id,
             @Valid @RequestBody SendMessageRequest request,
-            @RequestHeader("X-User-Id") Long userId
+            @Parameter(hidden = true) @RequestHeader("X-User-Id") Long userId
     ) {
         log.info("[发送对话消息] sessionId={}, userId={}, content={}", id, userId, request.getContent());
 
@@ -94,12 +109,18 @@ public class ChatController {
     /**
      * 3. 查询会话列表
      * GET /api/v1/chat/sessions?page=0&size=20
+     *
+     * @param page   页码，从 0 开始
+     * @param size   每页条数
+     * @param userId 用户 ID（由 Gateway 注入）
+     * @return 分页会话列表
      */
+    @Operation(summary = "查询会话列表", description = "分页查询当前用户的对话会话列表")
     @GetMapping("/sessions")
     public Result<SessionListResponse> listSessions(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestHeader("X-User-Id") Long userId
+            @Parameter(description = "页码，从 0 开始") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") int size,
+            @Parameter(hidden = true) @RequestHeader("X-User-Id") Long userId
     ) {
         List<ChatSessionDocument> sessions = chatSessionService.listSessions(userId, page, size);
         long total = chatSessionService.countSessions(userId);
@@ -124,11 +145,16 @@ public class ChatController {
     /**
      * 4. 查询会话详情
      * GET /api/v1/chat/sessions/{id}
+     *
+     * @param id     会话 ID
+     * @param userId 用户 ID（由 Gateway 注入）
+     * @return 会话详情（含全部历史消息和卡片数据）
      */
+    @Operation(summary = "查询会话详情", description = "获取指定会话的完整信息，包含所有历史消息（含卡片数据）")
     @GetMapping("/sessions/{id}")
     public Result<SessionDetailResponse> getSession(
-            @PathVariable String id,
-            @RequestHeader("X-User-Id") Long userId
+            @Parameter(description = "会话 ID") @PathVariable String id,
+            @Parameter(hidden = true) @RequestHeader("X-User-Id") Long userId
     ) {
         var opt = chatSessionService.getSession(id, userId);
         if (opt.isEmpty()) {
@@ -167,11 +193,16 @@ public class ChatController {
     /**
      * 5. 删除会话
      * DELETE /api/v1/chat/sessions/{id}
+     *
+     * @param id     会话 ID
+     * @param userId 用户 ID（由 Gateway 注入）
+     * @return 删除结果（成功返回空数据）
      */
+    @Operation(summary = "删除会话", description = "删除指定会话及其所有消息记录")
     @DeleteMapping("/sessions/{id}")
     public Result<Void> deleteSession(
-            @PathVariable String id,
-            @RequestHeader("X-User-Id") Long userId
+            @Parameter(description = "会话 ID") @PathVariable String id,
+            @Parameter(hidden = true) @RequestHeader("X-User-Id") Long userId
     ) {
         boolean deleted = chatSessionService.deleteSession(id, userId);
         if (!deleted) {

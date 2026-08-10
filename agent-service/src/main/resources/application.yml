@@ -73,3 +73,13 @@ logging:
   level:
     org.dherhf: DEBUG
     dev.langchain4j: DEBUG
+
+# SpringDoc OpenAPI 配置
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  default-flat-param-object: true

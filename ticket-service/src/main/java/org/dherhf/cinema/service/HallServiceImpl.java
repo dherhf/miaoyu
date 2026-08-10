@@ -39,6 +39,12 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * 影厅服务实现类,实现 {@link HallService} 接口。
+ * <p>
+ * 提供影厅的增删改查业务逻辑,包括影厅名称唯一性校验、座位布局管理
+ * （保存布局时校验座位标签唯一性、检查排片冲突）等功能。
+ */
 @Service
 @RequiredArgsConstructor
 public class HallServiceImpl implements HallService {
@@ -49,6 +55,16 @@ public class HallServiceImpl implements HallService {
     private final ScheduleMapper scheduleMapper;
     private final ScheduleSeatMapper scheduleSeatMapper;
 
+        /**
+     * 新增影厅。
+     * <p>
+     * 先校验所属影院存在且处于营业状态,再校验同影院下影厅名称唯一性,
+     * 然后创建影厅实体并设置初始状态为启用,写入数据库。
+     *
+     * @param dto 影厅创建请求,包含所属影院 ID、名称、银幕类型等信息
+     * @return 新创建的影厅信息
+     * @throws BusinessException 影院不存在时抛出 404,影院已禁用时抛出 400,影厅名称已存在时抛出 409
+     */
     @Override
     public HallVO createHall(HallCreateDTO dto) {
         Cinema cinema = cinemaMapper.selectById(dto.getCinemaId());
@@ -77,6 +93,17 @@ public class HallServiceImpl implements HallService {
         return toVO(hall);
     }
 
+        /**
+     * 分页查询影厅列表,支持按影院、名称、银幕类型、状态筛选。
+     *
+     * @param cinemaId   影院 ID（可选）
+     * @param name       影厅名称,模糊匹配（可选）
+     * @param screenType 银幕类型（可选）
+     * @param status     影厅状态（可选）
+     * @param page       页码
+     * @param size       每页条数
+     * @return 分页影厅列表,每条记录包含影院名称和座位数
+     */
     @Override
     public PageResult<HallListVO> list(Long cinemaId, String name, String screenType, Integer status, Integer page, Integer size) {
         Page<Hall> pageParam = new Page<>(page, size);
@@ -95,6 +122,15 @@ public class HallServiceImpl implements HallService {
         return new PageResult<>(result.getTotal(), page, size, records);
     }
 
+        /**
+     * 查询影厅详情,包含座位布局信息。
+     * <p>
+     * 查询影厅基本信息及关联的座位格子列表,按行号、列号升序排列。
+     *
+     * @param id 影厅 ID
+     * @return 影厅详细信息,包含座位格子列表
+     * @throws BusinessException 影厅不存在时抛出 404
+     */
     @Override
     public HallDetailVO detail(Long id) {
         Hall hall = hallMapper.selectById(id);
@@ -115,6 +151,16 @@ public class HallServiceImpl implements HallService {
         return vo;
     }
 
+    /**
+     * 更新影厅基本信息（名称、银幕类型、状态）。
+     * <p>
+     * 若名称变更,先在同影院范围内校验名称唯一性。
+     *
+     * @param id  影厅 ID
+     * @param dto 影厅更新请求
+     * @return 更新后的影厅信息
+     * @throws BusinessException 影厅不存在时抛出 404,名称已存在时抛出 409
+     */
     @Override
     public HallVO updateHall(Long id, HallUpdateDTO dto) {
         Hall hall = hallMapper.selectById(id);
@@ -147,6 +193,20 @@ public class HallServiceImpl implements HallService {
         return toVO(updated);
     }
 
+    /**
+     * 保存影厅座位布局。
+     * <p>
+     * 校验过程包括：座位格子数量与行列数匹配、座位标签唯一性、
+     * 影厅是否已有未来排片且存在已售座位（有则拒绝修改）、
+     * 以及是否被尚未结束的排片座位引用。
+     * 校验通过后删除原座位格子并重新插入新的布局,更新影厅行列数,
+     * 返回总座位数。该方法在事务中执行。
+     *
+     * @param id  影厅 ID
+     * @param dto 座位布局请求,包含总行数、总列数和座位格子列表
+     * @return 布局保存结果,包含总座位数和更新时间
+     * @throws BusinessException 影厅不存在时抛出 404,布局校验失败/排片冲突时抛出 400 或 409
+     */
     @Override
     @Transactional
     public LayoutResultVO saveLayout(Long id, HallLayoutDTO dto) {
@@ -234,12 +294,24 @@ public class HallServiceImpl implements HallService {
                 .build();
     }
 
+    /**
+     * 将影厅实体转换为影厅视图对象。
+     *
+     * @param hall 影厅实体
+     * @return 影厅视图对象
+     */
     private HallVO toVO(Hall hall) {
         HallVO vo = new HallVO();
         BeanUtils.copyProperties(hall, vo);
         return vo;
     }
 
+    /**
+     * 将影厅实体转换为列表视图对象,附带影院名称和座位数。
+     *
+     * @param hall 影厅实体
+     * @return 影厅列表视图对象
+     */
     private HallListVO toListVO(Hall hall) {
         HallListVO vo = new HallListVO();
         BeanUtils.copyProperties(hall, vo);
@@ -258,12 +330,27 @@ public class HallServiceImpl implements HallService {
         return vo;
     }
 
+    /**
+     * 将座位格子实体转换为座位格子视图对象。
+     *
+     * @param cell 座位格子实体
+     * @return 座位格子视图对象
+     */
     private CellItemVO toCellItemVO(HallCell cell) {
         CellItemVO vo = new CellItemVO();
         BeanUtils.copyProperties(cell, vo);
         return vo;
     }
 
+    /**
+     * 删除影厅。
+     * <p>
+     * 先校验影厅是否存在及是否有在售场次（有则拒绝删除）,
+     * 然后删除该影厅的座位格子数据,最后删除影厅。该方法在事务中执行。
+     *
+     * @param id 影厅 ID
+     * @throws BusinessException 影厅不存在时抛出 404,存在在售场次时抛出 409
+     */
     @Override
     @Transactional
     public void deleteHall(Long id) {
