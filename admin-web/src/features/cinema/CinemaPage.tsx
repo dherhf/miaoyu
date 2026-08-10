@@ -1,18 +1,12 @@
 import { useState, useRef } from 'react';
-import { Button, Modal, Tag, Space, App } from 'antd';
+import { Button, Modal, Tag, Space } from 'antd';
+import { message, modal } from '@/shared/utils/globalMessage'
 import type { FormProps } from 'antd';
-import {
-  PlusOutlined,
-  EditOutlined,
-  PlayCircleOutlined,
-  StopOutlined,
-  BankOutlined,
-  StarFilled,
-} from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, PlayCircleOutlined, StopOutlined, BankOutlined, StarFilled } from '@ant-design/icons';
 import { ProTable } from '@ant-design/pro-components';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import { useCinemaStore } from './store';
-import { useScheduleStore } from '../schedule';
+import { useScheduleStore } from '@/features/schedule';
 import type { CinemaItem, CinemaStatus, CinemaCreateParams } from './types';
 import { CinemaForm, CINEMA_STATUS, CINEMA_STATUS_LABELS } from './CinemaForm';
 import type { CinemaFormValues } from './CinemaForm';
@@ -20,7 +14,6 @@ import styles from './CinemaPage.module.css';
 
 export function CinemaManage() {
   const actionRef = useRef<ActionType>(null);
-  const { message, modal } = App.useApp();
   const { fetchCinemas, addCinema, updateCinema, toggleCinemaStatus } = useCinemaStore();
   const { schedules } = useScheduleStore();
 

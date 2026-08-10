@@ -8,11 +8,12 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { Modal, Button, Space, Tag, App, Form } from 'antd';
+import { message, modal } from '@/shared/utils/globalMessage'
 import { ProTable } from '@ant-design/pro-components';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import dayjs from 'dayjs';
 import { useMovieStore, MOVIE_TYPES } from './store';
-import { useScheduleStore } from '../schedule';
+import { useScheduleStore } from '@/features/schedule';
 import { movieApi } from './api';
 import type { MovieStatus, MovieItem, MovieCreateParams, MovieFormValues } from './types';
 import { mapMovieStatus, toApiStatus } from './types';
@@ -35,7 +36,6 @@ const EMPTY_FORM: MovieFormValues = {
 //主页面 Movie 影片管理
 export function MovieManage() {
   const actionRef = useRef<ActionType>(null);
-  const { message, modal } = App.useApp();
   const { fetchMovies, addMovie, editMovie, toggleStatus } = useMovieStore();
   const { hasMovieSchedule } = useScheduleStore();
 
