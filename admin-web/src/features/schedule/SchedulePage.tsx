@@ -141,7 +141,6 @@ export function SchedulePage() {
   // 表单校验
   const validateForm = () => {
     const err: ScheduleFormErr = {};
-    if (!formData.cinemaId) err.cinemaId = '请选择影院';
     if (!formData.hallId) err.hallId = '请选择影厅';
     if (!formData.movieId) err.movieId = '请选择影片';
     if (!formData.showDate) err.showDate = '请选择放映日期';
@@ -490,7 +489,6 @@ export function SchedulePage() {
           data={formData}
           errors={formErrors}
           onChange={setFormData}
-          cinemas={cinemas}
           halls={allHalls}
           movies={movies}
         />
