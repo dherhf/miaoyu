@@ -68,6 +68,8 @@ public class SeatBitmapService {
      * <p>
      * 单飞模式：同一 scheduleId 的并发重建请求只执行一次，其余线程双重检查后直接返回。
      * 原子写入：内存构建 byte[]，单次 SET 替换，无 Key 缺失窗口。
+     * <p>
+     * 重建规则：遍历所有 ScheduleSeat，LOCKED → locked bitmap 置 1，SOLD → sold bitmap 置 1。
      */
     public void rebuildBitmap(Long scheduleId, List<ScheduleSeat> seats) {
         Object lock = rebuildLocks.computeIfAbsent(scheduleId, k -> new Object());

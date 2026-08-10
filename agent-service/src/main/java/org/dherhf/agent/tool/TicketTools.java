@@ -461,13 +461,13 @@ public class TicketTools {
             @P("出行方式：driving(驾车)/transit(公交地铁)/walking(步行)；用户未指定时传空字符串，将同时查询驾车、公交地铁和步行") String mode
     ) {
         String travelMode = (mode == null || mode.isBlank()) ? "all" : mode.trim().toLowerCase();
-        // 白名单校验：未知 mode 当作 all
+        // 白名单校验：未知 mode 值降级为 all，防止 LLM 传入非法值
         if (!Set.of("driving", "transit", "walking", "all").contains(travelMode)) {
             travelMode = "all";
         }
         log.info("[Tool:路径规划] sessionId={}, origin={}, destination={}, mode={}", sessionId, origin, destination, travelMode);
 
-        // 先将出发地和目的地地理编码为坐标
+        // ── 1. 地理编码：将出发地和目的地解析为坐标（先查影院表，未命中再调高德地理编码）──
         String originCoords = resolveCoordinates(origin);
         String destCoords = resolveCoordinates(destination);
         if (originCoords == null) {
@@ -477,7 +477,7 @@ public class TicketTools {
             return "{\"code\":500,\"message\":\"无法解析目的地坐标：" + destination + "\"}";
         }
 
-        // 查询单一模式或全部模式
+        // ── 2. 确定查询模式列表 ──
         List<String> modes;
         if ("all".equals(travelMode)) {
             modes = List.of("driving", "transit", "walking");
@@ -485,7 +485,7 @@ public class TicketTools {
             modes = List.of(travelMode);
         }
 
-        // 并行调用多种出行方式（虚拟线程）
+        // ── 3. 并行调用高德 API（虚拟线程），transit 模式需传城市名 ──
         var results = new ConcurrentHashMap<String, String>();
         var threads = new ArrayList<Thread>();
         for (String m : modes) {
@@ -496,6 +496,7 @@ public class TicketTools {
             });
             threads.add(t);
         }
+        // ── 4. 等待所有线程完成（15s 超时，超时则中断）──
         for (Thread t : threads) {
             try {
                 t.join(Duration.ofSeconds(15));
@@ -508,7 +509,7 @@ public class TicketTools {
             }
         }
 
-        // 按固定顺序聚合（driving 优先于 transit）
+        // ── 5. 聚合结果：单模式直接返回，多模式合并为 JSON 对象 ──
         String combined;
         if (results.size() == 1) {
             combined = results.values().iterator().next();
@@ -532,6 +533,7 @@ public class TicketTools {
                 combined = results.get("driving");
             }
         }
+        // ── 6. 推送 route_info 卡片（emitParsedCard 内部检查 code，错误响应不推卡片）──
         emitParsedCard(sessionId, "route_info", combined);
         return combined;
     }
