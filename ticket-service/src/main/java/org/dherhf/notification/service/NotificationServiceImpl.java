@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dherhf.common.exception.BusinessException;
 import org.dherhf.common.result.PageResult;
+import org.dherhf.common.util.PageUtil;
 import org.dherhf.notification.entity.Notification;
 import org.dherhf.notification.mapper.NotificationMapper;
 import org.dherhf.notification.vo.NotificationVO;
@@ -28,7 +29,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public PageResult<NotificationVO> list(Long userId, String type, Integer isRead, Integer page, Integer size) {
-        Page<Notification> pageParam = new Page<>(page, size);
+        Page<Notification> pageParam = new Page<>(PageUtil.normalizePage(page), PageUtil.normalizeSize(size));
         LambdaQueryWrapper<Notification> wrapper = new LambdaQueryWrapper<Notification>()
                 .eq(Notification::getUserId, userId)
                 .eq(type != null && !type.isBlank(), Notification::getType, type)

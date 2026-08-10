@@ -9,6 +9,8 @@ import org.springframework.web.client.RestClient;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+
 /**
  * 高德地图代理客户端，通过 WeaveFox 代理调用高德 API。
  * <p>
@@ -30,8 +32,12 @@ public class AmapClient {
             @Value("${amap.token}") String token
     ) {
         this.basePath = basePath;
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5000);
+        factory.setReadTimeout(10000);
         this.restClient = RestClient.builder()
                 .baseUrl(endpoint)
+                .requestFactory(factory)
                 .defaultHeader("Authorization", "Bearer " + token)
                 .build();
     }
@@ -62,10 +68,11 @@ public class AmapClient {
                     .map(s -> s + "={" + s + "}")
                     .reduce((a, b) -> a + "&" + b)
                     .orElse("");
-            return restClient.get()
+            String body = restClient.get()
                     .uri(basePath + path + "?" + query, params)
                     .retrieve()
                     .body(String.class);
+            return body != null ? body : errorJson("路径规划返回空响应");
         } catch (Exception e) {
             log.warn("[AmapClient] 路径规划失败: mode={}, origin={}, dest={}, err={}", mode, origin, destination, e.getMessage());
             return errorJson("路径规划失败：" + e.getMessage());
@@ -82,13 +89,14 @@ public class AmapClient {
      */
     public String searchNearby(String location, String keywords, int radius) {
         try {
-            return restClient.get()
+            String body = restClient.get()
                     .uri(basePath + "/poi/around?location={location}&keywords={keywords}&radius={radius}",
                             Map.of("location", location,
                                     "keywords", keywords != null ? keywords : "",
                                     "radius", String.valueOf(radius)))
                     .retrieve()
                     .body(String.class);
+            return body != null ? body : errorJson("周边搜索返回空响应");
         } catch (Exception e) {
             log.warn("[AmapClient] 周边搜索失败: location={}, keywords={}, err={}", location, keywords, e.getMessage());
             return errorJson("周边搜索失败：" + e.getMessage());
@@ -103,11 +111,12 @@ public class AmapClient {
      */
     public String getWeather(String city) {
         try {
-            return restClient.get()
+            String body = restClient.get()
                     .uri(basePath + "/weather?city={city}&extensions=all",
                             Map.of("city", city))
                     .retrieve()
                     .body(String.class);
+            return body != null ? body : errorJson("天气查询返回空响应");
         } catch (Exception e) {
             log.warn("[AmapClient] 天气查询失败: city={}, err={}", city, e.getMessage());
             return errorJson("天气查询失败：" + e.getMessage());
@@ -123,12 +132,13 @@ public class AmapClient {
      */
     public String geocode(String address, String city) {
         try {
-            return restClient.get()
+            String body = restClient.get()
                     .uri(basePath + "/geocode?address={address}&city={city}",
                             Map.of("address", address,
                                     "city", city != null ? city : ""))
                     .retrieve()
                     .body(String.class);
+            return body != null ? body : errorJson("地理编码返回空响应");
         } catch (Exception e) {
             log.warn("[AmapClient] 地理编码失败: address={}, err={}", address, e.getMessage());
             return errorJson("地理编码失败：" + e.getMessage());

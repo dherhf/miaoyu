@@ -13,6 +13,7 @@ import org.dherhf.cinema.enums.HallStatus;
 import org.dherhf.cinema.vo.SeatVO;
 import org.dherhf.common.exception.BusinessException;
 import org.dherhf.common.result.PageResult;
+import org.dherhf.common.util.PageUtil;
 import org.dherhf.cinema.mapper.CinemaMapper;
 import org.dherhf.cinema.mapper.HallCellMapper;
 import org.dherhf.cinema.mapper.HallMapper;
@@ -145,6 +146,15 @@ public class ScheduleServiceImpl implements ScheduleService {
             throw new BusinessException(409, "已有售票，不可修改影厅/日期/时间");
         }
 
+        // 检查是否有锁定座位（待支付订单），有则禁止修改核心字段
+        Long lockedCount = scheduleSeatMapper.selectCount(
+                new LambdaQueryWrapper<ScheduleSeat>()
+                        .eq(ScheduleSeat::getScheduleId, id)
+                        .eq(ScheduleSeat::getStatus, ScheduleSeatStatus.LOCKED.getCode()));
+        if (lockedCount > 0 && coreFieldChanged) {
+            throw new BusinessException(409, "有待支付订单的锁定座位，不可修改影厅/日期/时间");
+        }
+
         LocalTime newEndTime = dto.getEndTime();
         if (newEndTime == null && dto.getStartTime() != null) {
             Movie movie = movieMapper.selectById(schedule.getMovieId());
@@ -235,14 +245,13 @@ public class ScheduleServiceImpl implements ScheduleService {
                         .eq(org.dherhf.order.entity.Order::getScheduleId, id)
                         .eq(org.dherhf.order.entity.Order::getStatus, org.dherhf.order.enums.OrderStatus.PENDING.getCode()));
         for (org.dherhf.order.entity.Order order : pendingOrders) {
-            order.setStatus(org.dherhf.order.enums.OrderStatus.CANCELLED.getCode());
-            order.setCancelledAt(java.time.LocalDateTime.now());
-            order.setCancelReason("场次已取消");
-            orderMapper.updateById(order);
-            notificationService.sendNotification(
-                    order.getUserId(), "SCHEDULE_CHANGE", "场次已取消",
-                    "您预订的《" + order.getMovieName() + "》场次已取消，座位已释放。",
-                    order.getId());
+            int affected = orderMapper.updateToCancelledIfPending(order.getId(), java.time.LocalDateTime.now(), "场次已取消");
+            if (affected > 0) {
+                notificationService.sendNotification(
+                        order.getUserId(), "SCHEDULE_CHANGE", "场次已取消",
+                        "您预订的《" + order.getMovieName() + "》场次已取消，座位已释放。",
+                        order.getId());
+            }
         }
 
         // 删除 Redis Bitmap 缓存
@@ -331,7 +340,7 @@ public class ScheduleServiceImpl implements ScheduleService {
 
     @Override
     public PageResult<ScheduleListVO> adminList(Long movieId, Long cinemaId, Long hallId, String showDate, String status, Integer page, Integer size) {
-        Page<Schedule> pageParam = new Page<>(page, size);
+        Page<Schedule> pageParam = new Page<>(PageUtil.normalizePage(page), PageUtil.normalizeSize(size));
         LambdaQueryWrapper<Schedule> wrapper = new LambdaQueryWrapper<Schedule>()
                 .eq(movieId != null, Schedule::getMovieId, movieId)
                 .eq(cinemaId != null, Schedule::getCinemaId, cinemaId)
@@ -359,7 +368,7 @@ public class ScheduleServiceImpl implements ScheduleService {
 
     @Override
     public PageResult<ScheduleListVO> userList(Long movieId, String movieName, Long cinemaId, String showDate, Integer page, Integer size) {
-        Page<Schedule> pageParam = new Page<>(page, size);
+        Page<Schedule> pageParam = new Page<>(PageUtil.normalizePage(page), PageUtil.normalizeSize(size));
         LambdaQueryWrapper<Schedule> wrapper = new LambdaQueryWrapper<Schedule>()
                 .eq(Schedule::getStatus, ScheduleStatus.ON_SALE.getCode())
                 .eq(movieId != null, Schedule::getMovieId, movieId)
@@ -520,14 +529,14 @@ public class ScheduleServiceImpl implements ScheduleService {
                                 .eq(org.dherhf.order.entity.Order::getScheduleId, schedule.getId())
                                 .eq(org.dherhf.order.entity.Order::getStatus, org.dherhf.order.enums.OrderStatus.PENDING.getCode()));
                 for (org.dherhf.order.entity.Order order : pendingOrders) {
-                    order.setStatus(org.dherhf.order.enums.OrderStatus.CANCELLED.getCode());
-                    order.setCancelledAt(java.time.LocalDateTime.now());
-                    order.setCancelReason("场次已结束");
-                    orderMapper.updateById(order);
-                    notificationService.sendNotification(
-                            order.getUserId(), "TIMEOUT_CANCEL", "场次已结束",
-                            "您预订的《" + order.getMovieName() + "》场次已结束，待支付订单已自动取消。",
-                            order.getId());
+                    int affected = orderMapper.updateToCancelledIfPending(
+                            order.getId(), java.time.LocalDateTime.now(), "场次已结束");
+                    if (affected > 0) {
+                        notificationService.sendNotification(
+                                order.getUserId(), "TIMEOUT_CANCEL", "场次已结束",
+                                "您预订的《" + order.getMovieName() + "》场次已结束，待支付订单已自动取消。",
+                                order.getId());
+                    }
                 }
 
                 // 已出票订单置为已过期(场次已结束,不可再检票)
@@ -573,12 +582,13 @@ public class ScheduleServiceImpl implements ScheduleService {
                         .eq(org.dherhf.order.entity.Order::getScheduleId, scheduleId)
                         .eq(org.dherhf.order.entity.Order::getStatus, org.dherhf.order.enums.OrderStatus.PAID.getCode()));
         for (org.dherhf.order.entity.Order order : paidOrders) {
-            order.setStatus(org.dherhf.order.enums.OrderStatus.EXPIRED.getCode());
-            orderMapper.updateById(order);
-            notificationService.sendNotification(
-                    order.getUserId(), "EXPIRED", "场次已结束",
-                    "您购买的《" + order.getMovieName() + "》场次已结束，票据已失效。",
-                    order.getId());
+            int affected = orderMapper.updateToExpiredIfPaid(order.getId());
+            if (affected > 0) {
+                notificationService.sendNotification(
+                        order.getUserId(), "EXPIRED", "场次已结束",
+                        "您购买的《" + order.getMovieName() + "》场次已结束，票据已失效。",
+                        order.getId());
+            }
         }
         if (!paidOrders.isEmpty()) {
             log.info("Expired {} paid orders for schedule {}", paidOrders.size(), scheduleId);

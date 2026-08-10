@@ -87,7 +87,9 @@ export const useGeoStore = create<GeoState>((set, get) => ({
       // 方式2: IP 城市定位（降级，无需用户授权）
       const geo = new AMap.Geolocation({ convert: true })
       const result = await new Promise<GeolocationData>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('IP 定位超时')), 8000)
         geo.getCityInfo((status, res) => {
+          clearTimeout(timer)
           if (status === 'complete' && res.city) {
             resolve({
               longitude: 0,

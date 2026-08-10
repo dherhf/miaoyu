@@ -9,6 +9,7 @@ import org.dherhf.order.vo.AdminOrderListVO;
 import org.dherhf.cinema.vo.AdminSeatVO;
 import org.dherhf.common.exception.BusinessException;
 import org.dherhf.common.result.PageResult;
+import org.dherhf.common.util.PageUtil;
 import org.dherhf.cinema.entity.HallCell;
 import org.dherhf.order.entity.Order;
 import org.dherhf.order.enums.OrderStatus;
@@ -48,7 +49,9 @@ public class AdminOrderServiceImpl implements AdminOrderService {
 
     @Override
     public PageResult<AdminOrderListVO> list(String orderNo, String movieName, String cinemaName, String status, String dateFrom, String dateTo, Integer page, Integer size) {
-        Page<Order> pageParam = new Page<>(page, size);
+        int normalizedPage = PageUtil.normalizePage(page);
+        int normalizedSize = PageUtil.normalizeSize(size);
+        Page<Order> pageParam = new Page<>(normalizedPage, normalizedSize);
         LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<Order>()
                 .eq(orderNo != null && !orderNo.isBlank(), Order::getOrderNo, orderNo)
                 .like(movieName != null && !movieName.isBlank(), Order::getMovieName, movieName)
@@ -63,7 +66,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 .map(this::toListVO)
                 .collect(Collectors.toList());
 
-        return new PageResult<>(result.getTotal(), page, size, records);
+        return new PageResult<>(result.getTotal(), normalizedPage, normalizedSize, records);
     }
 
     @Override
