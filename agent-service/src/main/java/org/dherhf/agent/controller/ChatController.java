@@ -13,7 +13,7 @@ import org.dherhf.agent.model.dto.SessionListResponse;
 import org.dherhf.agent.document.ChatMessage;
 import org.dherhf.agent.document.ChatSessionDocument;
 import org.dherhf.agent.service.ChatSessionService;
-import org.dherhf.agent.service.ChatService;
+import org.dherhf.agent.service.agent.ChatService;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,7 +26,6 @@ import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE;

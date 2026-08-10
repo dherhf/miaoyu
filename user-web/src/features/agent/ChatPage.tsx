@@ -28,27 +28,25 @@ export default function ChatPage() {
   useHeaderBack(true, '/')
 
   useEffect(() => {
-    setActiveId(id)
-  }, [id])
-
-  useEffect(() => {
     listSessions(0, 50)
       .then((res) => setSessions(res.records))
       .catch(() => {})
   }, [])
 
   useEffect(() => {
-    if (!activeId) {
+    if (!id) {
+      setActiveId(undefined)
       setMessages([])
       setLoading(false)
       return
     }
-    if (locallyCreatedRef.current === activeId) {
+    setActiveId(id)
+    if (locallyCreatedRef.current === id) {
       locallyCreatedRef.current = null
       return
     }
     setLoading(true)
-    getSessionDetail(activeId)
+    getSessionDetail(id)
       .then((detail) => {
         setMessages(
           detail.messages.map((m) => ({
@@ -61,9 +59,13 @@ export default function ChatPage() {
           })),
         )
       })
-      .catch(() => {})
+      .catch((err) => {
+        if (err?.response?.status === 404) {
+          navigate('/chat', { replace: true })
+        }
+      })
       .finally(() => setLoading(false))
-  }, [activeId])
+  }, [id, navigate])
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -148,7 +150,6 @@ export default function ChatPage() {
     if (activeId) return activeId
     const session = await createSession()
     locallyCreatedRef.current = session.sessionId
-    setActiveId(session.sessionId)
     navigate(`/chat/${session.sessionId}`, { replace: true })
     const summary: SessionSummary = {
       sessionId: session.sessionId,
@@ -206,6 +207,7 @@ export default function ChatPage() {
       setSessions((prev) => prev.filter((s) => s.sessionId !== sessionId))
       message.success('已删除')
       if (activeId === sessionId) {
+        setActiveId(undefined)
         navigate('/chat', { replace: true })
       }
     } catch {
@@ -258,17 +260,16 @@ export default function ChatPage() {
             }`}
           >
             <span className="flex-1 min-w-0 truncate">{s.title || '新对话'}</span>
-            <Popconfirm
-              title="确定删除此对话?"
-              okText="删除"
-              cancelText="取消"
-              onConfirm={() => handleDeleteSession(s.sessionId)}
-            >
-              <DeleteOutlined
-                className="text-muted text-xs opacity-100 md:opacity-0 md:group-hover:opacity-100 cursor-pointer p-1 shrink-0"
-                onClick={(e) => e.stopPropagation()}
-              />
-            </Popconfirm>
+            <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
+              <Popconfirm
+                title="确定删除此对话?"
+                okText="删除"
+                cancelText="取消"
+                onConfirm={() => handleDeleteSession(s.sessionId)}
+              >
+                <DeleteOutlined className="text-muted text-xs opacity-100 md:opacity-0 md:group-hover:opacity-100 cursor-pointer p-1" />
+              </Popconfirm>
+            </span>
           </div>
         ))}
       </div>

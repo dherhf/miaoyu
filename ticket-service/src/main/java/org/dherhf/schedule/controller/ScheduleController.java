@@ -61,6 +61,14 @@ public class ScheduleController {
         return Result.success();
     }
 
+    @Operation(summary = "删除场次")
+    @DeleteMapping("/{id}")
+    @AuditLog(action = "DELETE", targetType = "schedule")
+    public Result<Void> delete(@PathVariable Long id) {
+        scheduleService.deleteSchedule(id);
+        return Result.success();
+    }
+
     @Operation(summary = "场次列表(管理端)")
     @GetMapping
     public Result<PageResult<ScheduleListVO>> list(

@@ -352,33 +352,6 @@ public class TicketTools {
         return json;
     }
 
-    @Tool("支付订单。用户确认支付待支付订单时调用。返回后端原始 JSON 数据（含取票码）。")
-    public String payOrder(
-            @ToolMemoryId String sessionId,
-            @P("订单 ID（由 queryOrders 或 lockAndCreateOrder 返回）") String orderId
-    ) {
-        Long userId = requireUserId(sessionId);
-        Long orderIdLong = parseLong(orderId);
-        if (orderIdLong == null) {
-            return toJson(Result.error(ErrorCodeEnum.TOOL_ERROR.getCode(), "订单ID无效，请从 queryOrders 返回结果中获取有效订单ID"));
-        }
-        String requestId = getRequestId(sessionId);
-        log.info("[Tool:payOrder] sessionId={}, userId={}, orderId={}, requestId={}", sessionId, userId, orderIdLong, requestId);
-
-        String cached = idempotentService.getIfPresent(userId, requestId, String.class);
-        if (cached != null) {
-            log.info("[Tool:payOrder] 幂等命中缓存: requestId={}", requestId);
-            return cached;
-        }
-
-        Result<Object> result = ticketClient.payOrder(userId, orderIdLong, requestId);
-        String json = toJson(result);
-        if (result.getCode() == 0) {
-            idempotentService.put(userId, requestId, json);
-            emitCard(sessionId, "order_success", result.getData());
-        }
-        return json;
-    }
 
     @Tool("取消待支付订单。用户要求取消未支付订单时调用，释放锁定座位。仅待支付订单可取消。返回后端原始 JSON 数据。")
     public String cancelOrder(
@@ -499,7 +472,7 @@ public class TicketTools {
             @P("出行方式：driving(驾车)/transit(公交)/walking(步行)；用户未指定时传空字符串，将同时查询驾车和公交") String mode
     ) {
         String travelMode = (mode == null || mode.isBlank()) ? "all" : mode.trim().toLowerCase();
-        log.info("[Tool:planRoute] sessionId={}, origin={}, destination={}, mode={}", sessionId, origin, destination, travelMode);
+        log.info("[Tool:路径规划] sessionId={}, origin={}, destination={}, mode={}", sessionId, origin, destination, travelMode);
 
         // 先将出发地和目的地地理编码为坐标
         String originCoords = resolveCoordinates(origin);
@@ -568,7 +541,7 @@ public class TicketTools {
             @P("中心地点，可为名称、地址或坐标（经度,纬度），如'长沙学院'、'113.008977,28.233355'；当上下文存在【用户位置】时直接使用其坐标") String location,
             @P("搜索关键词，如'餐厅'、'停车场'、'地铁站'；无特定要求时传空字符串") String keywords
     ) {
-        log.info("[Tool:searchNearby] sessionId={}, location={}, keywords={}", sessionId, location, keywords);
+        log.info("[Tool:周边搜索] sessionId={}, location={}, keywords={}", sessionId, location, keywords);
         String coords = resolveCoordinates(location);
         if (coords == null) {
             return "{\"code\":500,\"message\":\"无法解析地点坐标：" + location + "\"}";
@@ -586,7 +559,7 @@ public class TicketTools {
         if (city == null || city.isBlank()) {
             city = "长沙";
         }
-        log.info("[Tool:getWeather] sessionId={}, city={}", sessionId, city);
+        log.info("[Tool:天气查询] sessionId={}, city={}", sessionId, city);
         String result = amapClient.getWeather(city);
         emitParsedCard(sessionId, "weather_info", result);
         return result;

@@ -20,6 +20,8 @@ public interface ScheduleService {
 
     void endSchedule(Long id);
 
+    void deleteSchedule(Long id);
+
     PageResult<ScheduleListVO> adminList(Long movieId, Long cinemaId, Long hallId, String showDate, String status, Integer page, Integer size);
 
     ScheduleDetailVO adminDetail(Long id);

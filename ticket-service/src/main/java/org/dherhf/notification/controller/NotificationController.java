@@ -3,11 +3,14 @@ package org.dherhf.notification.controller;
 import lombok.RequiredArgsConstructor;
 import org.dherhf.common.result.PageResult;
 import org.dherhf.common.result.Result;
+import org.dherhf.notification.service.NotificationSseManager;
 import org.dherhf.notification.service.NotificationService;
 import org.dherhf.notification.vo.NotificationVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @Tag(name = "消息通知", description = "通知列表/标记已读")
 @RestController
@@ -16,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 public class NotificationController {
 
     private final NotificationService notificationService;
+    private final NotificationSseManager sseManager;
 
     @Operation(summary = "通知列表")
     @GetMapping
@@ -36,10 +40,10 @@ public class NotificationController {
     }
 
     @Operation(summary = "通知实时推送")
-    @GetMapping("/stream")
-    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter stream(@RequestHeader("X-User-Id") Long userId) {
-        org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter = new org.springframework.web.servlet.mvc.method.annotation.SseEmitter(0L);
-        // SSE 连接保持，通知通过 sendNotification 异步写入 DB，前端轮询/后续迭代实现 SSE 推送
+    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter stream(@RequestHeader("X-User-Id") Long userId) {
+        SseEmitter emitter = new SseEmitter(0L);
+        sseManager.register(userId, emitter);
         return emitter;
     }
 }

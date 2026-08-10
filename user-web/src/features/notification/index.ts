@@ -1,2 +1,2 @@
-export { getNotifications, markNotificationRead } from './api'
+export { getNotifications, markNotificationRead, subscribeNotifications } from './api'
 export type { NotificationVO, PageResult } from './types'

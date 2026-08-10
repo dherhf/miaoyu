@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button, Dropdown, Tooltip, Typography } from 'antd'
 import { EnvironmentOutlined, LeftOutlined, LogoutOutlined, MessageOutlined, MoonOutlined, ProfileOutlined, SunOutlined, SyncOutlined, UserOutlined } from '@ant-design/icons'
 import { useAuthStore } from '@/features/auth'
-import { getNotifications, markNotificationRead } from '@/features/notification'
+import { getNotifications, markNotificationRead, subscribeNotifications } from '@/features/notification'
 import type { NotificationVO } from '@/features/notification/types'
 import NotificationBell from '@/shared/NotificationBell'
 import { useGeoStore } from '@/shared/amap'
@@ -52,6 +52,14 @@ export function Header() {
       .then((res) => setNotifications(res.records))
       .catch(() => {})
   }, [token, fetchCurrentUser])
+
+  useEffect(() => {
+    if (!token) return
+    const cleanup = subscribeNotifications((n) => {
+      setNotifications((prev) => [n, ...prev])
+    })
+    return cleanup
+  }, [token])
 
   const handleNotificationRead = async (id: number) => {
     setNotifications((prev) =>

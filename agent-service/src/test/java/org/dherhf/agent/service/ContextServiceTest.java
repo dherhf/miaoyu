@@ -45,7 +45,6 @@ class ContextServiceTest {
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         contextService = new ContextService(redisTemplate, mongoTemplate, objectMapper, chatMessageRepository);
         ReflectionTestUtils.setField(contextService, "ttlSeconds", 86400L);
-        ReflectionTestUtils.setField(contextService, "historyWindow", TestConstants.HISTORY_MSG_WINDOW);
     }
 
     @Nested
