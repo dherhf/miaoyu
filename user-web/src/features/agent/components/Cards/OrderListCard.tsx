@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { Button, Tag, Pagination, Empty, App, Spin, Modal, Descriptions } from 'antd'
+import { Button, Tag, Pagination, Empty, Spin, Modal, Descriptions } from 'antd'
+import { message, modal } from '@/shared/globalMessage'
 import request from '@/shared/request'
 import { payOrder, cancelOrder, refundOrder } from '@/features/order/api'
 import type { BaseCardProps, OrderListCardData, OrderItem } from '../../types'
@@ -65,7 +66,6 @@ function ExpireCountdown({ remainingSeconds }: { remainingSeconds: number }) {
 const PAGE_SIZE = 5
 
 export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>) {
-  const { modal, message } = App.useApp()
   const initFromProps = (d: OrderListCardData | undefined) => ({
     records: d?.records || [],
     total: d?.total || 0,

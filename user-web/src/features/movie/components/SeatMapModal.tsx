@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
-import { Modal, Spin, Button, Tag, Result, App } from 'antd'
+import { Modal, Spin, Button, Tag, Result } from 'antd'
+import { message, modal } from '@/shared/globalMessage'
 import { getSeatMap, lockSeat, payOrder } from '../api'
 import { getPickupCode, cancelOrder } from '@/features/order/api'
 import type { ScheduleListVO, SeatMapVO, SeatVO, LockSeatResultVO, PayResultVO } from '../types'
@@ -15,7 +16,6 @@ export default function SeatMapModal({
   schedule: ScheduleListVO | null
   onClose: () => void
 }) {
-  const { message, modal } = App.useApp()
   const [seatMap, setSeatMap] = useState<SeatMapVO | null>(null)
   const [loading, setLoading] = useState(false)
   const [selectedSeats, setSelectedSeats] = useState<SeatVO[]>([])

@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { App, Button, Form, Input } from 'antd'
+import { Button, Form, Input } from 'antd'
+import { message } from "@/shared/globalMessage";
 import * as authApi from './api'
 import { useHeaderBack } from '@/layouts/navBarStore'
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate()
-  const { message } = App.useApp()
   const [loading, setLoading] = useState(false)
   const [captchaId, setCaptchaId] = useState('')
   const [captchaImage, setCaptchaImage] = useState('')
