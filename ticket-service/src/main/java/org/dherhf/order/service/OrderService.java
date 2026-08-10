@@ -6,8 +6,6 @@ import org.dherhf.order.dto.LockSeatDTO;
 import org.dherhf.order.vo.*;
 import org.dherhf.schedule.entity.Schedule;
 
-import java.time.LocalDateTime;
-
 public interface OrderService {
 
     LockSeatResultVO lockSeat(Long userId, LockSeatDTO dto, String requestId);
@@ -42,5 +40,4 @@ public interface OrderService {
 
     void timeoutCancel(Long orderId);
 
-    void cancelTimeoutOrders(LocalDateTime deadline);
 }

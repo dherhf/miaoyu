@@ -721,12 +721,13 @@ public class OrderServiceImpl implements OrderService {
     }
 
     /**
-     * 定时取消超时订单。
+     * 定时扫描（每 60s）超时未支付订单并取消，作为延迟队列的兜底补偿。
      * <p>
      * 查询所有 PENDING 且创建时间早于 deadline 的订单，逐个通过 self 代理调用 {@link #timeoutCancel}。
      */
-    @Override
-    public void cancelTimeoutOrders(LocalDateTime deadline) {
+    @Scheduled(fixedRate = 60000)
+    public void scanTimeoutOrders() {
+        LocalDateTime deadline = LocalDateTime.now().minusSeconds(ORDER_TIMEOUT_SECONDS);
         List<Order> timeoutOrders = orderMapper.selectList(
                 new LambdaQueryWrapper<Order>()
                         .eq(Order::getStatus, OrderStatus.PENDING.getCode())
@@ -741,13 +742,6 @@ public class OrderServiceImpl implements OrderService {
         if (!timeoutOrders.isEmpty()) {
             log.info("Scanned and cancelled {} timeout orders", timeoutOrders.size());
         }
-    }
-
-    /** 定时扫描（每 60s）超时未支付订单并取消，作为延迟队列的兜底补偿。 */
-    @Scheduled(fixedRate = 60000)
-    public void scanTimeoutOrders() {
-        LocalDateTime deadline = LocalDateTime.now().minusSeconds(ORDER_TIMEOUT_SECONDS);
-        cancelTimeoutOrders(deadline);
     }
 
     /** 生成订单号：时间戳(14位) + 随机数(6位)。 */
