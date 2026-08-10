@@ -448,12 +448,12 @@ public class TicketTools {
 
     // ========== 行程规划工具 ==========
 
-    @Tool("路径规划。用户问怎么去影院/导航/路线时调用。同时查询驾车和公交两种方案，返回原始 JSON 数据。")
+    @Tool("路径规划。用户问怎么去影院/导航/路线时调用。同时查询驾车、公交地铁和步行方案，返回原始 JSON 数据。")
     public String planRoute(
             @ToolMemoryId String sessionId,
             @P("出发地，可为地点名称、地址或坐标（经度,纬度），如'湖南大学'、'长沙南站'、'113.008977,28.233355'；当上下文存在【用户位置】时直接使用其坐标") String origin,
             @P("目的地名称或地址，如'长沙学院'或影院名称") String destination,
-            @P("出行方式：driving(驾车)/transit(公交)/walking(步行)；用户未指定时传空字符串，将同时查询驾车和公交") String mode
+            @P("出行方式：driving(驾车)/transit(公交地铁)/walking(步行)；用户未指定时传空字符串，将同时查询驾车、公交地铁和步行") String mode
     ) {
         String travelMode = (mode == null || mode.isBlank()) ? "all" : mode.trim().toLowerCase();
         // 白名单校验：未知 mode 当作 all
@@ -475,7 +475,7 @@ public class TicketTools {
         // 查询单一模式或全部模式
         List<String> modes;
         if ("all".equals(travelMode)) {
-            modes = List.of("driving", "transit");
+            modes = List.of("driving", "transit", "walking");
         } else {
             modes = List.of(travelMode);
         }
