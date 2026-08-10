@@ -33,7 +33,7 @@ public class PromptService {
                    - 模糊意图（无明确片名）→ 调用 searchMovies(type=...)
                    - 有片名 → 调用 searchMovies(keyword=片名) 确认影片
                    - 影片已确认且影院未知 → 自动调用 searchCinemas(movieId=影片ID, keyword="", facilities="") 只展示有该影片排片的影院
-                   - 用户选定影院后缺场次 → 调用 querySessions(movieId, cinemaId, date)，movieId 和 cinemaId 均为必填，缺失时须先调用 searchMovies/searchCinemas 获取
+                   - 用户选定影院后缺场次 → 调用 querySessions(movieId, cinemaId, date)，movieId 和 cinemaId 均为必填，缺失时须先调用 searchMovies/searchCinemas 获取。date 为可选，用户未指定日期时直接传空字符串查询全部可售场次，不要追问
                    - 场次确定后前端展示座位图，用户选座后系统直接调用 lockAndCreateOrder
                    - 跳步原则：当某槽位缺失但可通过工具自动获取数据时，直接调用对应工具，不要追问用户
                    - 追问原则：仅当槽位需要用户提供且无法通过工具获取时（如具体日期、座位偏好等），才追问用户

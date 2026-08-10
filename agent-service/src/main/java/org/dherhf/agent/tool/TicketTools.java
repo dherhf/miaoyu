@@ -204,12 +204,12 @@ public class TicketTools {
         return toJson(result);
     }
 
-    @Tool("查询场次列表。用户选定影片和影院后调用，根据 movieId+cinemaId+date 获取可售场次。movieId 和 cinemaId 均为必填，缺失时须先调用 searchMovies/searchCinemas 获取。返回后端原始 JSON 数据。")
+    @Tool("查询场次列表。用户选定影片和影院后调用，根据 movieId+cinemaId 获取可售场次。movieId 和 cinemaId 均为必填，缺失时须先调用 searchMovies/searchCinemas 获取。date 为可选参数，用户未指定日期时不要追问，直接传空字符串查询全部场次。返回后端原始 JSON 数据。")
     public String querySessions(
             @ToolMemoryId String sessionId,
             @P("影片 ID，必填（由 searchMovies 返回）") String movieId,
             @P("影院 ID，必填（由 searchCinemas 返回）") String cinemaId,
-            @P("放映日期，须为 yyyy-MM-dd 格式（你需要将'今天'、'明天'、'周X'、'M月D日'等相对日期转换为具体日期）；用户未指定时传空字符串") String date
+            @P("放映日期，可选。用户指定时须为 yyyy-MM-dd 格式（将'今天'、'明天'、'周X'、'M月D日'转换为具体日期）；用户未指定日期时传空字符串查询全部场次，不要追问") String date
     ) {
         Long movieIdLong = parseLong(movieId);
         Long cinemaIdLong = parseLong(cinemaId);
