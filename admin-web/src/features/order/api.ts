@@ -1,4 +1,4 @@
-import request, { type PageResult } from '../../shared/utils/request';
+import request, { type PageResult } from '@/shared/utils/request';
 import type { OrderRecord, OrderDetail, OrderListParams } from './types';
 
 export type { OrderRecord, OrderDetail, OrderListParams, OrderSeatRecord } from './types';

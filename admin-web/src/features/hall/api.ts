@@ -1,4 +1,4 @@
-import request, { type PageResult } from '../../shared/utils/request';
+import request, { type PageResult } from '@/shared/utils/request';
 import type {
   HallRecord,
   HallDetail,

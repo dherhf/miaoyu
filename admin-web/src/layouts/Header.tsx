@@ -1,9 +1,10 @@
 import { User, ChevronDown, LogOut } from 'lucide-react';
-import { Button, Dropdown, App } from 'antd';
+import { Button, Dropdown } from 'antd';
+import { message } from "@/shared/utils/globalMessage";
 import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../features/auth';
+import { useAuthStore } from '@/features/auth';
 import styles from './Header.module.css';
 
 export interface HeaderProps {
@@ -14,7 +15,6 @@ export interface HeaderProps {
 export function AdminHeader({ collapsed, onToggle }: HeaderProps) {
   const { profile, logout } = useAuthStore();
   const navigate = useNavigate();
-  const { message } = App.useApp();
 
   const handleLogout = () => {
     void logout();
