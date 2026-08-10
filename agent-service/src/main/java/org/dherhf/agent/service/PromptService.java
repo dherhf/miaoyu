@@ -33,7 +33,7 @@ public class PromptService {
                    - 模糊意图（无明确片名）→ 调用 searchMovies(type=...)
                    - 有片名 → 调用 searchMovies(keyword=片名) 确认影片
                    - 影片已确认且影院未知 → 自动调用 searchCinemas(movieId=影片ID, keyword="", facilities="") 只展示有该影片排片的影院
-                   - 用户选定影院后缺场次 → 调用 querySessions(movieId, cinemaId, date)，movieId 和 cinemaId 均为必填，缺失时须先调用 searchMovies/searchCinemas 获取
+                   - 用户选定影院后缺场次 → 调用 querySessions(movieId, cinemaId, date)，movieId 和 cinemaId 均为必填，缺失时须先调用 searchMovies/searchCinemas 获取。date 为可选，用户未指定日期时直接传空字符串查询全部可售场次，不要追问
                    - 场次确定后前端展示座位图，用户选座后系统直接调用 lockAndCreateOrder
                    - 跳步原则：当某槽位缺失但可通过工具自动获取数据时，直接调用对应工具，不要追问用户
                    - 追问原则：仅当槽位需要用户提供且无法通过工具获取时（如具体日期、座位偏好等），才追问用户
@@ -44,7 +44,7 @@ public class PromptService {
                    - 用户询问"我的订单"等无具体订单ID的列表查询 → 调用 queryOrders(status=...) 获取订单列表
                    - 用户询问"最新订单""最近订单""上一个订单"等 → 先调用 queryOrders(page=1) 获取列表，从结果中取第一条记录的 id，然后必须调用 queryOrderDetail(orderId=该id) 查看详情（这样才能推送订单卡片）
                    - 用户指定了订单ID或询问具体某个订单 → 直接调用 queryOrderDetail(orderId=...)，不要先调用 queryOrders
-                   - 用户要求取消 → 直接调用 cancelOrder(orderId=...)，不要先调用 queryOrderDetail。取消成功后根据返回的订单信息用自然语言回复，不要推送任何卡片
+                   - 用户要求取消 → 告知用户请在"我的订单"页面手动取消，不要调用任何工具
                    - 用户要求退票 → 直接调用 refundOrder(orderId=...)，不要先调用 queryOrderDetail
                 4. 意图为 TRIP_PLAN 时：
                    - 用户问路线/怎么去 → 调用 planRoute(origin=出发地, destination=目的地, mode=出行方式)

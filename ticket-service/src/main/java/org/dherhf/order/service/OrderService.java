@@ -4,12 +4,13 @@ import org.dherhf.common.result.PageResult;
 import org.dherhf.order.dto.InternalLockSeatDTO;
 import org.dherhf.order.dto.LockSeatDTO;
 import org.dherhf.order.vo.*;
-
-import java.time.LocalDateTime;
+import org.dherhf.schedule.entity.Schedule;
 
 public interface OrderService {
 
     LockSeatResultVO lockSeat(Long userId, LockSeatDTO dto, String requestId);
+
+    LockSeatResultVO doLockSeat(Long userId, LockSeatDTO dto, Schedule schedule);
 
     PayResultVO payOrder(Long userId, Long orderId, String requestId);
 
@@ -39,5 +40,4 @@ public interface OrderService {
 
     void timeoutCancel(Long orderId);
 
-    void cancelTimeoutOrders(LocalDateTime deadline);
 }

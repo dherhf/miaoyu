@@ -19,6 +19,8 @@ import org.dherhf.order.mapper.OrderMapper;
 import org.dherhf.schedule.mapper.ScheduleSeatMapper;
 import org.dherhf.auth.mapper.UserMapper;
 import org.dherhf.common.util.CryptoUtil;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +29,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,6 +41,10 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     private final ScheduleSeatMapper scheduleSeatMapper;
     private final HallCellMapper hallCellMapper;
     private final PickupCodeService pickupCodeService;
+    private final RedissonClient redissonClient;
+
+    private static final long LOCK_WAIT_SECONDS = 3;
+    private static final long LOCK_LEASE_SECONDS = 10;
 
     @Override
     public PageResult<AdminOrderListVO> list(String orderNo, String movieName, String cinemaName, String status, String dateFrom, String dateTo, Integer page, Integer size) {
@@ -99,21 +106,41 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         if (orderId == null) {
             throw new BusinessException(404, "取票码无效或已过期");
         }
-        Order order = orderMapper.selectById(orderId);
-        if (order == null) {
-            throw new BusinessException(404, "订单不存在");
+
+        RLock orderLock = redissonClient.getLock("lock:order:" + orderId);
+        try {
+            if (!orderLock.tryLock(LOCK_WAIT_SECONDS, LOCK_LEASE_SECONDS, TimeUnit.SECONDS)) {
+                throw new BusinessException(409, "订单正在处理中，请稍后重试");
+            }
+
+            Order order = orderMapper.selectById(orderId);
+            if (order == null) {
+                throw new BusinessException(404, "订单不存在");
+            }
+            if (OrderStatus.EXPIRED.getCode().equals(order.getStatus())) {
+                throw new BusinessException(409, "场次已结束，无法检票");
+            }
+            if (OrderStatus.CHECKED.getCode().equals(order.getStatus())) {
+                throw new BusinessException(409, "该订单已检票");
+            }
+            if (!OrderStatus.PAID.getCode().equals(order.getStatus())) {
+                throw new BusinessException(409, "该订单状态不支持检票");
+            }
+
+            // 条件 UPDATE (CAS)：仅当 status=PAID 时更新为 CHECKED
+            int affected = orderMapper.updateToCheckedIfPaid(orderId, LocalDateTime.now());
+            if (affected == 0) {
+                throw new BusinessException(409, "订单状态已变更，请刷新后重试");
+            }
+
+            pickupCodeService.removeCode(orderId);
+            return detail(orderId);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BusinessException(500, "检票操作被中断");
+        } finally {
+            if (orderLock.isHeldByCurrentThread()) orderLock.unlock();
         }
-        if (OrderStatus.EXPIRED.getCode().equals(order.getStatus())) {
-            throw new BusinessException(409, "场次已结束，无法检票");
-        }
-        if (!OrderStatus.PAID.getCode().equals(order.getStatus())) {
-            throw new BusinessException(409, "该订单状态不支持检票");
-        }
-        order.setStatus(OrderStatus.CHECKED.getCode());
-        order.setCheckedAt(LocalDateTime.now());
-        orderMapper.updateById(order);
-        pickupCodeService.removeCode(orderId);
-        return detail(orderId);
     }
 
     private AdminOrderListVO toListVO(Order order) {
