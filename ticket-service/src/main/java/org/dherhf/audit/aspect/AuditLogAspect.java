@@ -56,8 +56,6 @@ public class AuditLogAspect {
                     auditLogAnnotation.action(),
                     auditLogAnnotation.targetType(),
                     targetId,
-                    null,
-                    null,
                     request.getRemoteAddr(),
                     request.getHeader("User-Agent")
             );
