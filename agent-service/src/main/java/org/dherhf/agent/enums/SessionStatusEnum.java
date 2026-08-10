@@ -1,8 +1,11 @@
 package org.dherhf.agent.enums;
 
+import lombok.Getter;
+
 /**
  * 会话状态。
  */
+@Getter
 public enum SessionStatusEnum {
 
     /** 活跃中 */
@@ -18,18 +21,5 @@ public enum SessionStatusEnum {
 
     SessionStatusEnum(String value) {
         this.value = value;
-    }
-
-    public String getValue() {
-        return value;
-    }
-
-    public static SessionStatusEnum fromValue(String value) {
-        for (SessionStatusEnum status : values()) {
-            if (status.value.equalsIgnoreCase(value)) {
-                return status;
-            }
-        }
-        return ACTIVE;
     }
 }
