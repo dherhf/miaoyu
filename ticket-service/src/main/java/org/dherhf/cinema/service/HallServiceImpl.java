@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import org.dherhf.common.exception.BusinessException;
 import org.dherhf.common.result.PageResult;
+import org.dherhf.common.util.PageUtil;
 import org.dherhf.cinema.entity.Cinema;
 import org.dherhf.cinema.entity.Hall;
 import org.dherhf.cinema.entity.HallCell;
@@ -79,7 +80,7 @@ public class HallServiceImpl implements HallService {
 
     @Override
     public PageResult<HallListVO> list(Long cinemaId, String name, String screenType, Integer status, Integer page, Integer size) {
-        Page<Hall> pageParam = new Page<>(page, size);
+        Page<Hall> pageParam = new Page<>(PageUtil.normalizePage(page), PageUtil.normalizeSize(size));
         LambdaQueryWrapper<Hall> wrapper = new LambdaQueryWrapper<Hall>()
                 .eq(cinemaId != null, Hall::getCinemaId, cinemaId)
                 .and(name != null && !name.isBlank(), w -> w.like(Hall::getName, name))

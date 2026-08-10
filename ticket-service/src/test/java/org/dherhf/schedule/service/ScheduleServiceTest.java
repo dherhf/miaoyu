@@ -208,11 +208,12 @@ class ScheduleServiceTest {
                 .id(10L).userId(100L).status("paid").movieName("流浪地球3").build();
         // 第一次 selectList 返回空(无待支付订单),第二次返回已出票订单
         when(orderMapper.selectList(any())).thenReturn(List.of()).thenReturn(List.of(paidOrder));
+        when(orderMapper.updateToExpiredIfPaid(10L)).thenReturn(1);
 
         scheduleService.autoEndExpiredSchedules();
 
         assertEquals("ended", schedule.getStatus());
-        assertEquals("expired", paidOrder.getStatus());
+        verify(orderMapper).updateToExpiredIfPaid(10L);
         verify(notificationService).sendNotification(eq(100L), eq("EXPIRED"), any(), any(), eq(10L));
         System.out.println("[ScheduleServiceTest] ✓ autoEndExpiredSchedules_expiresPaidOrders PASSED");
     }

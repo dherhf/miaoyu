@@ -49,4 +49,12 @@ public interface OrderMapper extends BaseMapper<Order> {
             "WHERE id = #{orderId} AND status = 'PAID'")
     int updateToCheckedIfPaid(@Param("orderId") Long orderId,
                               @Param("checkedAt") LocalDateTime checkedAt);
+
+    /**
+     * 条件 UPDATE：仅当订单状态为 PAID 时更新为 EXPIRED。
+     * 返回受影响行数，0 表示状态已被并发修改。
+     */
+    @Update("UPDATE orders SET status = 'EXPIRED', updated_at = NOW() " +
+            "WHERE id = #{orderId} AND status = 'PAID'")
+    int updateToExpiredIfPaid(@Param("orderId") Long orderId);
 }

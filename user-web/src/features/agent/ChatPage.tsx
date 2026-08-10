@@ -30,7 +30,7 @@ export default function ChatPage() {
   useEffect(() => {
     listSessions(0, 50)
       .then((res) => setSessions(res.records))
-      .catch(() => {})
+      .catch(() => { /* 拦截器已提示 */ })
   }, [])
 
   useEffect(() => {
@@ -62,6 +62,8 @@ export default function ChatPage() {
       .catch((err) => {
         if (err?.response?.status === 404) {
           navigate('/chat', { replace: true })
+        } else {
+          message.error('加载会话失败')
         }
       })
       .finally(() => setLoading(false))
@@ -222,7 +224,7 @@ export default function ChatPage() {
   }, [sending, sendToBackend])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
       handleSend()
     }
