@@ -22,8 +22,6 @@ public class AuditLog {
 
     private Long operatorId;
 
-    private String operatorName;
-
     private String operatorType;
 
     private String action;
