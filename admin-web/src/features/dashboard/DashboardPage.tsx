@@ -46,6 +46,9 @@ export function DashboardPage() {
     void refreshDashboard();
   }, [refreshDashboard]);
 
+  // 后端返回的是比率（如 -0.8532 表示 -85.32%），需 ×100 转百分比并保留 1 位小数
+  const fmtChange = (v?: number) => v !== undefined ? Math.abs(v * 100).toFixed(1) : undefined;
+
   // 影片排行表格列
   const movieColumns: ProColumns<MovieRankItem>[] = [
     {
@@ -91,16 +94,16 @@ export function DashboardPage() {
       {/* 统计卡片栅格 */}
       <Row gutter={16} className={styles.statsRow}>
         <Col xs={12} sm={6} xl={6}>
-          <StatCard title="今日订单总数" value={stats.todayOrders} change={yesterdayCompare ? Math.abs(yesterdayCompare.orderCountChange) : undefined} changeType={yesterdayCompare ? (yesterdayCompare.orderCountChange >= 0 ? 'up' : 'down') : 'up'} icon={ShoppingCartOutlined} color="blue" />
+          <StatCard title="今日订单总数" value={stats.todayOrders} change={fmtChange(yesterdayCompare?.orderCountChange)} changeType={yesterdayCompare ? (yesterdayCompare.orderCountChange >= 0 ? 'up' : 'down') : 'up'} icon={ShoppingCartOutlined} color="blue" />
         </Col>
         <Col xs={12} sm={6} xl={6}>
-          <StatCard title="今日交易额" value={stats.todayRevenue} unit="¥" change={yesterdayCompare ? Math.abs(yesterdayCompare.transactionAmountChange) : undefined} changeType={yesterdayCompare ? (yesterdayCompare.transactionAmountChange >= 0 ? 'up' : 'down') : 'up'} icon={DollarOutlined} color="green" />
+          <StatCard title="今日交易额" value={stats.todayRevenue} unit="¥" change={fmtChange(yesterdayCompare?.transactionAmountChange)} changeType={yesterdayCompare ? (yesterdayCompare.transactionAmountChange >= 0 ? 'up' : 'down') : 'up'} icon={DollarOutlined} color="green" />
         </Col>
         <Col xs={12} sm={6} xl={6}>
-          <StatCard title="今日出票量" value={stats.todayTickets} change={yesterdayCompare ? Math.abs(yesterdayCompare.ticketCountChange) : undefined} changeType={yesterdayCompare ? (yesterdayCompare.ticketCountChange >= 0 ? 'up' : 'down') : 'up'} icon={BarcodeOutlined} color="purple" />
+          <StatCard title="今日出票量" value={stats.todayTickets} change={fmtChange(yesterdayCompare?.ticketCountChange)} changeType={yesterdayCompare ? (yesterdayCompare.ticketCountChange >= 0 ? 'up' : 'down') : 'up'} icon={BarcodeOutlined} color="purple" />
         </Col>
         <Col xs={12} sm={6} xl={6}>
-          <StatCard title="今日退票量" value={stats.todayRefunds} change={yesterdayCompare ? Math.abs(yesterdayCompare.refundCountChange) : undefined} changeType={yesterdayCompare ? (yesterdayCompare.refundCountChange >= 0 ? 'up' : 'down') : 'up'} icon={RollbackOutlined} color="red" />
+          <StatCard title="今日退票量" value={stats.todayRefunds} change={fmtChange(yesterdayCompare?.refundCountChange)} changeType={yesterdayCompare ? (yesterdayCompare.refundCountChange >= 0 ? 'up' : 'down') : 'up'} icon={RollbackOutlined} color="red" />
         </Col>
         <Col xs={12} sm={6} xl={6}>
           <StatCard title="订单转化率" value={stats.conversionRate} unit="%" icon={AimOutlined} color="orange" />
