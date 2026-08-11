@@ -50,6 +50,7 @@ export default function OrderListPage() {
       .finally(() => setLoading(false))
   }, [status, page])
 
+  // 打开详情
   const handleOpenDetail = async (id: number) => {
     setDetailOpen(true)
     setDetailLoading(true)
@@ -63,6 +64,7 @@ export default function OrderListPage() {
     }
   }
 
+  // 支付
   const handlePay = async (order: OrderVO) => {
     try {
       await payOrder(order.id)
@@ -73,6 +75,7 @@ export default function OrderListPage() {
     }
   }
 
+  // 取消
   const handleCancel = async (order: OrderVO) => {
     try {
       await cancelOrder(order.id)
@@ -83,6 +86,7 @@ export default function OrderListPage() {
     }
   }
 
+  // 退票
   const handleRefund = async (order: OrderVO) => {
     try {
       await refundOrder(order.id)
@@ -93,6 +97,7 @@ export default function OrderListPage() {
     }
   }
 
+  // 刷新页面
   const refreshCurrentPage = () => {
     setLoading(true)
     listOrders({ status: status || undefined, page, size: PAGE_SIZE })
@@ -166,6 +171,7 @@ export default function OrderListPage() {
   )
 }
 
+// 订单卡片
 function OrderCard({
   order,
   onPay,
@@ -225,6 +231,7 @@ function OrderCard({
   )
 }
 
+//倒计时
 function CountdownBar({ remainingSeconds }: { remainingSeconds: number }) {
   const [seconds, setSeconds] = useState(remainingSeconds)
   const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
@@ -255,6 +262,7 @@ function CountdownBar({ remainingSeconds }: { remainingSeconds: number }) {
   )
 }
 
+// 订单详情
 function OrderDetailInfo({ detail }: { detail: OrderDetailVO }) {
   const st = STATUS_TAG[detail.status] || { color: 'default', label: detail.status }
   return (
@@ -276,6 +284,7 @@ function OrderDetailInfo({ detail }: { detail: OrderDetailVO }) {
   )
 }
 
+// 取票码
 function PickupCodeDisplay({ orderId }: { orderId: number }) {
   const [code, setCode] = useState<string | null>(null)
   const [expiresIn, setExpiresIn] = useState(60)
