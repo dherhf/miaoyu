@@ -264,4 +264,49 @@ public class SeatBitmapService {
             return -1;
         }
     }
+
+    /**
+     * 校验 Redis Bitmap 与 MySQL 数据是否一致。
+     * <p>
+     * 逐座位对比 Bitmap 位与 ScheduleSeat.status，任一不一致即判定为脏缓存。
+     *
+     * @param scheduleId 场次ID
+     * @param seats      MySQL 中的座位列表
+     * @return true=一致或缓存不存在，false=不一致（脏缓存）
+     */
+    public boolean isConsistent(Long scheduleId, List<ScheduleSeat> seats) {
+        try {
+            if (bitmapMissing(scheduleId)) {
+                return true; // 缓存不存在，不算脏
+            }
+            for (ScheduleSeat seat : seats) {
+                int idx = seat.getSeatIndex();
+                if (idx < 0 || idx >= seats.size()) continue;
+
+                boolean redisLocked = getBitFromRedis(lockedKey(scheduleId), idx);
+                boolean redisSold = getBitFromRedis(soldKey(scheduleId), idx);
+
+                boolean dbLocked = ScheduleSeatStatus.LOCKED.getCode().equals(seat.getStatus());
+                boolean dbSold = ScheduleSeatStatus.SOLD.getCode().equals(seat.getStatus());
+
+                if (redisLocked != dbLocked || redisSold != dbSold) {
+                    log.warn("场次 {} 座位 {} 缓存不一致：redis(locked={},sold={}) db(locked={},sold={})",
+                            scheduleId, idx, redisLocked, redisSold, dbLocked, dbSold);
+                    return false;
+                }
+            }
+            return true;
+        } catch (Exception e) {
+            log.warn("场次 {} 缓存校验失败：{}", scheduleId, e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 读取 Redis Bitmap 中指定位的值。
+     */
+    private boolean getBitFromRedis(String key, long bitIndex) {
+        Boolean bit = redisTemplate.opsForValue().getBit(key, bitIndex);
+        return Boolean.TRUE.equals(bit);
+    }
 }

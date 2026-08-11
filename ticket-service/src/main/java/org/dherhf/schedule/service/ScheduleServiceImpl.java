@@ -704,6 +704,36 @@ public class ScheduleServiceImpl implements ScheduleService {
     }
 
     /**
+     * 定时校验（每 30 分钟）在售场次的 Redis Bitmap 与 MySQL 座位状态是否一致，
+     * 不一致则删除脏缓存，下次读取时自动从 MySQL 重建。
+     */
+    @Scheduled(fixedRate = 1800000)
+    public void validateBitmapConsistency() {
+        List<Schedule> onSaleSchedules = scheduleMapper.selectList(
+                new LambdaQueryWrapper<Schedule>()
+                        .eq(Schedule::getStatus, ScheduleStatus.ON_SALE.getCode()));
+
+        int rebuilt = 0;
+        for (Schedule schedule : onSaleSchedules) {
+            try {
+                List<ScheduleSeat> seats = scheduleSeatMapper.selectList(
+                        new LambdaQueryWrapper<ScheduleSeat>()
+                                .eq(ScheduleSeat::getScheduleId, schedule.getId()));
+                if (!seatBitmapService.isConsistent(schedule.getId(), seats)) {
+                    seatBitmapService.deleteBitmap(schedule.getId());
+                    rebuilt++;
+                }
+            } catch (Exception e) {
+                log.warn("场次 {} 缓存校验异常：{}", schedule.getId(), e.getMessage());
+            }
+        }
+
+        if (rebuilt > 0) {
+            log.info("缓存校验完成，发现 {} 个场次 Bitmap 不一致已清理", rebuilt);
+        }
+    }
+
+    /**
      * 在事务提交后执行操作，确保数据库已持久化后再更新 Redis 缓存，
      * 避免事务回滚后缓存与数据库不一致。
      */
