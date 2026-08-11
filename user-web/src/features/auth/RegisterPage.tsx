@@ -39,11 +39,13 @@ export default function RegisterPage() {
     }
   }, [])
 
+  // 开始倒计时
   const startCountdown = () => {
     setCountdown(60)
     timerRef.current = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
+          // 清理定时器
           if (timerRef.current) clearInterval(timerRef.current)
           return 0
         }
@@ -53,16 +55,7 @@ export default function RegisterPage() {
   }
 
   const handleSendSms = async () => {
-    const phone = form.getFieldValue('phone')
-    const captchaCode = form.getFieldValue('captchaCode')
-    if (!phone || !/^1[3-9]\d{9}$/.test(phone)) {
-      message.error('请输入正确的手机号')
-      return
-    }
-    if (!captchaCode) {
-      message.error('请先输入图形验证码')
-      return
-    }
+    const { phone, captchaCode } = await form.validateFields(['phone', 'captchaCode'])
     setSmsSending(true)
     try {
       await authApi.sendSmsCode({ phone, captchaId, captchaCode, scene: 'register' })

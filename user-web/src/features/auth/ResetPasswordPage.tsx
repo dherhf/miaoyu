@@ -17,6 +17,7 @@ export default function ResetPasswordPage() {
 
   useHeaderBack(true)
 
+  // 刷新验证码
   const refreshCaptcha = useCallback(async () => {
     try {
       const data = await authApi.getCaptcha()
@@ -27,16 +28,19 @@ export default function ResetPasswordPage() {
     }
   }, [])
 
+  // 组件挂载时刷新一次验证码
   useEffect(() => {
     refreshCaptcha()
   }, [refreshCaptcha])
 
+  // 组件卸载时清除定时器
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
   }, [])
 
+  // 开始倒计时
   const startCountdown = () => {
     setCountdown(60)
     timerRef.current = setInterval(() => {
@@ -51,16 +55,7 @@ export default function ResetPasswordPage() {
   }
 
   const handleSendSms = async () => {
-    const phone = form.getFieldValue('phone')
-    const captchaCode = form.getFieldValue('captchaCode')
-    if (!phone || !/^1[3-9]\d{9}$/.test(phone)) {
-      message.error('请输入正确的手机号')
-      return
-    }
-    if (!captchaCode) {
-      message.error('请先输入图形验证码')
-      return
-    }
+    const { phone, captchaCode } = await form.validateFields(['phone', 'captchaCode'])
     setSmsSending(true)
     try {
       await authApi.sendSmsCode({ phone, captchaId, captchaCode, scene: 'reset-password' })
