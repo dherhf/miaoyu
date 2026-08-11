@@ -51,6 +51,7 @@ export function Header() {
     return cleanup
   }, [token])
 
+  // 通知标记已读
   const handleNotificationRead = async (id: number) => {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, isRead: 1 } : n)),
@@ -62,6 +63,7 @@ export function Header() {
     }
   }
 
+  // 退出登录
   const handleLogout = async () => {
     try {
       await logout()
@@ -70,6 +72,7 @@ export function Header() {
     }
   }
 
+  // 判断是否显示返回按钮
   const handleBack = state.showBack
     ? () => {
         if (typeof state.backPath === 'string') navigate(state.backPath)

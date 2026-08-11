@@ -28,6 +28,7 @@ function formatTime(dt: string): string {
   return `${month}-${day}`
 }
 
+// isRead 0 表示未读 1 表示已读
 export default function NotificationBell({ items, onRead }: NotificationBellProps) {
   const unreadCount = useMemo(
     () => items.filter((i) => i.isRead === 0).length,
@@ -65,6 +66,7 @@ export default function NotificationBell({ items, onRead }: NotificationBellProp
 
   return (
     <Badge count={unreadCount} size="small" offset={[-2, 2]}>
+      {/* 气泡框位置:右下角,触发方式:点击 */}
       <Popover content={content} placement="bottomRight" trigger="click" arrow={false}>
         <Button type="text" icon={<BellOutlined />} className="px-2! py-1!" />
       </Popover>
