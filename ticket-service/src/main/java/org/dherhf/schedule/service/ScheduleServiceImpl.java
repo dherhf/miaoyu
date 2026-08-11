@@ -578,6 +578,8 @@ public class ScheduleServiceImpl implements ScheduleService {
                 afterCommit(() -> seatBitmapService.deleteBitmap(schedule.getId()));
             } catch (Exception e) {
                 log.error("Error auto-ending schedule {}", schedule.getId(), e);
+                notificationService.notifyAdmins("TASK_FAILURE", "定时任务失败",
+                        "场次自动结束失败，场次ID：" + schedule.getId() + "，原因：" + e.getMessage());
             }
         }
 
@@ -725,6 +727,8 @@ public class ScheduleServiceImpl implements ScheduleService {
                 }
             } catch (Exception e) {
                 log.warn("场次 {} 缓存校验异常：{}", schedule.getId(), e.getMessage());
+                notificationService.notifyAdmins("TASK_FAILURE", "定时任务失败",
+                        "缓存一致性校验异常，场次ID：" + schedule.getId() + "，原因：" + e.getMessage());
             }
         }
 

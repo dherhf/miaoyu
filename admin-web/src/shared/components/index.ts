@@ -10,6 +10,9 @@ export type { ImageUploadProps } from './ImageUpload';
 export { default as MapPicker } from './MapPicker';
 export type { Coordinate, MapPickerProps } from './MapPicker';
 
+export { default as NotificationBell } from './NotificationBell';
+export type { NotificationBellProps } from './NotificationBell';
+
 export { default as SearchBar } from './SearchBar';
 export type { SearchBarProps } from './SearchBar';
 

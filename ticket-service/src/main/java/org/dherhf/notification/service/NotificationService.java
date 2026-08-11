@@ -10,4 +10,9 @@ public interface NotificationService {
     void markRead(Long id, Long userId);
 
     void sendNotification(Long userId, String type, String title, String content, Long relatedOrderId);
+
+    /**
+     * 给所有启用的管理员发送系统通知（定时任务失败告警等）。
+     */
+    void notifyAdmins(String type, String title, String content);
 }

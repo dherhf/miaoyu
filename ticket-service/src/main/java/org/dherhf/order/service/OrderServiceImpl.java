@@ -788,6 +788,8 @@ public class OrderServiceImpl implements OrderService {
                 self.timeoutCancel(order.getId());
             } catch (Exception e) {
                 log.error("Error cancelling timeout order {}", order.getId(), e);
+                notificationService.notifyAdmins("TASK_FAILURE", "定时任务失败",
+                        "订单超时取消失败，订单ID：" + order.getId() + "，原因：" + e.getMessage());
             }
         }
         if (!timeoutOrders.isEmpty()) {

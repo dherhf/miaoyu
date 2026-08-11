@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dherhf.auth.entity.Admin;
+import org.dherhf.auth.mapper.AdminMapper;
 import org.dherhf.common.exception.BusinessException;
 import org.dherhf.common.result.PageResult;
 import org.dherhf.common.util.PageUtil;
@@ -14,6 +16,8 @@ import org.dherhf.notification.vo.NotificationVO;
 import org.springframework.beans.BeanUtils;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,6 +30,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationMapper notificationMapper;
     private final NotificationSseManager sseManager;
+    private final AdminMapper adminMapper;
 
     @Override
     public PageResult<NotificationVO> list(Long userId, String type, Integer isRead, Integer page, Integer size) {
@@ -69,6 +74,17 @@ public class NotificationServiceImpl implements NotificationService {
         notification.setCreatedAt(LocalDateTime.now());
         sseManager.send(userId, toVO(notification));
         log.info("Notification sent: userId={}, type={}, title={}", userId, type, title);
+    }
+
+    @Override
+    public void notifyAdmins(String type, String title, String content) {
+        List<Admin> admins = adminMapper.selectList(
+                new LambdaQueryWrapper<Admin>()
+                        .eq(Admin::getStatus, 1));
+        for (Admin admin : admins) {
+            sendNotification(admin.getId(), type, title, content, null);
+        }
+        log.info("Notified {} admins: type={}, title={}", admins.size(), type, title);
     }
 
     private NotificationVO toVO(Notification notification) {
