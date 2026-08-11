@@ -36,6 +36,8 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -119,8 +121,8 @@ public class ScheduleServiceImpl implements ScheduleService {
             scheduleSeatMapper.insert(ss);
         }
 
-        // 初始化 Redis Bitmap (全 0)
-        seatBitmapService.initBitmap(schedule.getId(), seatCells.size());
+        // 初始化 Redis Bitmap (全 0)，事务提交后执行
+        afterCommit(() -> seatBitmapService.initBitmap(schedule.getId(), seatCells.size()));
 
         ScheduleVO vo = new ScheduleVO();
         BeanUtils.copyProperties(schedule, vo);
@@ -202,10 +204,10 @@ public class ScheduleServiceImpl implements ScheduleService {
                 scheduleSeatMapper.insert(ss);
             }
 
-            // 重建 Redis Bitmap
+            // 重建 Redis Bitmap，事务提交后执行
             List<ScheduleSeat> newSeats = scheduleSeatMapper.selectList(
                     new LambdaQueryWrapper<ScheduleSeat>().eq(ScheduleSeat::getScheduleId, id));
-            seatBitmapService.rebuildBitmap(id, newSeats);
+            afterCommit(() -> seatBitmapService.rebuildBitmap(id, newSeats));
         }
 
         if (dto.getShowDate() != null) schedule.setShowDate(dto.getShowDate());
@@ -267,8 +269,8 @@ public class ScheduleServiceImpl implements ScheduleService {
             }
         }
 
-        // 删除 Redis Bitmap 缓存
-        seatBitmapService.deleteBitmap(id);
+        // 删除 Redis Bitmap 缓存，事务提交后执行
+        afterCommit(() -> seatBitmapService.deleteBitmap(id));
     }
 
     /** 恢复已取消的场次，校验日期未过期且无排片冲突后重新置为可售，重建 Redis Bitmap。 */
@@ -294,10 +296,10 @@ public class ScheduleServiceImpl implements ScheduleService {
         schedule.setStatus(ScheduleStatus.ON_SALE.getCode());
         scheduleMapper.updateById(schedule);
 
-        // 恢复 Redis Bitmap
+        // 恢复 Redis Bitmap，事务提交后执行
         List<ScheduleSeat> seats = scheduleSeatMapper.selectList(
                 new LambdaQueryWrapper<ScheduleSeat>().eq(ScheduleSeat::getScheduleId, id));
-        seatBitmapService.rebuildBitmap(id, seats);
+        afterCommit(() -> seatBitmapService.rebuildBitmap(id, seats));
     }
 
     /** 手动结束场次，释放锁定座位并将已支付订单置为过期，删除 Redis Bitmap。 */
@@ -324,8 +326,8 @@ public class ScheduleServiceImpl implements ScheduleService {
         // 已出票订单置为已过期(场次已结束,不可再检票)
         expirePaidOrders(id);
 
-        // 删除 Redis Bitmap 缓存
-        seatBitmapService.deleteBitmap(id);
+        // 删除 Redis Bitmap 缓存，事务提交后执行
+        afterCommit(() -> seatBitmapService.deleteBitmap(id));
     }
 
     /** 删除场次，仅允许非在售且无已售座位的场次删除。 */
@@ -351,7 +353,7 @@ public class ScheduleServiceImpl implements ScheduleService {
         scheduleSeatMapper.delete(
                 new LambdaQueryWrapper<ScheduleSeat>().eq(ScheduleSeat::getScheduleId, id));
         scheduleMapper.deleteById(id);
-        seatBitmapService.deleteBitmap(id);
+        afterCommit(() -> seatBitmapService.deleteBitmap(id));
     }
 
     /** 管理端场次分页查询，支持按影片/影院/影厅/日期/状态筛选。 */
@@ -572,8 +574,8 @@ public class ScheduleServiceImpl implements ScheduleService {
                 // 已出票订单置为已过期(场次已结束,不可再检票)
                 expirePaidOrders(schedule.getId());
 
-                // 清理 Redis Bitmap 缓存（与 endSchedule 一致）
-                seatBitmapService.deleteBitmap(schedule.getId());
+                // 清理 Redis Bitmap 缓存（与 endSchedule 一致），事务提交后执行
+                afterCommit(() -> seatBitmapService.deleteBitmap(schedule.getId()));
             } catch (Exception e) {
                 log.error("Error auto-ending schedule {}", schedule.getId(), e);
             }
@@ -699,6 +701,25 @@ public class ScheduleServiceImpl implements ScheduleService {
         }
 
         return vo;
+    }
+
+    /**
+     * 在事务提交后执行操作，确保数据库已持久化后再更新 Redis 缓存，
+     * 避免事务回滚后缓存与数据库不一致。
+     */
+    private void afterCommit(Runnable action) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            action.run();
+                        }
+                    }
+            );
+        } else {
+            action.run();
+        }
     }
 
     /** Schedule → ScheduleDetailVO 转换，附带影片详情、影院地址、影厅类型和 Redis Bitmap 座位计数。 */

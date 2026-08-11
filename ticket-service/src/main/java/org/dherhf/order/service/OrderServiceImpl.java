@@ -39,6 +39,8 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -241,9 +243,12 @@ public class OrderServiceImpl implements OrderService {
         }
 
         // ── 6. 同步 Redis Bitmap：SETBIT locked {seatIndex} 1（读加速缓存）──
-        for (ScheduleSeat seat : seats) {
-            seatBitmapService.setLocked(dto.getScheduleId(), seat.getSeatIndex());
-        }
+        //     延迟到事务提交后执行，避免回滚后缓存脏数据
+        afterCommit(() -> {
+            for (ScheduleSeat seat : seats) {
+                seatBitmapService.setLocked(dto.getScheduleId(), seat.getSeatIndex());
+            }
+        });
 
         LockSeatResultVO vo = new LockSeatResultVO();
         BeanUtils.copyProperties(order, vo);
@@ -318,9 +323,12 @@ public class OrderServiceImpl implements OrderService {
             orderTimeoutService.cancel(orderId);
 
             // ── 9. 同步 Redis Bitmap：setSold 内部同时 SETBIT sold=1 + locked=0 ──
-            for (ScheduleSeat seat : seats) {
-                seatBitmapService.setSold(order.getScheduleId(), seat.getSeatIndex());
-            }
+            //     延迟到事务提交后执行，避免回滚后缓存脏数据
+            afterCommit(() -> {
+                for (ScheduleSeat seat : seats) {
+                    seatBitmapService.setSold(order.getScheduleId(), seat.getSeatIndex());
+                }
+            });
 
             // ── 10. 发送支付成功通知（@Async）──
             Cinema cinema = cinemaMapper.selectById(schedule.getCinemaId());
@@ -411,9 +419,12 @@ public class OrderServiceImpl implements OrderService {
             pickupCodeService.removeCode(orderId);
 
             // ── 8. 同步 Redis Bitmap：SETBIT locked {seatIndex} 0 ──
-            for (ScheduleSeat seat : seats) {
-                seatBitmapService.clearLocked(order.getScheduleId(), seat.getSeatIndex());
-            }
+            //     延迟到事务提交后执行，避免回滚后缓存脏数据
+            afterCommit(() -> {
+                for (ScheduleSeat seat : seats) {
+                    seatBitmapService.clearLocked(order.getScheduleId(), seat.getSeatIndex());
+                }
+            });
 
             // ── 9. 发送取消通知（@Async）──
             notificationService.sendNotification(
@@ -489,9 +500,12 @@ public class OrderServiceImpl implements OrderService {
             }
 
             // ── 7. 同步 Redis Bitmap：SETBIT sold=0 + locked=0（clearSoldAndLocked 一次清除两个 bit）──
-            for (ScheduleSeat seat : seats) {
-                seatBitmapService.clearSoldAndLocked(order.getScheduleId(), seat.getSeatIndex());
-            }
+            //     延迟到事务提交后执行，避免回滚后缓存脏数据
+            afterCommit(() -> {
+                for (ScheduleSeat seat : seats) {
+                    seatBitmapService.clearSoldAndLocked(order.getScheduleId(), seat.getSeatIndex());
+                }
+            });
 
             // ── 8. 清理取票码 + 发送退票通知（@Async）──
             pickupCodeService.removeCode(orderId);
@@ -737,9 +751,12 @@ public class OrderServiceImpl implements OrderService {
                 scheduleSeatMapper.updateById(seat);
             }
             // 同步 Redis Bitmap：SETBIT locked {seatIndex} 0
-            for (ScheduleSeat seat : seats) {
-                seatBitmapService.clearLocked(order.getScheduleId(), seat.getSeatIndex());
-            }
+            // 延迟到事务提交后执行，避免回滚后缓存脏数据
+            afterCommit(() -> {
+                for (ScheduleSeat seat : seats) {
+                    seatBitmapService.clearLocked(order.getScheduleId(), seat.getSeatIndex());
+                }
+            });
             notificationService.sendNotification(
                     order.getUserId(), "TIMEOUT_CANCEL", "订单超时取消",
                     "您的订单已超时取消，座位已释放，如需购票请重新选座。影片：《" + order.getMovieName() + "》",
@@ -782,6 +799,25 @@ public class OrderServiceImpl implements OrderService {
     private String generateOrderNo() {
         return LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
                 + String.format("%06d", java.util.concurrent.ThreadLocalRandom.current().nextInt(1000000));
+    }
+
+    /**
+     * 在事务提交后执行操作，确保数据库已持久化后再更新 Redis 缓存，
+     * 避免事务回滚后缓存与数据库不一致。
+     */
+    private void afterCommit(Runnable action) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            action.run();
+                        }
+                    }
+            );
+        } else {
+            action.run();
+        }
     }
 
     /** Order → OrderListVO 转换，待支付订单计算剩余支付倒计时。 */

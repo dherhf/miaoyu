@@ -151,8 +151,8 @@ class OrderServiceTest {
         Hall hall = Hall.builder().name("IMAX厅").build();
         when(hallMapper.selectById(1L)).thenReturn(hall);
 
-        HallCell hc1 = HallCell.builder().seatLabel("5排6座").build();
-        HallCell hc2 = HallCell.builder().seatLabel("5排7座").build();
+        HallCell hc1 = HallCell.builder().seatLabel("A1").build();
+        HallCell hc2 = HallCell.builder().seatLabel("A2").build();
         when(hallCellMapper.selectList(any())).thenReturn(List.of(hc1, hc2));
 
         when(orderMapper.insert(any(Order.class))).thenReturn(1);
