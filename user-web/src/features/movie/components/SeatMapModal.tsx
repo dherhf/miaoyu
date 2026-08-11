@@ -4,6 +4,7 @@ import { message, modal } from '@/shared/globalMessage'
 import { getSeatMap, lockSeat, payOrder } from '../api'
 import { getPickupCode, cancelOrder } from '@/features/order/api'
 import type { ScheduleListVO, SeatMapVO, SeatVO, LockSeatResultVO, PayResultVO } from '../types'
+import SeatCell from './SeatCell'
 
 const MAX_SEATS = 6
 
@@ -29,14 +30,22 @@ export default function SeatMapModal({
   const [pickupExpiresIn, setPickupExpiresIn] = useState(60)
   const pickupTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // 座位图
   const fetchSeatMap = useCallback(() => {
     if (!schedule) return Promise.resolve()
+    // 开启加载态
     setLoading(true)
+    // 重置为选座阶段
     setPhase('seats')
+    // 清空已选座位
     setSelectedSeats([])
+    // 清空锁座结果
     setLockResult(null)
+    // 清空支付结果
     setPayResult(null)
+    // 清空取票码
     setPickupCode(null)
+    // 取票码刷新倒计时重置为 60 秒
     setPickupExpiresIn(60)
     return getSeatMap(schedule.id)
       .then(setSeatMap)
@@ -52,7 +61,7 @@ export default function SeatMapModal({
     }
   }, [schedule, fetchSeatMap])
 
-  // Build 2D grid: rowIndex → colIndex → SeatVO
+  // 构建 2D 网格：行索引 → 列索引 → SeatVO
   const seatGrid = useMemo(() => {
     if (!seatMap) return []
     const rowMap = new Map<number, Map<number, SeatVO>>()
@@ -72,10 +81,13 @@ export default function SeatMapModal({
     })
   }, [seatMap])
 
+  // 处理用户点击座位时的选择/取消逻辑。
   const toggleSeat = (seat: SeatVO) => {
     if (seat.status !== 'available') return
     setSelectedSeats((prev) => {
+      // 判断在不在已选择里
       const exists = prev.find((s) => s.seatIndex === seat.seatIndex)
+      // 在的话切换未取消
       if (exists) {
         return prev.filter((s) => s.seatIndex !== seat.seatIndex)
       }
@@ -87,14 +99,17 @@ export default function SeatMapModal({
     })
   }
 
+  // 判断座位是否已经被选中
   const isSelected = (seat: SeatVO) =>
     selectedSeats.some((s) => s.seatIndex === seat.seatIndex)
 
+  // 计算已选座位的总票价
   const totalPrice = useMemo(() => {
     if (!schedule || selectedSeats.length === 0) return 0
     return Number(schedule.price) * selectedSeats.length
   }, [schedule, selectedSeats])
 
+  // 锁座下单
   const handleLockSeat = async () => {
     if (!schedule || selectedSeats.length === 0) return
     setSubmitting(true)
@@ -112,6 +127,7 @@ export default function SeatMapModal({
     }
   }
 
+  // 支付
   const handlePay = async () => {
     if (!lockResult) return
     setSubmitting(true)
@@ -127,6 +143,7 @@ export default function SeatMapModal({
     }
   }
 
+  // 取消订单
   const handleCancelOrder = () => {
     if (!lockResult) return
     modal.confirm({
@@ -146,6 +163,7 @@ export default function SeatMapModal({
     })
   }
 
+  // 刷新取票码(缓存函数)
   const refreshPickupCode = useCallback(async (orderId: number) => {
     try {
       const res = await getPickupCode(orderId)
@@ -156,7 +174,7 @@ export default function SeatMapModal({
     }
   }, [])
 
-  // 确认阶段倒计时
+  // 支付倒计时倒计时
   useEffect(() => {
     if (phase !== 'confirm' || !lockResult) return
     const init = lockResult.expireAt
@@ -174,6 +192,7 @@ export default function SeatMapModal({
     return () => { clearInterval(countdownTimerRef.current) }
   }, [phase, lockResult])
 
+  // 取票码倒计时和定时刷新
   useEffect(() => {
     if (phase !== 'success' || !payResult?.id) return
     refreshPickupCode(payResult.id)
@@ -191,6 +210,7 @@ export default function SeatMapModal({
     }
   }, [phase, payResult, refreshPickupCode])
 
+  // 关闭弹窗
   const handleClose = () => {
     onClose()
   }
@@ -206,7 +226,7 @@ export default function SeatMapModal({
       onCancel={handleClose}
       width={720}
       footer={null}
-      destroyOnClose
+      destroyOnHidden
     >
       {loading ? (
         <div className="py-12 text-center"><Spin /></div>
@@ -260,11 +280,11 @@ export default function SeatMapModal({
         </div>
       ) : seatMap ? (
         <div>
-          {/* Screen indicator */}
+          {/* 银幕 */}
           <div className="mx-auto mb-6 w-[70%] h-2 rounded-t-[50%] bg-accent/30" />
           <p className="text-center text-xs text-muted mb-4">银幕</p>
 
-          {/* Seat grid */}
+          {/* 座位网格 */}
           <div className="overflow-x-auto pb-2">
             <div className="inline-flex flex-col gap-1.5 mx-auto min-w-full">
               {seatGrid.map((row) => (
@@ -287,7 +307,7 @@ export default function SeatMapModal({
             </div>
           </div>
 
-          {/* Legend */}
+          {/* 状态 */}
           <div className="flex gap-4 justify-center mt-4 mb-3 text-xs text-muted">
             <span className="flex items-center gap-1"><span className="inline-block w-3.5 h-3.5 rounded bg-surface border border-border" />可选</span>
             <span className="flex items-center gap-1"><span className="inline-block w-3.5 h-3.5 rounded bg-accent" />已选</span>
@@ -295,7 +315,7 @@ export default function SeatMapModal({
             <span className="flex items-center gap-1"><span className="inline-block w-3.5 h-3.5 rounded bg-danger/40" />已售</span>
           </div>
 
-          {/* Selected seats + action bar */}
+          {/* 选座 */}
           <div className="border-t border-border pt-3 mt-2">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="flex-1 min-w-0">
@@ -328,51 +348,5 @@ export default function SeatMapModal({
         </div>
       ) : null}
     </Modal>
-  )
-}
-
-function SeatCell({
-  seat,
-  selected,
-  onClick,
-}: {
-  seat: SeatVO
-  selected: boolean
-  onClick: () => void
-}) {
-  const base = 'w-7 h-7 rounded text-[10px] flex items-center justify-center cursor-pointer transition-colors duration-150 shrink-0 select-none'
-
-  if (selected) {
-    return (
-      <div className={`${base} bg-accent text-white`} onClick={onClick} title={seat.seatLabel}>
-        {seat.colIndex}
-      </div>
-    )
-  }
-
-  if (seat.status === 'sold') {
-    return (
-      <div className={`${base} bg-danger/40 text-white/70 cursor-not-allowed`} title={`${seat.seatLabel}（已售）`}>
-        {seat.colIndex}
-      </div>
-    )
-  }
-
-  if (seat.status === 'locked') {
-    return (
-      <div className={`${base} bg-code-bg text-muted cursor-not-allowed`} title={`${seat.seatLabel}（已锁定）`}>
-        {seat.colIndex}
-      </div>
-    )
-  }
-
-  return (
-    <div
-      className={`${base} bg-surface border border-border text-muted hover:border-accent hover:text-accent`}
-      onClick={onClick}
-      title={seat.seatLabel}
-    >
-      {seat.colIndex}
-    </div>
   )
 }
