@@ -1,4 +1,5 @@
 import request from '@/shared/request'
+import { withRetry } from '@/shared/retry'
 import type {
   MovieListVO,
   MovieVO,
@@ -41,17 +42,23 @@ export async function lockSeat(
   seatIds: number[],
   requestId?: string,
 ): Promise<LockSeatResultVO> {
-  const res = await request.post<LockSeatResultVO>(
-    '/orders/lock-seat',
-    { scheduleId, seatIds, ticketCount: seatIds.length },
-    { headers: { 'X-Request-Id': requestId || crypto.randomUUID() } },
-  )
-  return res.data
+  const rid = requestId || crypto.randomUUID()
+  return withRetry(async () => {
+    const res = await request.post<LockSeatResultVO>(
+      '/orders/lock-seat',
+      { scheduleId, seatIds, ticketCount: seatIds.length },
+      { headers: { 'X-Request-Id': rid } },
+    )
+    return res.data
+  }, rid)
 }
 
 export async function payOrder(orderId: number, requestId?: string): Promise<PayResultVO> {
-  const res = await request.post<PayResultVO>(`/orders/${orderId}/pay`, {}, {
-    headers: { 'X-Request-Id': requestId || crypto.randomUUID() },
-  })
-  return res.data
+  const rid = requestId || crypto.randomUUID()
+  return withRetry(async () => {
+    const res = await request.post<PayResultVO>(`/orders/${orderId}/pay`, {}, {
+      headers: { 'X-Request-Id': rid },
+    })
+    return res.data
+  }, rid)
 }
