@@ -36,6 +36,8 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -58,6 +60,10 @@ public class ScheduleServiceImpl implements ScheduleService {
     private final org.dherhf.order.mapper.OrderMapper orderMapper;
     private final SeatBitmapService seatBitmapService;
 
+    /**
+     * 创建场次。校验影片已上架、影院营业中、影厅已启用后，
+     * 检查同影厅同日排片冲突，批量生成 ScheduleSeat 并初始化 Redis Bitmap。
+     */
     @Override
     @Transactional
     public ScheduleVO createSchedule(ScheduleCreateDTO dto) {
@@ -115,14 +121,18 @@ public class ScheduleServiceImpl implements ScheduleService {
             scheduleSeatMapper.insert(ss);
         }
 
-        // 初始化 Redis Bitmap (全 0)
-        seatBitmapService.initBitmap(schedule.getId(), seatCells.size());
+        // 初始化 Redis Bitmap (全 0)，事务提交后执行
+        afterCommit(() -> seatBitmapService.initBitmap(schedule.getId(), seatCells.size()));
 
         ScheduleVO vo = new ScheduleVO();
         BeanUtils.copyProperties(schedule, vo);
         return vo;
     }
 
+    /**
+     * 修改场次信息。核心字段（影厅/日期/时间）变更时需检查无 SOLD 和 LOCKED 座位；
+     * 换厅时删除旧 ScheduleSeat 并按新影厅重建，同时重建 Redis Bitmap。
+     */
     @Override
     @Transactional
     public ScheduleVO updateSchedule(Long id, ScheduleUpdateDTO dto) {
@@ -194,10 +204,10 @@ public class ScheduleServiceImpl implements ScheduleService {
                 scheduleSeatMapper.insert(ss);
             }
 
-            // 重建 Redis Bitmap
+            // 重建 Redis Bitmap，事务提交后执行
             List<ScheduleSeat> newSeats = scheduleSeatMapper.selectList(
                     new LambdaQueryWrapper<ScheduleSeat>().eq(ScheduleSeat::getScheduleId, id));
-            seatBitmapService.rebuildBitmap(id, newSeats);
+            afterCommit(() -> seatBitmapService.rebuildBitmap(id, newSeats));
         }
 
         if (dto.getShowDate() != null) schedule.setShowDate(dto.getShowDate());
@@ -214,6 +224,11 @@ public class ScheduleServiceImpl implements ScheduleService {
         return vo;
     }
 
+    /**
+     * 取消场次。拒绝有已售座位的场次；取消后释放所有锁定座位，
+     * 通过 CAS（updateToCancelledIfPending）将待支付订单改为已取消并通知用户，
+     * 最后删除 Redis Bitmap 缓存。
+     */
     @Override
     @Transactional
     public void cancelSchedule(Long id) {
@@ -254,10 +269,11 @@ public class ScheduleServiceImpl implements ScheduleService {
             }
         }
 
-        // 删除 Redis Bitmap 缓存
-        seatBitmapService.deleteBitmap(id);
+        // 删除 Redis Bitmap 缓存，事务提交后执行
+        afterCommit(() -> seatBitmapService.deleteBitmap(id));
     }
 
+    /** 恢复已取消的场次，校验日期未过期且无排片冲突后重新置为可售，重建 Redis Bitmap。 */
     @Override
     @Transactional
     public void restoreSchedule(Long id) {
@@ -280,12 +296,13 @@ public class ScheduleServiceImpl implements ScheduleService {
         schedule.setStatus(ScheduleStatus.ON_SALE.getCode());
         scheduleMapper.updateById(schedule);
 
-        // 恢复 Redis Bitmap
+        // 恢复 Redis Bitmap，事务提交后执行
         List<ScheduleSeat> seats = scheduleSeatMapper.selectList(
                 new LambdaQueryWrapper<ScheduleSeat>().eq(ScheduleSeat::getScheduleId, id));
-        seatBitmapService.rebuildBitmap(id, seats);
+        afterCommit(() -> seatBitmapService.rebuildBitmap(id, seats));
     }
 
+    /** 手动结束场次，释放锁定座位并将已支付订单置为过期，删除 Redis Bitmap。 */
     @Override
     @Transactional
     public void endSchedule(Long id) {
@@ -309,10 +326,11 @@ public class ScheduleServiceImpl implements ScheduleService {
         // 已出票订单置为已过期(场次已结束,不可再检票)
         expirePaidOrders(id);
 
-        // 删除 Redis Bitmap 缓存
-        seatBitmapService.deleteBitmap(id);
+        // 删除 Redis Bitmap 缓存，事务提交后执行
+        afterCommit(() -> seatBitmapService.deleteBitmap(id));
     }
 
+    /** 删除场次，仅允许非在售且无已售座位的场次删除。 */
     @Override
     @Transactional
     public void deleteSchedule(Long id) {
@@ -335,9 +353,10 @@ public class ScheduleServiceImpl implements ScheduleService {
         scheduleSeatMapper.delete(
                 new LambdaQueryWrapper<ScheduleSeat>().eq(ScheduleSeat::getScheduleId, id));
         scheduleMapper.deleteById(id);
-        seatBitmapService.deleteBitmap(id);
+        afterCommit(() -> seatBitmapService.deleteBitmap(id));
     }
 
+    /** 管理端场次分页查询，支持按影片/影院/影厅/日期/状态筛选。 */
     @Override
     public PageResult<ScheduleListVO> adminList(Long movieId, Long cinemaId, Long hallId, String showDate, String status, Integer page, Integer size) {
         Page<Schedule> pageParam = new Page<>(PageUtil.normalizePage(page), PageUtil.normalizeSize(size));
@@ -357,6 +376,7 @@ public class ScheduleServiceImpl implements ScheduleService {
         return new PageResult<>(result.getTotal(), page, size, records);
     }
 
+    /** 管理端场次详情，包含影片信息、影院地址、座位统计。 */
     @Override
     public ScheduleDetailVO adminDetail(Long id) {
         Schedule schedule = scheduleMapper.selectById(id);
@@ -366,6 +386,7 @@ public class ScheduleServiceImpl implements ScheduleService {
         return toDetailVO(schedule);
     }
 
+    /** 用户端场次列表，仅返回今天及以后的在售场次，支持按影片名模糊搜索。 */
     @Override
     public PageResult<ScheduleListVO> userList(Long movieId, String movieName, Long cinemaId, String showDate, Integer page, Integer size) {
         Page<Schedule> pageParam = new Page<>(PageUtil.normalizePage(page), PageUtil.normalizeSize(size));
@@ -395,6 +416,7 @@ public class ScheduleServiceImpl implements ScheduleService {
         return new PageResult<>(result.getTotal(), page, size, records);
     }
 
+    /** 用户端场次详情，仅可售场次可查看。 */
     @Override
     public ScheduleDetailVO userDetail(Long id) {
         Schedule schedule = scheduleMapper.selectById(id);
@@ -404,6 +426,11 @@ public class ScheduleServiceImpl implements ScheduleService {
         return toDetailVO(schedule);
     }
 
+    /**
+     * 获取座位图。优先从 Redis Bitmap 读取座位状态（读加速），
+     * 缓存未命中时从 MySQL 重建 Bitmap 后重读。
+     * 返回每个座位的行列号、标签、类别和当前状态。
+     */
     @Override
     public SeatMapVO getSeatMap(Long id) {
         Schedule schedule = scheduleMapper.selectById(id);
@@ -492,6 +519,11 @@ public class ScheduleServiceImpl implements ScheduleService {
                 .build();
     }
 
+    /**
+     * 定时扫描（每 10 分钟）已过期的在售场次并自动结束。
+     * 释放锁定座位，通过 CAS 将待支付订单改为已取消、已支付订单改为已过期，
+     * 发送通知，最后删除 Redis Bitmap。
+     */
     @Scheduled(fixedRate = 600000)
     @Override
     @Transactional
@@ -542,8 +574,8 @@ public class ScheduleServiceImpl implements ScheduleService {
                 // 已出票订单置为已过期(场次已结束,不可再检票)
                 expirePaidOrders(schedule.getId());
 
-                // 清理 Redis Bitmap 缓存（与 endSchedule 一致）
-                seatBitmapService.deleteBitmap(schedule.getId());
+                // 清理 Redis Bitmap 缓存（与 endSchedule 一致），事务提交后执行
+                afterCommit(() -> seatBitmapService.deleteBitmap(schedule.getId()));
             } catch (Exception e) {
                 log.error("Error auto-ending schedule {}", schedule.getId(), e);
             }
@@ -637,6 +669,7 @@ public class ScheduleServiceImpl implements ScheduleService {
         return new SeatCounts(lockedCount, soldCount);
     }
 
+    /** 判断修改是否涉及核心字段（影厅/日期/时间），核心字段变更需要有座位状态保护。 */
     private boolean isCoreFieldChanged(Schedule schedule, ScheduleUpdateDTO dto) {
         return (dto.getHallId() != null && !dto.getHallId().equals(schedule.getHallId())) ||
                 (dto.getShowDate() != null && !dto.getShowDate().equals(schedule.getShowDate())) ||
@@ -644,6 +677,7 @@ public class ScheduleServiceImpl implements ScheduleService {
                 (dto.getEndTime() != null && !dto.getEndTime().equals(schedule.getEndTime()));
     }
 
+    /** Schedule → ScheduleListVO 转换，附带影片名/影院名/影厅名和 Redis Bitmap 座位计数。 */
     private ScheduleListVO toListVO(Schedule schedule) {
         ScheduleListVO vo = new ScheduleListVO();
         BeanUtils.copyProperties(schedule, vo);
@@ -669,6 +703,26 @@ public class ScheduleServiceImpl implements ScheduleService {
         return vo;
     }
 
+    /**
+     * 在事务提交后执行操作，确保数据库已持久化后再更新 Redis 缓存，
+     * 避免事务回滚后缓存与数据库不一致。
+     */
+    private void afterCommit(Runnable action) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            action.run();
+                        }
+                    }
+            );
+        } else {
+            action.run();
+        }
+    }
+
+    /** Schedule → ScheduleDetailVO 转换，附带影片详情、影院地址、影厅类型和 Redis Bitmap 座位计数。 */
     private ScheduleDetailVO toDetailVO(Schedule schedule) {
         ScheduleDetailVO vo = new ScheduleDetailVO();
         BeanUtils.copyProperties(schedule, vo);
