@@ -6,7 +6,7 @@ export interface StatItem {
   title: string;
   value: number;
   unit?: '' | '¥' | '%';
-  change?: number;
+  change?: number | string;
   changeType?: 'up' | 'down';
   icon: React.FC<{ className?: string; style?: React.CSSProperties }>;
   color: 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'cyan' | 'pink' | 'indigo';
