@@ -39,6 +39,8 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -87,12 +89,13 @@ public class OrderServiceImpl implements OrderService {
      */
     @Override
     public LockSeatResultVO lockSeat(Long userId, LockSeatDTO dto, String requestId) {
-        // Redis 幂等校验
+        // ── 1. 幂等校验：相同 userId+requestId 的重复请求直接返回缓存结果 ──
         LockSeatResultVO cached = idempotentService.getIfPresent(userId, requestId, LockSeatResultVO.class);
         if (cached != null) {
             return cached;
         }
 
+        // ── 2. 参数校验 ──
         if (dto.getSeatIds() == null || dto.getSeatIds().isEmpty() || dto.getTicketCount() == null) {
             throw new BusinessException(400, "座位和票数不能为空");
         }
@@ -103,14 +106,14 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException(400, "单次最多购买6张票");
         }
 
-        // 用户级防重锁
+        // ── 3. 用户级防重锁：同一用户同一时间只能有一个锁座流程 ──
         RLock userLock = redissonClient.getLock("lock:user:order:" + userId);
         try {
             if (!userLock.tryLock(LOCK_WAIT_SECONDS, LOCK_LEASE_SECONDS, TimeUnit.SECONDS)) {
                 throw new BusinessException(409, "您有正在处理的订单，请稍后重试");
             }
 
-            // 检查是否已有待支付订单
+            // ── 4. 待支付订单检查：防止用户同时持有多个待支付订单 ──
             Long existingPendingCount = orderMapper.selectCount(
                     new LambdaQueryWrapper<Order>()
                             .eq(Order::getUserId, userId)
@@ -119,25 +122,29 @@ public class OrderServiceImpl implements OrderService {
                 throw new BusinessException(409, "您已有待支付订单，请先完成支付或取消后再选座");
             }
 
+            // ── 5. 场次状态校验：仅 ON_SALE 状态的场次可锁座 ──
             Schedule schedule = scheduleMapper.selectById(dto.getScheduleId());
             if (schedule == null || !ScheduleStatus.ON_SALE.getCode().equals(schedule.getStatus())) {
                 throw new BusinessException(400, "场次不存在或不可售");
             }
 
-            // 逐座位获取分布式锁
+            // ── 6. 逐座位获取分布式锁：按 seatId 顺序获取，防止死锁 ──
             List<RLock> seatLocks = new ArrayList<>();
             for (Long seatId : dto.getSeatIds()) {
                 RLock seatLock = redissonClient.getLock("lock:seat:" + dto.getScheduleId() + ":" + seatId);
                 if (!seatLock.tryLock(LOCK_WAIT_SECONDS, LOCK_LEASE_SECONDS, TimeUnit.SECONDS)) {
-                    // 释放已获取的锁
+                    // 获取失败：释放已获取的锁，避免残留
                     seatLocks.forEach(RLock::unlock);
                     throw new BusinessException(409, "座位正在被其他用户选择，请稍后重试");
                 }
                 seatLocks.add(seatLock);
             }
 
+            // ── 7. 执行核心事务（通过 self 代理确保 @Transactional 生效）──
             try {
                 LockSeatResultVO result = self.doLockSeat(userId, dto, schedule);
+
+                // ── 8. 后续处理：缓存幂等结果、调度超时取消、发送通知 ──
                 idempotentService.put(userId, requestId, result);
                 orderTimeoutService.schedule(result.getId());
                 notificationService.sendNotification(
@@ -168,7 +175,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public LockSeatResultVO doLockSeat(Long userId, LockSeatDTO dto, Schedule schedule) {
-        // SELECT ... FOR UPDATE 加排他锁,确保并发安全
+        // ── 1. SELECT ... FOR UPDATE 对目标座位加行级排他锁（悲观锁，防止并发修改）──
         List<ScheduleSeat> seats = scheduleSeatMapper.selectForUpdate(
                 dto.getScheduleId(), dto.getSeatIds());
 
@@ -176,6 +183,7 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException(400, "部分座位不存在");
         }
 
+        // ── 2. 二次校验座位状态：分布式锁释放后、事务提交前可能有并发请求改了座位状态 ──
         List<Long> conflictSeatIds = seats.stream()
                 .filter(s -> !ScheduleSeatStatus.AVAILABLE.getCode().equals(s.getStatus()))
                 .map(ScheduleSeat::getHallCellId)
@@ -184,6 +192,7 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException(409, "部分座位已被占用");
         }
 
+        // ── 3. 构建订单快照信息（影片名/影院名/影厅名/座位标签）──
         Movie movie = movieMapper.selectById(schedule.getMovieId());
         Cinema cinema = cinemaMapper.selectById(schedule.getCinemaId());
         Hall hall = hallMapper.selectById(schedule.getHallId());
@@ -197,6 +206,7 @@ public class OrderServiceImpl implements OrderService {
                 .map(HallCell::getSeatLabel)
                 .collect(Collectors.joining(","));
 
+        // ── 4. 创建订单（PENDING 状态），orderNo 冲突重试 3 次 ──
         LocalDateTime now = LocalDateTime.now();
         Order order = Order.builder()
                 .userId(userId)
@@ -225,6 +235,7 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
+        // ── 5. 更新座位状态 AVAILABLE → LOCKED，关联订单 ID ──
         for (ScheduleSeat seat : seats) {
             seat.setStatus(ScheduleSeatStatus.LOCKED.getCode());
             seat.setLockedAt(LocalDateTime.now());
@@ -232,10 +243,13 @@ public class OrderServiceImpl implements OrderService {
             scheduleSeatMapper.updateById(seat);
         }
 
-        // SETBIT schedule:seat:locked:{scheduleId} {seat_index} 1
-        for (ScheduleSeat seat : seats) {
-            seatBitmapService.setLocked(dto.getScheduleId(), seat.getSeatIndex());
-        }
+        // ── 6. 同步 Redis Bitmap：SETBIT locked {seatIndex} 1（读加速缓存）──
+        //     延迟到事务提交后执行，避免回滚后缓存脏数据
+        afterCommit(() -> {
+            for (ScheduleSeat seat : seats) {
+                seatBitmapService.setLocked(dto.getScheduleId(), seat.getSeatIndex());
+            }
+        });
 
         LockSeatResultVO vo = new LockSeatResultVO();
         BeanUtils.copyProperties(order, vo);
@@ -254,12 +268,13 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public PayResultVO payOrder(Long userId, Long orderId, String requestId) {
-        // Redis 幂等校验
+        // ── 1. 幂等校验 ──
         PayResultVO cached = idempotentService.getIfPresent(userId, requestId, PayResultVO.class);
         if (cached != null) {
             return cached;
         }
 
+        // ── 2. 订单级分布式锁：与 cancelOrder/refundOrder/checkTicket 互斥 ──
         RLock orderLock = redissonClient.getLock("lock:order:" + orderId);
         try {
             if (!orderLock.tryLock(LOCK_WAIT_SECONDS, LOCK_LEASE_SECONDS, TimeUnit.SECONDS)) {
@@ -271,6 +286,7 @@ public class OrderServiceImpl implements OrderService {
                 throw new BusinessException(404, "订单不存在");
             }
 
+            // ── 3. 状态校验：已取消/已退票/已支付 → 拒绝 ──
             if (OrderStatus.CANCELLED.getCode().equals(order.getStatus()) || OrderStatus.REFUNDED.getCode().equals(order.getStatus())) {
                 throw new BusinessException(409, "订单已失效，请重新选座");
             }
@@ -278,22 +294,23 @@ public class OrderServiceImpl implements OrderService {
                 throw new BusinessException(409, "订单已完成支付");
             }
 
-            // 校验场次仍可售
+            // ── 4. 场次状态校验：场次已取消/结束后不可支付（防并发竞态）──
             Schedule schedule = scheduleMapper.selectById(order.getScheduleId());
             if (schedule == null || !ScheduleStatus.ON_SALE.getCode().equals(schedule.getStatus())) {
                 throw new BusinessException(409, "场次已结束或已取消，不可支付");
             }
 
-            // 条件 UPDATE (CAS)：仅当 status=PENDING 时更新为 PAID
+            // ── 5. CAS 条件更新：WHERE status='PENDING' → SET status='PAID'
+            //     并发请求 affected=0 直接失败，数据库级保证幂等 ──
             int affected = orderMapper.updateToPaidIfPending(orderId, LocalDateTime.now());
             if (affected == 0) {
                 throw new BusinessException(409, "订单状态已变更，请刷新后重试");
             }
 
-            // 生成动态取票码（Redis, 60秒刷新）
+            // ── 6. 生成动态取票码（Redis 存储，60s 刷新，检票时验证）──
             String pickupCode = pickupCodeService.getOrCreateCode(order.getId());
 
-            // 更新座位状态 locked -> sold
+            // ── 7. 更新座位状态 LOCKED → SOLD ──
             List<ScheduleSeat> seats = scheduleSeatMapper.selectList(
                     new LambdaQueryWrapper<ScheduleSeat>()
                             .eq(ScheduleSeat::getOrderId, orderId)
@@ -303,18 +320,19 @@ public class OrderServiceImpl implements OrderService {
                 scheduleSeatMapper.updateById(seat);
             }
 
-            // 取消延迟队列中的超时取消任务
+            // ── 8. 取消延迟队列中的超时取消任务（已支付，不再需要超时取消）──
             orderTimeoutService.cancel(orderId);
 
-            // SETBIT schedule:seat:sold:{scheduleId} {seat_index} 1
-            // setSold 内部已同时清除锁定位
-            for (ScheduleSeat seat : seats) {
-                seatBitmapService.setSold(order.getScheduleId(), seat.getSeatIndex());
-            }
+            // ── 9. 同步 Redis Bitmap：setSold 内部同时 SETBIT sold=1 + locked=0 ──
+            //     延迟到事务提交后执行，避免回滚后缓存脏数据
+            afterCommit(() -> {
+                for (ScheduleSeat seat : seats) {
+                    seatBitmapService.setSold(order.getScheduleId(), seat.getSeatIndex());
+                }
+            });
 
+            // ── 10. 发送支付成功通知（@Async）──
             Cinema cinema = cinemaMapper.selectById(schedule.getCinemaId());
-
-            // 异步发送支付成功通知
             notificationService.sendNotification(
                     userId, "PAY_SUCCESS", "支付成功",
                     "影院地址：" + (cinema != null ? cinema.getAddress() : "") + "，放映时间：" + order.getShowDate() + " " + order.getStartTime() + "，取票码：" + pickupCode,
@@ -354,12 +372,13 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public void cancelOrder(Long userId, Long orderId, String requestId) {
-        // Redis 幂等校验
+        // ── 1. 幂等校验 ──
         String cached = idempotentService.getIfPresent(userId, requestId, String.class);
         if (cached != null) {
             return;
         }
 
+        // ── 2. 订单级分布式锁 ──
         RLock orderLock = redissonClient.getLock("lock:order:" + orderId);
         try {
             if (!orderLock.tryLock(LOCK_WAIT_SECONDS, LOCK_LEASE_SECONDS, TimeUnit.SECONDS)) {
@@ -371,17 +390,18 @@ public class OrderServiceImpl implements OrderService {
                 throw new BusinessException(404, "订单不存在");
             }
 
+            // ── 3. 状态校验：仅 PENDING 可取消 ──
             if (!OrderStatus.PENDING.getCode().equals(order.getStatus())) {
                 throw new BusinessException(409, "仅待支付订单可取消");
             }
 
-            // 条件 UPDATE (CAS)：仅当 status=PENDING 时更新为 CANCELLED
+            // ── 4. CAS 更新：WHERE status='PENDING' → SET status='CANCELLED' ──
             int affected = orderMapper.updateToCancelledIfPending(orderId, LocalDateTime.now(), "用户主动取消");
             if (affected == 0) {
                 throw new BusinessException(409, "订单状态已变更，请刷新后重试");
             }
 
-            // 释放座位
+            // ── 5. 释放座位：LOCKED → AVAILABLE，清除订单关联 ──
             List<ScheduleSeat> seats = scheduleSeatMapper.selectList(
                     new LambdaQueryWrapper<ScheduleSeat>()
                             .eq(ScheduleSeat::getOrderId, orderId)
@@ -393,18 +413,21 @@ public class OrderServiceImpl implements OrderService {
                 scheduleSeatMapper.updateById(seat);
             }
 
-            // 取消延迟队列中的超时取消任务
+            // ── 6. 取消延迟队列中的超时取消任务 ──
             orderTimeoutService.cancel(orderId);
 
-            // 清理取票码
+            // ── 7. 清理取票码（如有）──
             pickupCodeService.removeCode(orderId);
-          
-            // SETBIT schedule:seat:locked:{scheduleId} {seat_index} 0
-            for (ScheduleSeat seat : seats) {
-                seatBitmapService.clearLocked(order.getScheduleId(), seat.getSeatIndex());
-            }
 
-            // 发送取消通知
+            // ── 8. 同步 Redis Bitmap：SETBIT locked {seatIndex} 0 ──
+            //     延迟到事务提交后执行，避免回滚后缓存脏数据
+            afterCommit(() -> {
+                for (ScheduleSeat seat : seats) {
+                    seatBitmapService.clearLocked(order.getScheduleId(), seat.getSeatIndex());
+                }
+            });
+
+            // ── 9. 发送取消通知（@Async）──
             notificationService.sendNotification(
                     userId, "ORDER_CANCELLED", "订单已取消",
                     "您的订单已取消，座位已释放，如需购票请重新选座。影片：《" + order.getMovieName() + "》",
@@ -428,12 +451,13 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public void refundOrder(Long userId, Long orderId, String requestId) {
-        // Redis 幂等校验
+        // ── 1. 幂等校验 ──
         String cached = idempotentService.getIfPresent(userId, requestId, String.class);
         if (cached != null) {
             return;
         }
 
+        // ── 2. 订单级分布式锁 ──
         RLock orderLock = redissonClient.getLock("lock:order:" + orderId);
         try {
             if (!orderLock.tryLock(LOCK_WAIT_SECONDS, LOCK_LEASE_SECONDS, TimeUnit.SECONDS)) {
@@ -445,11 +469,12 @@ public class OrderServiceImpl implements OrderService {
                 throw new BusinessException(404, "订单不存在");
             }
 
+            // ── 3. 状态校验：仅已出票（PAID）可退票 ──
             if (!OrderStatus.PAID.getCode().equals(order.getStatus())) {
                 throw new BusinessException(409, "仅已出票订单可退票");
             }
 
-            // 校验放映时间
+            // ── 4. 放映时间校验：放映已开始则不可退票 ──
             Schedule schedule = scheduleMapper.selectById(order.getScheduleId());
             if (schedule != null) {
                 LocalDateTime showDateTime = LocalDateTime.of(schedule.getShowDate(), schedule.getStartTime());
@@ -458,13 +483,13 @@ public class OrderServiceImpl implements OrderService {
                 }
             }
 
-            // 条件 UPDATE (CAS)：仅当 status=PAID 时更新为 REFUNDED
+            // ── 5. CAS 更新：WHERE status='PAID' → SET status='REFUNDED' ──
             int affected = orderMapper.updateToRefundedIfPaid(orderId, LocalDateTime.now(), "用户退票");
             if (affected == 0) {
                 throw new BusinessException(409, "订单状态已变更，请刷新后重试");
             }
 
-            // 释放座位 sold -> available
+            // ── 6. 释放座位：SOLD → AVAILABLE，清除订单关联 ──
             List<ScheduleSeat> seats = scheduleSeatMapper.selectList(
                     new LambdaQueryWrapper<ScheduleSeat>()
                             .eq(ScheduleSeat::getOrderId, orderId)
@@ -475,21 +500,20 @@ public class OrderServiceImpl implements OrderService {
                 scheduleSeatMapper.updateById(seat);
             }
 
-            
-            // SETBIT schedule:seat:sold:{scheduleId} {seat_index} 0
-            // SETBIT schedule:seat:locked:{scheduleId} {seat_index} 0
-            for (ScheduleSeat seat : seats) {
-                seatBitmapService.clearSoldAndLocked(order.getScheduleId(), seat.getSeatIndex());
-            }
+            // ── 7. 同步 Redis Bitmap：SETBIT sold=0 + locked=0（clearSoldAndLocked 一次清除两个 bit）──
+            //     延迟到事务提交后执行，避免回滚后缓存脏数据
+            afterCommit(() -> {
+                for (ScheduleSeat seat : seats) {
+                    seatBitmapService.clearSoldAndLocked(order.getScheduleId(), seat.getSeatIndex());
+                }
+            });
 
-            // 异步发送退票成功通知
+            // ── 8. 清理取票码 + 发送退票通知（@Async）──
+            pickupCodeService.removeCode(orderId);
             notificationService.sendNotification(
                     userId, "REFUND_SUCCESS", "退票成功",
                     "退票成功，订单已取消，座位已释放。影片：《" + order.getMovieName() + "》，退款金额：¥" + order.getTotalAmount(),
                     orderId);
-
-            // 清理取票码
-            pickupCodeService.removeCode(orderId);
 
             idempotentService.put(userId, requestId, "ok");
         } catch (InterruptedException e) {
@@ -693,6 +717,7 @@ public class OrderServiceImpl implements OrderService {
         RLock orderLock = redissonClient.getLock("lock:order:" + orderId);
         try {
             if (!orderLock.tryLock(LOCK_WAIT_SECONDS, LOCK_LEASE_SECONDS, TimeUnit.SECONDS)) {
+                // 其他线程正在处理（可能是用户正在支付），跳过
                 log.warn("Order {} is being processed by another thread, skipping timeout cancel", orderId);
                 return;
             }
@@ -701,20 +726,21 @@ public class OrderServiceImpl implements OrderService {
             if (order == null) {
                 throw new BusinessException(404, "订单不存在");
             }
-            // 幂等：已支付或已取消则跳过
+            // 幂等：已支付或已取消则跳过（延迟队列和定时任务可能重复触发）
             if (!OrderStatus.PENDING.getCode().equals(order.getStatus())) {
                 log.info("Order {} already {}, skipping timeout cancel", orderId, order.getStatus());
                 throw new BusinessException(409, "订单状态非待支付，无法超时取消");
             }
 
-            // 条件 UPDATE (CAS)：仅当 status=PENDING 时更新为 CANCELLED
+            // CAS 更新：WHERE status='PENDING' → SET status='CANCELLED'
+            // affected=0 说明并发支付已先一步 CAS 为 PAID，放弃取消
             int affected = orderMapper.updateToCancelledIfPending(orderId, LocalDateTime.now(), "超时取消");
             if (affected == 0) {
                 log.info("Order {} status changed concurrently, skipping timeout cancel", orderId);
                 return;
             }
 
-            // 释放座位
+            // 释放座位 LOCKED → AVAILABLE
             List<ScheduleSeat> seats = scheduleSeatMapper.selectList(
                     new LambdaQueryWrapper<ScheduleSeat>()
                             .eq(ScheduleSeat::getOrderId, orderId)
@@ -725,10 +751,13 @@ public class OrderServiceImpl implements OrderService {
                 seat.setOrderId(null);
                 scheduleSeatMapper.updateById(seat);
             }
-            // SETBIT schedule:seat:locked:{scheduleId} {seat_index} 0
-            for (ScheduleSeat seat : seats) {
-                seatBitmapService.clearLocked(order.getScheduleId(), seat.getSeatIndex());
-            }
+            // 同步 Redis Bitmap：SETBIT locked {seatIndex} 0
+            // 延迟到事务提交后执行，避免回滚后缓存脏数据
+            afterCommit(() -> {
+                for (ScheduleSeat seat : seats) {
+                    seatBitmapService.clearLocked(order.getScheduleId(), seat.getSeatIndex());
+                }
+            });
             notificationService.sendNotification(
                     order.getUserId(), "TIMEOUT_CANCEL", "订单超时取消",
                     "您的订单已超时取消，座位已释放，如需购票请重新选座。影片：《" + order.getMovieName() + "》",
@@ -771,6 +800,25 @@ public class OrderServiceImpl implements OrderService {
     private String generateOrderNo() {
         return LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
                 + String.format("%06d", java.util.concurrent.ThreadLocalRandom.current().nextInt(1000000));
+    }
+
+    /**
+     * 在事务提交后执行操作，确保数据库已持久化后再更新 Redis 缓存，
+     * 避免事务回滚后缓存与数据库不一致。
+     */
+    private void afterCommit(Runnable action) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            action.run();
+                        }
+                    }
+            );
+        } else {
+            action.run();
+        }
     }
 
     /** Order → OrderListVO 转换，待支付订单计算剩余支付倒计时。 */

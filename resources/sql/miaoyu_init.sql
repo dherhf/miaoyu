@@ -155,7 +155,7 @@ CREATE TABLE `orders` (
   `hall_name`     VARCHAR(50)   NOT NULL COMMENT '影厅名称(冗余存储)',
   `show_date`     DATE          NOT NULL COMMENT '放映日期(冗余存储)',
   `start_time`    TIME          NOT NULL COMMENT '放映开始时间(冗余存储)',
-  `seat_info`     VARCHAR(500)  NOT NULL COMMENT '座位信息,如 5排6座,5排7座',
+  `seat_info`     VARCHAR(500)  NOT NULL COMMENT '座位信息,如 A1,A2',
   `ticket_count`  INT           NOT NULL COMMENT '票数,等于所选座位数',
   `total_amount`  DECIMAL(10,2) NOT NULL COMMENT '订单总金额 = 票价 × 票数,后端计算',
   `status`        ENUM('pending','paid','cancelled','refunded','checked','expired') NOT NULL DEFAULT 'pending' COMMENT '待支付/已出票/已取消/已退票/已检票/已过期',
