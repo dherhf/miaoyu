@@ -75,6 +75,7 @@ export default function OrderListPage() {
       await payOrder(order.id, rid)
       payRequestIds.current.delete(order.id)
       message.success('支付成功')
+      refreshCurrentPage()
       await handleOpenDetail(order.id)
     } catch {
       // 拦截器已统一提示
