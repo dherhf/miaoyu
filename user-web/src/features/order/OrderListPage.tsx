@@ -36,6 +36,9 @@ export default function OrderListPage() {
   const [detail, setDetail] = useState<OrderDetailVO | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailOpen, setDetailOpen] = useState(false)
+  const payRequestIds = useRef<Map<number, string>>(new Map())
+  const cancelRequestIds = useRef<Map<number, string>>(new Map())
+  const refundRequestIds = useRef<Map<number, string>>(new Map())
 
   useHeaderBack(true, '/')
 
@@ -67,7 +70,10 @@ export default function OrderListPage() {
   // 支付
   const handlePay = async (order: OrderVO) => {
     try {
-      await payOrder(order.id)
+      let rid = payRequestIds.current.get(order.id)
+      if (!rid) { rid = crypto.randomUUID(); payRequestIds.current.set(order.id, rid) }
+      await payOrder(order.id, rid)
+      payRequestIds.current.delete(order.id)
       message.success('支付成功')
       await handleOpenDetail(order.id)
     } catch {
@@ -78,7 +84,10 @@ export default function OrderListPage() {
   // 取消
   const handleCancel = async (order: OrderVO) => {
     try {
-      await cancelOrder(order.id)
+      let rid = cancelRequestIds.current.get(order.id)
+      if (!rid) { rid = crypto.randomUUID(); cancelRequestIds.current.set(order.id, rid) }
+      await cancelOrder(order.id, rid)
+      cancelRequestIds.current.delete(order.id)
       message.success('订单已取消')
       refreshCurrentPage()
     } catch {
@@ -89,7 +98,10 @@ export default function OrderListPage() {
   // 退票
   const handleRefund = async (order: OrderVO) => {
     try {
-      await refundOrder(order.id)
+      let rid = refundRequestIds.current.get(order.id)
+      if (!rid) { rid = crypto.randomUUID(); refundRequestIds.current.set(order.id, rid) }
+      await refundOrder(order.id, rid)
+      refundRequestIds.current.delete(order.id)
       message.success('退票成功')
       refreshCurrentPage()
     } catch {

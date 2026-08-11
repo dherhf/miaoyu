@@ -17,6 +17,8 @@ export default function PendingOrderCard({ data }: BaseCardProps<PendingOrderCar
   const [paid, setPaid] = useState(false)
   const [cancelled, setCancelled] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
+  const payRequestIdRef = useRef('')
+  const cancelRequestIdRef = useRef('')
   const expired = seconds <= 0
   const done = paid || cancelled
 
@@ -24,7 +26,9 @@ export default function PendingOrderCard({ data }: BaseCardProps<PendingOrderCar
     if (expired || done || paying) return
     setPaying(true)
     try {
-      await payOrder(id)
+      if (!payRequestIdRef.current) payRequestIdRef.current = crypto.randomUUID()
+      await payOrder(id, payRequestIdRef.current)
+      payRequestIdRef.current = ''
       setPaid(true)
       if (timerRef.current) clearInterval(timerRef.current)
       message.success('支付成功')
@@ -44,7 +48,9 @@ export default function PendingOrderCard({ data }: BaseCardProps<PendingOrderCar
       cancelText: '关闭',
       onOk: async () => {
         try {
-          await cancelOrder(id)
+          if (!cancelRequestIdRef.current) cancelRequestIdRef.current = crypto.randomUUID()
+          await cancelOrder(id, cancelRequestIdRef.current)
+          cancelRequestIdRef.current = ''
           setCancelled(true)
           if (timerRef.current) clearInterval(timerRef.current)
           message.success('订单已取消')

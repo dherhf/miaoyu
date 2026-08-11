@@ -14,21 +14,21 @@ export async function getOrderDetail(id: number): Promise<OrderDetailVO> {
   return res.data
 }
 
-export async function payOrder(orderId: number): Promise<void> {
+export async function payOrder(orderId: number, requestId?: string): Promise<void> {
   await request.post(`/orders/${orderId}/pay`, {}, {
-    headers: { 'X-Request-Id': crypto.randomUUID() },
+    headers: { 'X-Request-Id': requestId || crypto.randomUUID() },
   })
 }
 
-export async function cancelOrder(orderId: number): Promise<void> {
+export async function cancelOrder(orderId: number, requestId?: string): Promise<void> {
   await request.put(`/orders/${orderId}/cancel`, {}, {
-    headers: { 'X-Request-Id': crypto.randomUUID() },
+    headers: { 'X-Request-Id': requestId || crypto.randomUUID() },
   })
 }
 
-export async function refundOrder(orderId: number): Promise<void> {
+export async function refundOrder(orderId: number, requestId?: string): Promise<void> {
   await request.post(`/orders/${orderId}/refund`, {}, {
-    headers: { 'X-Request-Id': crypto.randomUUID() },
+    headers: { 'X-Request-Id': requestId || crypto.randomUUID() },
   })
 }
 

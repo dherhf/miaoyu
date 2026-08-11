@@ -79,6 +79,9 @@ export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>
     open: boolean; loading: boolean; orderId: number | null; data: Record<string, any> | null
   }>({ open: false, loading: false, orderId: null, data: null })
   const dataRef = useRef(data)
+  const payRequestIds = useRef<Map<number, string>>(new Map())
+  const cancelRequestIds = useRef<Map<number, string>>(new Map())
+  const refundRequestIds = useRef<Map<number, string>>(new Map())
 
   useEffect(() => {
     if (data !== dataRef.current && data) {
@@ -110,7 +113,10 @@ export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>
 
   const handlePay = useCallback(async (orderId: number) => {
     try {
-      await payOrder(orderId)
+      let rid = payRequestIds.current.get(orderId)
+      if (!rid) { rid = crypto.randomUUID(); payRequestIds.current.set(orderId, rid) }
+      await payOrder(orderId, rid)
+      payRequestIds.current.delete(orderId)
       message.success('支付成功')
       fetchPage(state.page, activeFilter)
     } catch {
@@ -126,7 +132,10 @@ export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>
       cancelText: '关闭',
       onOk: async () => {
         try {
-          await cancelOrder(orderId)
+          let rid = cancelRequestIds.current.get(orderId)
+          if (!rid) { rid = crypto.randomUUID(); cancelRequestIds.current.set(orderId, rid) }
+          await cancelOrder(orderId, rid)
+          cancelRequestIds.current.delete(orderId)
           setCancelledIds((prev) => new Set(prev).add(orderId))
           message.success('订单已取消')
         } catch {
@@ -144,7 +153,10 @@ export default function OrderListCard({ data }: BaseCardProps<OrderListCardData>
       cancelText: '取消',
       onOk: async () => {
         try {
-          await refundOrder(orderId)
+          let rid = refundRequestIds.current.get(orderId)
+          if (!rid) { rid = crypto.randomUUID(); refundRequestIds.current.set(orderId, rid) }
+          await refundOrder(orderId, rid)
+          refundRequestIds.current.delete(orderId)
           message.success('退票成功')
           fetchPage(state.page, activeFilter)
         } catch {

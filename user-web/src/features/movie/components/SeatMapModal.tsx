@@ -26,6 +26,9 @@ export default function SeatMapModal({
   const [submitting, setSubmitting] = useState(false)
   const [countdownSeconds, setCountdownSeconds] = useState(0)
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
+  const lockRequestIdRef = useRef('')
+  const payRequestIdRef = useRef('')
+  const cancelRequestIdRef = useRef('')
   const [pickupCode, setPickupCode] = useState<string | null>(null)
   const [pickupExpiresIn, setPickupExpiresIn] = useState(60)
   const pickupTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -114,10 +117,13 @@ export default function SeatMapModal({
     if (!schedule || selectedSeats.length === 0) return
     setSubmitting(true)
     try {
+      if (!lockRequestIdRef.current) lockRequestIdRef.current = crypto.randomUUID()
       const result = await lockSeat(
         schedule.id,
         selectedSeats.map((s) => s.hallCellId),
+        lockRequestIdRef.current,
       )
+      lockRequestIdRef.current = ''
       setLockResult(result)
       setPhase('confirm')
     } catch {
@@ -132,7 +138,9 @@ export default function SeatMapModal({
     if (!lockResult) return
     setSubmitting(true)
     try {
-      const result = await payOrder(lockResult.id)
+      if (!payRequestIdRef.current) payRequestIdRef.current = crypto.randomUUID()
+      const result = await payOrder(lockResult.id, payRequestIdRef.current)
+      payRequestIdRef.current = ''
       setPayResult(result)
       setPickupCode(result.pickupCode || null)
       setPhase('success')
@@ -153,7 +161,9 @@ export default function SeatMapModal({
       cancelText: '关闭',
       onOk: async () => {
         try {
-          await cancelOrder(lockResult.id)
+          if (!cancelRequestIdRef.current) cancelRequestIdRef.current = crypto.randomUUID()
+          await cancelOrder(lockResult.id, cancelRequestIdRef.current)
+          cancelRequestIdRef.current = ''
           message.success('订单已取消')
           await fetchSeatMap()
         } catch {
