@@ -13,6 +13,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
+import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 
@@ -29,6 +32,10 @@ class CinemaServiceTest {
     private ScheduleMapper scheduleMapper;
     @Mock
     private HallMapper hallMapper;
+    @Mock
+    private StringRedisTemplate redisTemplate;
+    @Mock
+    private ValueOperations<String, String> valueOps;
 
     @InjectMocks
     private CinemaServiceImpl cinemaService;
@@ -37,6 +44,9 @@ class CinemaServiceTest {
 
     @BeforeEach
     void setUp() {
+        // userDetail/adminDetail 走缓存读取，未命中时返回 null 落到 DB 查询
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOps);
+        lenient().when(valueOps.get(anyString())).thenReturn(null);
         createDTO = CinemaCreateDTO.builder()
                 .name("万达影城")
                 .address("北京市朝阳区")
@@ -83,15 +93,16 @@ class CinemaServiceTest {
     }
 
     @Test
-    void closeCinema_alreadyClosed_noOp() {
-        System.out.println("[CinemaServiceTest] ▶ closeCinema_alreadyClosed_noOp");
+    void closeCinema_alreadyClosed_throws409() {
+        System.out.println("[CinemaServiceTest] ▶ closeCinema_alreadyClosed_throws409");
         Cinema cinema = Cinema.builder().id(1L).status(0).build();
         when(cinemaMapper.selectById(1L)).thenReturn(cinema);
 
-        cinemaService.closeCinema(1L);
-
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> cinemaService.closeCinema(1L));
+        assertEquals(409, ex.getCode());
         verify(cinemaMapper, never()).updateById(any(Cinema.class));
-        System.out.println("[CinemaServiceTest] ✓ closeCinema_alreadyClosed_noOp PASSED");
+        System.out.println("[CinemaServiceTest] ✓ closeCinema_alreadyClosed_throws409 PASSED");
     }
 
     @Test
