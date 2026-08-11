@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Dropdown, Tooltip, Typography } from 'antd'
-import { EnvironmentOutlined, LeftOutlined, LogoutOutlined, MessageOutlined, MoonOutlined, ProfileOutlined, SunOutlined, SyncOutlined, UserOutlined } from '@ant-design/icons'
+import { EnvironmentOutlined, LeftOutlined, LogoutOutlined, MessageOutlined, MoonOutlined, ProfileOutlined, SunOutlined, SyncOutlined, UserOutlined, VideoCameraOutlined } from '@ant-design/icons'
 import { useAuthStore } from '@/features/auth'
 import { getNotifications, markNotificationRead, subscribeNotifications } from '@/features/notification'
 import type { NotificationVO } from '@/features/notification/types'
@@ -161,6 +161,11 @@ export function Header() {
               <span className="hidden sm:inline">{addressText}</span>
             </span>
           </Tooltip>
+          <Button
+            type="text"
+            icon={<VideoCameraOutlined />}
+            onClick={() => navigate('/movies')}
+          />
           <Button
             type="text"
             icon={<ProfileOutlined />}
