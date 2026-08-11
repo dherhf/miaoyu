@@ -39,18 +39,19 @@ export async function getSeatMap(scheduleId: number): Promise<SeatMapVO> {
 export async function lockSeat(
   scheduleId: number,
   seatIds: number[],
+  requestId?: string,
 ): Promise<LockSeatResultVO> {
   const res = await request.post<LockSeatResultVO>(
     '/orders/lock-seat',
     { scheduleId, seatIds, ticketCount: seatIds.length },
-    { headers: { 'X-Request-Id': crypto.randomUUID() } },
+    { headers: { 'X-Request-Id': requestId || crypto.randomUUID() } },
   )
   return res.data
 }
 
-export async function payOrder(orderId: number): Promise<PayResultVO> {
+export async function payOrder(orderId: number, requestId?: string): Promise<PayResultVO> {
   const res = await request.post<PayResultVO>(`/orders/${orderId}/pay`, {}, {
-    headers: { 'X-Request-Id': crypto.randomUUID() },
+    headers: { 'X-Request-Id': requestId || crypto.randomUUID() },
   })
   return res.data
 }

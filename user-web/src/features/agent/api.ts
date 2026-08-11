@@ -48,6 +48,7 @@ export async function sendMessage(
   content: string,
   callbacks: SseCallbacks,
   options?: {
+    requestId?: string
     longitude?: number
     latitude?: number
     city?: string
@@ -56,8 +57,8 @@ export async function sendMessage(
   const token = useAuthStore.getState().token
   const body: SendMessageRequest = {
     content,
-    requestId: crypto.randomUUID(),
     ...options,
+    requestId: options?.requestId || crypto.randomUUID(),
   }
 
   const resp = await fetch(`/api/v1/chat/sessions/${sessionId}/messages`, {
