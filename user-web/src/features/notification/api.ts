@@ -3,6 +3,7 @@ import { useAuthStore } from '@/features/auth/store'
 import { router } from '@/router'
 import type { NotificationVO, PageResult } from './types'
 
+// 获取通知
 export async function getNotifications(
   page = 1,
   size = 20,
@@ -13,6 +14,7 @@ export async function getNotifications(
   return res.data
 }
 
+// 已读通知
 export async function markNotificationRead(id: number): Promise<void> {
   await request.put(`/notifications/${id}/read`)
 }

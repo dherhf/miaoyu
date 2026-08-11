@@ -39,6 +39,7 @@ export default function MovieListPage() {
 
   useHeaderBack(true)
 
+  // 获取电影列表 pageNum: 请求页码 reset:覆盖还是追加
   const fetchMovies = useCallback(
     async (pageNum: number, reset: boolean) => {
       if (loadingRef.current) return
@@ -57,6 +58,7 @@ export default function MovieListPage() {
         } else {
           setMovies((prev) => [...prev, ...res.records])
         }
+        // 控制"加载更多"按钮的显隐。
         setHasMore(res.records.length === PAGE_SIZE)
       } catch {
         // 拦截器已统一提示
@@ -73,10 +75,12 @@ export default function MovieListPage() {
     fetchMovies(1, true)
   }, [fetchMovies])
 
+  // 写入搜索关键词
   const handleSearch = () => {
     setKeyword(searchText)
   }
 
+  // 加载更多
   const handleLoadMore = () => {
     if (!hasMore || loading) return
     const nextPage = page + 1
@@ -84,6 +88,7 @@ export default function MovieListPage() {
     fetchMovies(nextPage, false)
   }
 
+  // 跳转到详情
   const handleMovieClick = (id: string) => {
     navigate(`/movies/${id}`)
   }
