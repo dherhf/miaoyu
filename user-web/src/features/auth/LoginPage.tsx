@@ -17,7 +17,7 @@ export default function LoginPage() {
     try {
       await login(values.phone, values.password)
       message.success('登录成功')
-      navigate('/')
+      navigate('/', { replace: true })
     } catch {
       // 拦截器已统一提示
     } finally {
