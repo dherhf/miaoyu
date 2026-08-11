@@ -95,7 +95,7 @@ public class CinemaServiceImpl implements CinemaService {
             throw new BusinessException(404, "影院不存在");
         }
         if (cinema.getStatus() == CinemaStatus.CLOSED.getCode()) {
-            return;
+            throw new BusinessException(409, "影院已停业");
         }
         cinema.setStatus(CinemaStatus.CLOSED.getCode());
         cinemaMapper.updateById(cinema);
@@ -134,17 +134,35 @@ public class CinemaServiceImpl implements CinemaService {
 
     @Override
     public CinemaVO adminDetail(Long id) {
+        String cacheKey = CACHE_DETAIL_PREFIX + id;
+        String json = redisTemplate.opsForValue().get(cacheKey);
+        if (json != null) {
+            try {
+                return objectMapper.readValue(json, CinemaVO.class);
+            } catch (Exception e) {
+                log.warn("[admin]无法读取影院详细信息缓存: {}", e.getMessage());
+            }
+        }
+
         Cinema cinema = cinemaMapper.selectById(id);
         if (cinema == null) {
             throw new BusinessException(404, "影院不存在");
         }
-        return toVO(cinema);
+        CinemaVO vo = toVO(cinema);
+        try {
+            redisTemplate.opsForValue().set(cacheKey, objectMapper.writeValueAsString(vo), CACHE_TTL);
+        } catch (Exception e) {
+            log.warn("[admin]无法写入影院细节缓存: {}", e.getMessage());
+        }
+        return vo;
     }
 
     @Override
     public PageResult<CinemaUserListVO> userList(BigDecimal longitude, BigDecimal latitude, Long movieId, String keyword, Integer page, Integer size) {
         // Redis 列表缓存：仅缓存营业中影院全量列表（不带经纬度/影片ID/关键词筛选时）
-        boolean cacheable = (longitude == null && latitude == null && movieId == null && (keyword == null || keyword.isBlank()) && page == 1 && size >= 100);
+        boolean cacheable = (longitude == null && latitude == null && movieId == null && (keyword == null ||
+                keyword.isBlank()) && page == 1 && size >= 100);
+
         if (cacheable) {
             String json = redisTemplate.opsForValue().get(CACHE_LIST_OPEN);
             if (json != null) {
@@ -207,11 +225,33 @@ public class CinemaServiceImpl implements CinemaService {
 
     @Override
     public CinemaVO userDetail(Long id) {
+        String cacheKey = CACHE_DETAIL_PREFIX + id;
+        String json = redisTemplate.opsForValue().get(cacheKey);
+        if (json != null) {
+            try {
+                CinemaVO vo = objectMapper.readValue(json, CinemaVO.class);
+                if (vo.getStatus() != CinemaStatus.OPEN.getCode()) {
+                    throw new BusinessException(404, "影院不存在");
+                }
+                return vo;
+            } catch (BusinessException e) {
+                throw e;
+            } catch (Exception e) {
+                log.warn("[user]无法读取影院详细信息缓存: {}", e.getMessage());
+            }
+        }
+
         Cinema cinema = cinemaMapper.selectById(id);
         if (cinema == null || cinema.getStatus() != CinemaStatus.OPEN.getCode()) {
             throw new BusinessException(404, "影院不存在");
         }
-        return toVO(cinema);
+        CinemaVO vo = toVO(cinema);
+        try {
+            redisTemplate.opsForValue().set(cacheKey, objectMapper.writeValueAsString(vo), CACHE_TTL);
+        } catch (Exception e) {
+            log.warn("[user]无法写入影院细节缓存: {}", e.getMessage());
+        }
+        return vo;
     }
 
     private long calculateDistance(BigDecimal lat1, BigDecimal lng1, BigDecimal lat2, BigDecimal lng2) {
@@ -246,6 +286,7 @@ public class CinemaServiceImpl implements CinemaService {
         return vo;
     }
 
+    // 使缓存失效
     private void invalidateCinemaCache(Long cinemaId) {
         try {
             redisTemplate.delete(CACHE_LIST_OPEN);
