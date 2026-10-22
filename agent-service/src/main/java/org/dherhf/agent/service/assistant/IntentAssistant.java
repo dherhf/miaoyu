@@ -1,30 +1,32 @@
 package org.dherhf.agent.service.assistant;
 
-import dev.langchain4j.service.SystemMessage;
-import dev.langchain4j.service.UserMessage;
-import dev.langchain4j.service.V;
-import dev.langchain4j.service.spring.AiService;
-import dev.langchain4j.service.spring.AiServiceWiringMode;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.stereotype.Component;
 
 /**
- * 意图识别 Agent —— 声明式 AiService，使用非流式 ChatModel。
+ * 意图识别 Agent —— 基于 Spring AI {@link ChatClient} 的无状态单次调用。
  * <p>
- * {@code wiringMode = EXPLICIT} 仅装配 {@code chatModel}，
- * 不引入 ChatMemoryProvider（意图识别是无状态单次调用）。
+ * 不装配 {@code ChatMemoryAdvisor}：意图识别每次只依赖当前消息 + 预构建的系统提示词。
  * </p>
  * <p>
  * 系统提示词含 {@link org.dherhf.agent.enums.IntentEnum#toPromptList()} 运行时拼接，
- * 非编译期常量，无法用静态 {@code @SystemMessage} 文本。
- * 采用 {@code @SystemMessage("{{systemPrompt}}")} + {@code @V} 透传，
- * 调用方传入预构建的提示词（与 {@link ChatAssistant} 动态提示词方案一致）。
+ * 非编译期常量，因此由调用方传入，每次通过 {@code .system(...)} 设置。
  * </p>
  */
-@AiService(wiringMode = AiServiceWiringMode.EXPLICIT, chatModel = "openAiChatModel")
-public interface IntentAssistant {
+@Component
+public class IntentAssistant {
 
-    @SystemMessage("{{systemPrompt}}")
-    String recognizeIntent(
-            @UserMessage String userMessage,
-            @V("systemPrompt") String systemPrompt
-    );
+    private final ChatClient chatClient;
+
+    public IntentAssistant(ChatClient.Builder chatClientBuilder) {
+        this.chatClient = chatClientBuilder.clone().build();
+    }
+
+    public String recognizeIntent(String userMessage, String systemPrompt) {
+        return chatClient.prompt()
+                .system(systemPrompt)
+                .user(userMessage)
+                .call()
+                .content();
+    }
 }

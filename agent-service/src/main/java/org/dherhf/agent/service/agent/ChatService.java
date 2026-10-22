@@ -37,7 +37,7 @@ import org.dherhf.agent.tool.TicketTools;
  * 对话引擎主流程服务。
  * <p>
  * 流程：用户输入 → 输入安全过滤 → 构造 LLM 请求（System Prompt + 上下文） →
- * LangChain4j 流式调用 DeepSeek（历史由 ChatMemoryProvider 自动管理） →
+ * Spring AI ChatClient 流式调用 DeepSeek（历史由 ChatMemory 按 conversationId 自动管理） →
  * 工具调用（自动跳步/缺槽追问/上下文修正） → 逐 token Flux 推送 →
  * 输出校验 → 元数据解析 → MongoDB 持久化
  * </p>

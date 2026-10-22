@@ -4,10 +4,11 @@ import org.dherhf.agent.enums.IntentEnum;
 import org.dherhf.agent.model.ticket.SlotState;
 
 /**
- * LLM 结构化响应，由 LangChain4j Structured Output 自动反序列化。
+ * LLM 结构化响应（预留）。
  * <p>
- * 框架根据此 record 自动生成 JSON Schema 注入 System Prompt，
- * LLM 按约束返回 JSON，无需手动提取和解析。
+ * 当前对话链路仍以提示词约定输出元数据块，再由 ChatService 解析；
+ * 如需改为 Spring AI Structured Output，可通过
+ * {@code ChatClient.call().entity(AgentResponse.class)} 自动反序列化。
  * </p>
  *
  * @param content 自然语言回复文本

@@ -1,8 +1,8 @@
 package org.dherhf.agent.tool;
 
-import dev.langchain4j.agent.tool.P;
-import dev.langchain4j.agent.tool.Tool;
-import dev.langchain4j.agent.tool.ToolMemoryId;
+import org.springframework.ai.chat.model.ToolContext;
+import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.annotation.ToolParam;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dherhf.agent.model.card.CardPayload;
@@ -34,24 +34,26 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 /**
- * LangChain4j 业务工具集，通过 {@code @Tool} 注解暴露给 LLM 进行 Function Calling。
+ * Spring AI 业务工具集，通过 {@code @Tool} 注解暴露给 LLM 进行 Function Calling。
  * <p>
  * 设计原则：Tool 只做透传——参数和返回值均为 String，不做格式化/转换。
  * 所有格式化逻辑（日期解析、类型映射、卡片构建等）交给 LLM 处理。
  * </p>
  * <p>
- * <b>重构要点：从「每请求 new 实例」改为 Spring 单例 Bean。</b>
- * Starter 在 AUTOMATIC 模式下自动扫描所有含 {@code @Tool} 方法的 Bean 并注入到 {@code @AiService}。
- * 原 per-session 状态（{@code sessionId} / {@code cardBuffer} / {@code cardSuppressed}）
- * 改用 {@code @ToolMemoryId} + {@link ConcurrentHashMap} 实现会话级隔离：
- * {@code @ToolMemoryId} 从 {@code @AiService} 的 {@code @MemoryId} 自动获取 sessionId，
- * 对 LLM 不可见，不影响函数 schema。
+ * <b>会话隔离：</b>工具类是 Spring 单例 Bean，原 per-session 状态
+ * （{@code cardBuffer} / {@code cardSuppressed}）通过 {@link ConcurrentHashMap} 按 sessionId 隔离。
+ * sessionId 由 {@code ChatClient} 调用时通过 {@code .toolContext(Map.of(TOOL_CONTEXT_SESSION_ID, sessionId))}
+ * 传入，工具方法声明 {@link ToolContext} 参数读取——对 LLM 不可见，不影响函数 schema。
+ * （对应 LangChain4j 的 {@code @ToolMemoryId}，Spring AI 中以 {@code ToolContext} 实现。）
  * </p>
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class TicketTools {
+
+    /** ToolContext 中 sessionId 的键，调用方（ChatAssistant）与工具方法共用 */
+    public static final String TOOL_CONTEXT_SESSION_ID = "sessionId";
 
     private final TicketServiceClient ticketClient;
     private final AmapClient amapClient;
@@ -70,6 +72,23 @@ public class TicketTools {
     private static final int ORDER_TIMEOUT_SECONDS = 15 * 60;
 
     // ========== 会话级状态管理（由 ChatService 调用） ==========
+
+    /**
+     * 从 ToolContext 中读取当前会话 ID。
+     * <p>
+     * sessionId 由 ChatClient 在调用时写入 ToolContext，对 LLM 不可见。
+     * 缺失说明调用方未传入上下文，属于编程错误，直接抛出。
+     * </p>
+     */
+    private static String sessionId(ToolContext toolContext) {
+        Object value = toolContext != null
+                ? toolContext.getContext().get(TOOL_CONTEXT_SESSION_ID)
+                : null;
+        if (value == null) {
+            throw new IllegalStateException("ToolContext 缺少 " + TOOL_CONTEXT_SESSION_ID);
+        }
+        return value.toString();
+    }
 
     /**
      * 重置指定会话的工具状态（每轮对话开始前调用）。
@@ -183,15 +202,16 @@ public class TicketTools {
                 .toList();
     }
 
-    // ========== 业务工具（@ToolMemoryId sessionId 对 LLM 不可见） ==========
+    // ========== 业务工具（ToolContext sessionId 对 LLM 不可见） ==========
 
-    @Tool("根据影片名称或类型查询影片列表。当用户表达模糊意图（如'想看个喜剧'）或指定片名时调用。也可按影院查影片（如'长沙学院有什么电影'）。返回后端原始 JSON 数据。")
+    @Tool(description = "根据影片名称或类型查询影片列表。当用户表达模糊意图（如'想看个喜剧'）或指定片名时调用。也可按影院查影片（如'长沙学院有什么电影'）。返回后端原始 JSON 数据。")
     public String searchMovies(
-            @ToolMemoryId String sessionId,
-            @P("影片名称关键词，如'流浪地球3'；用户未指定片名时传空字符串") String keyword,
-            @P("影片类型标签，中文枚举值：科幻/动作/喜剧/爱情/悬疑/动画/纪录片/其他；无类型约束时传空字符串") String type,
-            @P("影院 ID，当用户想查某影院有哪些电影时传入（由 searchCinemas 返回）；无影院约束时传空字符串") String cinemaId
+            ToolContext toolContext,
+            @ToolParam(description = "影片名称关键词，如'流浪地球3'；用户未指定片名时传空字符串", required = false) String keyword,
+            @ToolParam(description = "影片类型标签，中文枚举值：科幻/动作/喜剧/爱情/悬疑/动画/纪录片/其他；无类型约束时传空字符串", required = false) String type,
+            @ToolParam(description = "影院 ID，当用户想查某影院有哪些电影时传入（由 searchCinemas 返回）；无影院约束时传空字符串", required = false) String cinemaId
     ) {
+        String sessionId = sessionId(toolContext);
         Long cinemaIdLong = parseLong(cinemaId);
         log.info("[Tool:searchMovies] sessionId={}, keyword={}, type={}, cinemaId={}", sessionId, keyword, type, cinemaIdLong);
         Result<Object> result = ticketClient.searchMovies(keyword, type, cinemaIdLong);
@@ -201,13 +221,14 @@ public class TicketTools {
         return toJson(result);
     }
 
-    @Tool("根据影片id,名称或设施查询影院列表。用户选定影片或主动询问影院时调用。返回后端原始 JSON 数据。")
+    @Tool(description = "根据影片id,名称或设施查询影院列表。用户选定影片或主动询问影院时调用。返回后端原始 JSON 数据。")
     public String searchCinemas(
-            @ToolMemoryId String sessionId,
-            @P("影片 ID（由 searchMovies 返回）；无影片约束时传空字符串") String movieId,
-            @P("影院名称关键词，如'万达影城'；无约束时传空字符串") String keyword,
-            @P("设施要求，如'IMAX'；无要求时传空字符串") String facilities
+            ToolContext toolContext,
+            @ToolParam(description = "影片 ID（由 searchMovies 返回）；无影片约束时传空字符串", required = false) String movieId,
+            @ToolParam(description = "影院名称关键词，如'万达影城'；无约束时传空字符串", required = false) String keyword,
+            @ToolParam(description = "设施要求，如'IMAX'；无要求时传空字符串", required = false) String facilities
     ) {
+        String sessionId = sessionId(toolContext);
         Long movieIdLong = parseLong(movieId);
         log.info("[Tool:searchCinemas] sessionId={}, movieId={}, keyword={}, facilities={}", sessionId, movieIdLong, keyword, facilities);
         Result<Object> result = ticketClient.searchCinemas(movieIdLong, keyword, facilities);
@@ -217,13 +238,14 @@ public class TicketTools {
         return toJson(result);
     }
 
-    @Tool("查询场次列表。用户选定影片和影院后调用，根据 movieId+cinemaId 获取可售场次。movieId 和 cinemaId 均为必填，缺失时须先调用 searchMovies/searchCinemas 获取。date 为可选参数，用户未指定日期时不要追问，直接传空字符串查询全部场次。返回后端原始 JSON 数据。")
+    @Tool(description = "查询场次列表。用户选定影片和影院后调用，根据 movieId+cinemaId 获取可售场次。movieId 和 cinemaId 均为必填，缺失时须先调用 searchMovies/searchCinemas 获取。date 为可选参数，用户未指定日期时不要追问，直接传空字符串查询全部场次。返回后端原始 JSON 数据。")
     public String querySessions(
-            @ToolMemoryId String sessionId,
-            @P("影片 ID，必填（由 searchMovies 返回）") String movieId,
-            @P("影院 ID，必填（由 searchCinemas 返回）") String cinemaId,
-            @P("放映日期，可选。用户指定时须为 yyyy-MM-dd 格式（将'今天'、'明天'、'周X'、'M月D日'转换为具体日期）；用户未指定日期时传空字符串查询全部场次，不要追问") String date
+            ToolContext toolContext,
+            @ToolParam(description = "影片 ID，必填（由 searchMovies 返回）", required = false) String movieId,
+            @ToolParam(description = "影院 ID，必填（由 searchCinemas 返回）", required = false) String cinemaId,
+            @ToolParam(description = "放映日期，可选。用户指定时须为 yyyy-MM-dd 格式（将'今天'、'明天'、'周X'、'M月D日'转换为具体日期）；用户未指定日期时传空字符串查询全部场次，不要追问", required = false) String date
     ) {
+        String sessionId = sessionId(toolContext);
         Long movieIdLong = parseLong(movieId);
         Long cinemaIdLong = parseLong(cinemaId);
         if (movieIdLong == null) {
@@ -240,11 +262,12 @@ public class TicketTools {
         return toJson(result);
     }
 
-    @Tool("获取座位图。用户选定场次后调用，返回全部座位状态（available/locked/sold）。返回后端原始 JSON 数据。")
+    @Tool(description = "获取座位图。用户选定场次后调用，返回全部座位状态（available/locked/sold）。返回后端原始 JSON 数据。")
     public String getSeatMap(
-            @ToolMemoryId String sessionId,
-            @P("场次 ID（由 querySessions 返回）") String scheduleId
+            ToolContext toolContext,
+            @ToolParam(description = "场次 ID（由 querySessions 返回）", required = false) String scheduleId
     ) {
+        String sessionId = sessionId(toolContext);
         Long scheduleIdLong = parseLong(scheduleId);
         log.info("[Tool:getSeatMap] sessionId={}, scheduleId={}", sessionId, scheduleIdLong);
         Result<Object> result = ticketClient.getSeatMap(scheduleIdLong);
@@ -254,12 +277,13 @@ public class TicketTools {
         return toJson(result);
     }
 
-    @Tool("查询当前用户的订单列表，支持分页。用户表达'查订单''我的订单'等查看全部订单意图时调用。已知订单ID查询单个订单请用 queryOrderDetail。返回后端原始 JSON 数据。")
+    @Tool(description = "查询当前用户的订单列表，支持分页。用户表达'查订单''我的订单'等查看全部订单意图时调用。已知订单ID查询单个订单请用 queryOrderDetail。返回后端原始 JSON 数据。")
     public String queryOrders(
-            @ToolMemoryId String sessionId,
-            @P("订单状态过滤，如'pending'（待支付）、'paid'（已支付）、'refunded'（已退票）；查全部传空字符串") String status,
-            @P("页码，从1开始；用户未指定时传空字符串默认第1页，每页固定5条") String page
+            ToolContext toolContext,
+            @ToolParam(description = "订单状态过滤，如'pending'（待支付）、'paid'（已支付）、'refunded'（已退票）；查全部传空字符串", required = false) String status,
+            @ToolParam(description = "页码，从1开始；用户未指定时传空字符串默认第1页，每页固定5条", required = false) String page
     ) {
+        String sessionId = sessionId(toolContext);
         Long userId = requireUserId(sessionId);
         Integer pageNum = parseInt(page);
         if (pageNum == null || pageNum < 1) pageNum = 1;
@@ -271,13 +295,14 @@ public class TicketTools {
         return toJson(result);
     }
 
-    @Tool("锁座并创建订单。前端选座后由 Agent 调用，传入 scheduleId+seatIds+ticketCount。返回后端原始 JSON 数据。")
+    @Tool(description = "锁座并创建订单。前端选座后由 Agent 调用，传入 scheduleId+seatIds+ticketCount。返回后端原始 JSON 数据。")
     public String lockAndCreateOrder(
-            @ToolMemoryId String sessionId,
-            @P("场次 ID（前端选场次后直接提供）") String scheduleId,
-            @P("座位 ID 列表，逗号分隔（前端选座后直接提供，无需 LLM 提取）") String seatIds,
-            @P("购票数量（=座位数）") String ticketCount
+            ToolContext toolContext,
+            @ToolParam(description = "场次 ID（前端选场次后直接提供）", required = false) String scheduleId,
+            @ToolParam(description = "座位 ID 列表，逗号分隔（前端选座后直接提供，无需 LLM 提取）", required = false) String seatIds,
+            @ToolParam(description = "购票数量（=座位数）", required = false) String ticketCount
     ) {
+        String sessionId = sessionId(toolContext);
         Long userId = requireUserId(sessionId);
         Long scheduleIdLong = parseLong(scheduleId);
         List<Long> seatIdList = parseLongList(seatIds);
@@ -322,11 +347,12 @@ public class TicketTools {
         return json;
     }
 
-    @Tool("查询单个订单详情。用户询问特定订单（已知订单ID）的状态、取票码等信息时调用。返回后端原始 JSON 数据。")
+    @Tool(description = "查询单个订单详情。用户询问特定订单（已知订单ID）的状态、取票码等信息时调用。返回后端原始 JSON 数据。")
     public String queryOrderDetail(
-            @ToolMemoryId String sessionId,
-            @P("订单 ID（由 queryOrders 返回或用户直接提供）") String orderId
+            ToolContext toolContext,
+            @ToolParam(description = "订单 ID（由 queryOrders 返回或用户直接提供）", required = false) String orderId
     ) {
+        String sessionId = sessionId(toolContext);
         Long userId = requireUserId(sessionId);
         Long orderIdLong = parseLong(orderId);
         if (orderIdLong == null) {
@@ -367,11 +393,12 @@ public class TicketTools {
     }
 
 
-    @Tool("退票。用户要求退已支付订单时调用，释放已售座位并退款。仅已出票且未放映的订单可退。返回后端原始 JSON 数据。")
+    @Tool(description = "退票。用户要求退已支付订单时调用，释放已售座位并退款。仅已出票且未放映的订单可退。返回后端原始 JSON 数据。")
     public String refundOrder(
-            @ToolMemoryId String sessionId,
-            @P("订单 ID（由 queryOrders 返回）") String orderId
+            ToolContext toolContext,
+            @ToolParam(description = "订单 ID（由 queryOrders 返回）", required = false) String orderId
     ) {
+        String sessionId = sessionId(toolContext);
         Long userId = requireUserId(sessionId);
         Long orderIdLong = parseLong(orderId);
         if (orderIdLong == null) {
@@ -399,25 +426,27 @@ public class TicketTools {
 
     // ========== 用户偏好工具 ==========
 
-    @Tool("获取当前用户的偏好设置，包括影厅类型、价格范围、座位区域、影片类型。返回 JSON 数据。")
+    @Tool(description = "获取当前用户的偏好设置，包括影厅类型、价格范围、座位区域、影片类型。返回 JSON 数据。")
     public String getUserPreference(
-            @ToolMemoryId String sessionId
+            ToolContext toolContext
     ) {
+        String sessionId = sessionId(toolContext);
         Long userId = requireUserId(sessionId);
         log.info("[Tool:getUserPreference] sessionId={}, userId={}", sessionId, userId);
         var doc = userPreferenceService.getPreference(userId);
         return toJson(doc);
     }
 
-    @Tool("更新用户的偏好设置。当用户在对话中表达偏好时调用（如'我喜欢看喜剧'、'预算50以内'、'想坐中间排'）。仅传入用户明确表达的字段，未提及的字段传空字符串/null。")
+    @Tool(description = "更新用户的偏好设置。当用户在对话中表达偏好时调用（如'我喜欢看喜剧'、'预算50以内'、'想坐中间排'）。仅传入用户明确表达的字段，未提及的字段传空字符串/null。")
     public String updateUserPreference(
-            @ToolMemoryId String sessionId,
-            @P("偏好的影厅类型，如'IMAX'、'杜比'；未提及传空字符串") String preferredHallType,
-            @P("偏好价格下限（元），如'30'；未提及传空字符串") String priceMin,
-            @P("偏好价格上限（元），如'80'；未提及传空字符串") String priceMax,
-            @P("偏好的座位区域，如'5-8排中间'；未提及传空字符串") String preferredSeatArea,
-            @P("偏好的影片类型，多个用逗号分隔，如'科幻,喜剧'；未提及传空字符串") String preferredMovieTypes
+            ToolContext toolContext,
+            @ToolParam(description = "偏好的影厅类型，如'IMAX'、'杜比'；未提及传空字符串", required = false) String preferredHallType,
+            @ToolParam(description = "偏好价格下限（元），如'30'；未提及传空字符串", required = false) String priceMin,
+            @ToolParam(description = "偏好价格上限（元），如'80'；未提及传空字符串", required = false) String priceMax,
+            @ToolParam(description = "偏好的座位区域，如'5-8排中间'；未提及传空字符串", required = false) String preferredSeatArea,
+            @ToolParam(description = "偏好的影片类型，多个用逗号分隔，如'科幻,喜剧'；未提及传空字符串", required = false) String preferredMovieTypes
     ) {
+        String sessionId = sessionId(toolContext);
         Long userId = requireUserId(sessionId);
         PreferenceUpdateDTO.PreferenceUpdateDTOBuilder builder = PreferenceUpdateDTO.builder();
         if (preferredHallType != null && !preferredHallType.isBlank()) {
@@ -448,13 +477,14 @@ public class TicketTools {
 
     // ========== 行程规划工具 ==========
 
-    @Tool("路径规划。用户问怎么去影院/导航/路线时调用。同时查询驾车、公交地铁和步行方案，返回原始 JSON 数据。")
+    @Tool(description = "路径规划。用户问怎么去影院/导航/路线时调用。同时查询驾车、公交地铁和步行方案，返回原始 JSON 数据。")
     public String planRoute(
-            @ToolMemoryId String sessionId,
-            @P("出发地，可为地点名称、地址或坐标（经度,纬度），如'湖南大学'、'长沙南站'、'113.008977,28.233355'；当上下文存在【用户位置】时直接使用其坐标") String origin,
-            @P("目的地名称或地址，如'长沙学院'或影院名称") String destination,
-            @P("出行方式：driving(驾车)/transit(公交地铁)/walking(步行)；用户未指定时传空字符串，将同时查询驾车、公交地铁和步行") String mode
+            ToolContext toolContext,
+            @ToolParam(description = "出发地，可为地点名称、地址或坐标（经度,纬度），如'湖南大学'、'长沙南站'、'113.008977,28.233355'；当上下文存在【用户位置】时直接使用其坐标", required = false) String origin,
+            @ToolParam(description = "目的地名称或地址，如'长沙学院'或影院名称", required = false) String destination,
+            @ToolParam(description = "出行方式：driving(驾车)/transit(公交地铁)/walking(步行)；用户未指定时传空字符串，将同时查询驾车、公交地铁和步行", required = false) String mode
     ) {
+        String sessionId = sessionId(toolContext);
         String travelMode = (mode == null || mode.isBlank()) ? "all" : mode.trim().toLowerCase();
         // 白名单校验：未知 mode 当作 all
         if (!Set.of("driving", "transit", "walking", "all").contains(travelMode)) {
@@ -531,12 +561,13 @@ public class TicketTools {
         return combined;
     }
 
-    @Tool("周边搜索。用户问影院附近有什么（餐饮/停车/地铁等）时调用。先通过地理编码将地名转为坐标，再调用高德周边搜索。返回原始 JSON 数据。")
+    @Tool(description = "周边搜索。用户问影院附近有什么（餐饮/停车/地铁等）时调用。先通过地理编码将地名转为坐标，再调用高德周边搜索。返回原始 JSON 数据。")
     public String searchNearby(
-            @ToolMemoryId String sessionId,
-            @P("中心地点，可为名称、地址或坐标（经度,纬度），如'长沙学院'、'113.008977,28.233355'；当上下文存在【用户位置】时直接使用其坐标") String location,
-            @P("搜索关键词，如'餐厅'、'停车场'、'地铁站'；无特定要求时传空字符串") String keywords
+            ToolContext toolContext,
+            @ToolParam(description = "中心地点，可为名称、地址或坐标（经度,纬度），如'长沙学院'、'113.008977,28.233355'；当上下文存在【用户位置】时直接使用其坐标", required = false) String location,
+            @ToolParam(description = "搜索关键词，如'餐厅'、'停车场'、'地铁站'；无特定要求时传空字符串", required = false) String keywords
     ) {
+        String sessionId = sessionId(toolContext);
         log.info("[Tool:周边搜索] sessionId={}, location={}, keywords={}", sessionId, location, keywords);
         String coords = resolveCoordinates(location);
         if (coords == null) {
@@ -547,11 +578,12 @@ public class TicketTools {
         return result;
     }
 
-    @Tool("天气查询。用户问观影当天天气时调用。返回原始 JSON 数据。")
+    @Tool(description = "天气查询。用户问观影当天天气时调用。返回原始 JSON 数据。")
     public String getWeather(
-            @ToolMemoryId String sessionId,
-            @P("城市名称，如'长沙'。用户未指定城市时，根据上下文影院所在城市推断；无上下文时默认'长沙'") String city
+            ToolContext toolContext,
+            @ToolParam(description = "城市名称，如'长沙'。用户未指定城市时，根据上下文影院所在城市推断；无上下文时默认'长沙'", required = false) String city
     ) {
+        String sessionId = sessionId(toolContext);
         String resolvedCity = city;
         if (resolvedCity == null || resolvedCity.isBlank()) {
             RequestContext ctx = contextService.getRequestContext(sessionId);

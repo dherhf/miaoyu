@@ -15,14 +15,25 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <spring-ai.version>2.0.0-M1</spring-ai.version>
+        <spring-ai-alibaba.version>2.0.0-M1.1</spring-ai-alibaba.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
+            <!-- Spring AI Alibaba BOM（与 Spring AI 2.x 对齐） -->
             <dependency>
-                <groupId>dev.langchain4j</groupId>
-                <artifactId>langchain4j-bom</artifactId>
-                <version>1.18.1</version>
+                <groupId>com.alibaba.cloud.ai</groupId>
+                <artifactId>spring-ai-alibaba-bom</artifactId>
+                <version>${spring-ai-alibaba.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Spring AI BOM：统一 Spring AI 各模块版本 -->
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -52,21 +63,18 @@
             <optional>true</optional>
         </dependency>
 
+        <!--
+             Spring AI OpenAI 模型 Starter：DeepSeek 提供 OpenAI 兼容接口，
+             通过 spring.ai.openai.base-url 指向 api.deepseek.com 即可复用。
+             ChatClient / ChatMemory / @Tool 函数调用均由 Spring AI 提供，
+             版本由 Spring AI Alibaba BOM + Spring AI BOM 统一管理。
+         -->
         <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-open-ai-spring-boot4-starter</artifactId>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-openai</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-spring-boot4-starter</artifactId>
-        </dependency>
-
-        <!-- Flux<String> 支持：@AiService 返回 Flux<String>（langchain4j-reactor）+ 控制器返回 Flux（webflux） -->
-        <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-reactor</artifactId>
-        </dependency>
+        <!-- Flux<String> 流式响应（ChatClient.stream().content()）+ 控制器返回 Flux（webflux） -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webflux</artifactId>

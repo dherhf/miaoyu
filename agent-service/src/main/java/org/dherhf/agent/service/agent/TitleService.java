@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 /**
  * 标题生成服务（独立于主对话流程）。
  * <p>
- * 委托 {@link TitleAssistant}（声明式 {@code @AiService}）调用 LLM 生成 ≤20 字标题，
+ * 委托 {@link TitleAssistant}（Spring AI {@code ChatClient}）调用 LLM 生成 ≤20 字标题，
  * 生成失败时降级为截断用户输入前 20 字符。
  * </p>
  */

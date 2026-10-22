@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 /**
  * 意图识别服务（独立于主对话流程）。
  * <p>
- * 委托 {@link IntentAssistant}（声明式 {@code @AiService}）调用 LLM 识别意图，
+ * 委托 {@link IntentAssistant}（Spring AI {@code ChatClient}）调用 LLM 识别意图，
  * 识别失败时降级返回 {@link IntentEnum#OTHER}。
  * </p>
  */

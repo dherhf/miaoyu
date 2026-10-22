@@ -10,6 +10,17 @@ spring:
       - "optional:file:.env[.properties]"
   application:
     name: agent-service
+  ai:
+    # DeepSeek 提供 OpenAI 兼容接口：Spring AI 通过 spring-ai-starter-model-openai 接入，
+    # 仅需把 base-url 指向 api.deepseek.com 并将 model 指定为 deepseek-chat。
+    openai:
+      base-url: https://api.deepseek.com
+      api-key: ${DEEPSEEK_API_KEY}
+      chat:
+        options:
+          model: deepseek-chat
+          temperature: 0.3
+          max-tokens: 2048
   data:
     redis:
       host: ${REDIS_HOST}
@@ -23,7 +34,12 @@ spring:
           max-idle: 8
           min-idle: 2
   mongodb:
-    uri: mongodb://${MONGODB_USERNAME}:${MONGODB_PASSWORD}@${MONGODB_HOST}:${MONGODB_PORT}/${MONGODB_DATABASE}?authSource=${MONGODB_DATABASE}
+    host: ${MONGODB_HOST}
+    port: ${MONGODB_PORT:27017}
+    database: ${MONGODB_DATABASE}
+    username: ${MONGODB_USERNAME}
+    password: ${MONGODB_PASSWORD}
+    authentication-database: ${MONGODB_DATABASE}
 
 
 # 票务服务内部调用地址
@@ -38,28 +54,6 @@ amap:
   base-path: /api/v1/amap
   token: ${AMAP_TOKEN:wfat_app_da4740a3349ac22860cc6a3cd7394ae0d27778a8fb21c9adc6e9a6b320201922}
 
-# DeepSeek LLM 配置
-langchain4j:
-  open-ai:
-    chat-model:
-      base-url: https://api.deepseek.com/v1
-      api-key: ${DEEPSEEK_API_KEY}
-      model-name: deepseek-chat
-      temperature: 0.3
-      max-tokens: 2048
-      timeout: 90s
-      log-requests: false
-      log-responses: false
-    streaming-chat-model:
-      base-url: https://api.deepseek.com/v1
-      api-key: ${DEEPSEEK_API_KEY}
-      model-name: deepseek-chat
-      temperature: 0.3
-      max-tokens: 2048
-      timeout: 60s
-      log-requests: false
-      log-responses: false
-
 # Agent 对话配置
 agent:
   # Redis 会话上下文 TTL（秒）- 24h
@@ -72,4 +66,4 @@ agent:
 logging:
   level:
     org.dherhf: DEBUG
-    dev.langchain4j: DEBUG
+    org.springframework.ai: DEBUG
