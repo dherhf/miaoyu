@@ -62,7 +62,7 @@ class ScheduleServiceTest {
 
     @BeforeEach
     void setUp() {
-        createDTO = ScheduleCreateDTO.builder().movieId(1L).cinemaId(1L).hallId(1L).showDate(LocalDate.of(2026, 8, 15)).startTime(LocalTime.of(14, 0)).price(new BigDecimal("45.00")).languageVersion("国语").build();
+        createDTO = ScheduleCreateDTO.builder().movieId(1L).cinemaId(1L).hallId(1L).showDate(LocalDate.now().plusDays(1)).startTime(LocalTime.of(14, 0)).price(new BigDecimal("45.00")).languageVersion("国语").build();
     }
 
     @Test
